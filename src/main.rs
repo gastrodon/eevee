@@ -1,3 +1,9 @@
+mod crossover;
+mod genome;
+
+use crate::genome::Genome;
+
 fn main() {
-    println!("Hello, world!");
+    let genome_xor = Genome::new(2, 1);
+    println!("{genome_xor:?}")
 }
