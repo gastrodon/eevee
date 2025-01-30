@@ -83,7 +83,7 @@ fn avg_weight_diff(l: &Vec<Connection>, r: &Vec<Connection>) -> f64 {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::genome::{Connection, Genome};
+    use crate::genome::Connection;
 
     #[test]
     fn test_inno_gen() {
@@ -95,7 +95,6 @@ mod test {
 
     #[test]
     fn test_avg_weight_diff() {
-        // non-zero overlapping inno
         assert!(
             (avg_weight_diff(
                 &vec![
@@ -148,72 +147,40 @@ mod test {
                 .abs()
                 < f64::EPSILON
         );
+    }
 
-        // empty connections
-        assert!(
-            (avg_weight_diff(
-                &vec![
-                    Connection {
-                        inno: 1,
-                        from: 0,
-                        to: 0,
-                        weight: 0.5,
-                        enabled: true
-                    },
-                    Connection {
-                        inno: 2,
-                        from: 0,
-                        to: 0,
-                        weight: -0.5,
-                        enabled: true
-                    },
-                    Connection {
-                        inno: 3,
-                        from: 0,
-                        to: 0,
-                        weight: 1.0,
-                        enabled: true
-                    },
-                ],
-                &vec![]
-            ) - 0.0)
-                .abs()
-                < f64::EPSILON
-        );
+    #[test]
+    fn test_avg_weight_diff_empty() {
+        let full = vec![
+            Connection {
+                inno: 1,
+                from: 0,
+                to: 0,
+                weight: 0.0,
+                enabled: true,
+            },
+            Connection {
+                inno: 2,
+                from: 0,
+                to: 0,
+                weight: -1.0,
+                enabled: true,
+            },
+            Connection {
+                inno: 4,
+                from: 0,
+                to: 0,
+                weight: 2.0,
+                enabled: true,
+            },
+        ];
+        assert!((avg_weight_diff(&full, &vec![]) - 0.0).abs() < f64::EPSILON);
+        assert!((avg_weight_diff(&vec![], &full,) - 0.0).abs() < f64::EPSILON);
+        assert!((avg_weight_diff(&vec![], &vec![],) - 0.0).abs() < f64::EPSILON);
+    }
 
-        // empty connections
-        assert!(
-            (avg_weight_diff(
-                &vec![],
-                &vec![
-                    Connection {
-                        inno: 1,
-                        from: 0,
-                        to: 0,
-                        weight: 0.0,
-                        enabled: true
-                    },
-                    Connection {
-                        inno: 2,
-                        from: 0,
-                        to: 0,
-                        weight: -1.0,
-                        enabled: true
-                    },
-                    Connection {
-                        inno: 4,
-                        from: 0,
-                        to: 0,
-                        weight: 2.0,
-                        enabled: true
-                    },
-                ]
-            ) - 0.0)
-                .abs()
-                < f64::EPSILON
-        );
-
-        // zero overlapping inno
+    #[test]
+    fn test_avg_weight_diff_no_overlap() {
         assert!(
             (avg_weight_diff(
                 &vec![
@@ -259,62 +226,10 @@ mod test {
                 .abs()
                 < f64::EPSILON
         );
+    }
 
-        // varying weights
-        assert!(
-            (avg_weight_diff(
-                &vec![
-                    Connection {
-                        inno: 1,
-                        from: 0,
-                        to: 0,
-                        weight: 0.1,
-                        enabled: true
-                    },
-                    Connection {
-                        inno: 2,
-                        from: 0,
-                        to: 0,
-                        weight: 0.2,
-                        enabled: true
-                    },
-                    Connection {
-                        inno: 3,
-                        from: 0,
-                        to: 0,
-                        weight: 0.3,
-                        enabled: true
-                    },
-                ],
-                &vec![
-                    Connection {
-                        inno: 1,
-                        from: 0,
-                        to: 0,
-                        weight: 0.4,
-                        enabled: true
-                    },
-                    Connection {
-                        inno: 2,
-                        from: 0,
-                        to: 0,
-                        weight: 0.5,
-                        enabled: true
-                    },
-                    Connection {
-                        inno: 3,
-                        from: 0,
-                        to: 0,
-                        weight: 0.6,
-                        enabled: true
-                    },
-                ]
-            ) - 0.3)
-                .abs()
-                < f64::EPSILON
-        );
-
-        // weights with zero difference
+    #[test]
+    fn test_avg_weight_diff_no_diff() {
         assert!(
             (avg_weight_diff(
                 &vec![
@@ -371,196 +286,75 @@ mod test {
 
     #[test]
     fn test_disjoint_excess_count() {
-        let l = vec![
-            Connection {
-                inno: 1,
-                from: 0,
-                to: 0,
-                weight: 0.0,
-                enabled: true,
-            },
-            Connection {
-                inno: 2,
-                from: 0,
-                to: 0,
-                weight: 0.0,
-                enabled: true,
-            },
-            Connection {
-                inno: 4,
-                from: 0,
-                to: 0,
-                weight: 0.0,
-                enabled: true,
-            },
-        ];
-        let r = vec![
-            Connection {
-                inno: 1,
-                from: 0,
-                to: 0,
-                weight: 0.0,
-                enabled: true,
-            },
-            Connection {
-                inno: 2,
-                from: 0,
-                to: 0,
-                weight: 0.0,
-                enabled: true,
-            },
-            Connection {
-                inno: 3,
-                from: 0,
-                to: 0,
-                weight: 0.0,
-                enabled: true, // disjoint
-            },
-            Connection {
-                inno: 4,
-                from: 0,
-                to: 0,
-                weight: 0.0,
-                enabled: true,
-            },
-            Connection {
-                inno: 5,
-                from: 0,
-                to: 0,
-                weight: 0.0,
-                enabled: true, // excess
-            },
-        ];
-        assert_eq!((1.0, 1.0), disjoint_excess_count(&l, &r));
+        assert_eq!(
+            (4.0, 2.0),
+            disjoint_excess_count(
+                &vec![
+                    Connection {
+                        inno: 1,
+                        from: 0,
+                        to: 0,
+                        weight: 0.0,
+                        enabled: true,
+                    },
+                    Connection {
+                        inno: 2,
+                        from: 0,
+                        to: 0,
+                        weight: 0.0,
+                        enabled: true,
+                    },
+                    Connection {
+                        inno: 6,
+                        from: 0,
+                        to: 0,
+                        weight: 0.0,
+                        enabled: true,
+                    },
+                ],
+                &vec![
+                    Connection {
+                        inno: 1,
+                        from: 0,
+                        to: 0,
+                        weight: 0.0,
+                        enabled: true,
+                    },
+                    Connection {
+                        inno: 3,
+                        from: 0,
+                        to: 0,
+                        weight: 0.0,
+                        enabled: true,
+                    },
+                    Connection {
+                        inno: 4,
+                        from: 0,
+                        to: 0,
+                        weight: 0.0,
+                        enabled: true,
+                    },
+                    Connection {
+                        inno: 8,
+                        from: 0,
+                        to: 0,
+                        weight: 0.0,
+                        enabled: true,
+                    },
+                    Connection {
+                        inno: 10,
+                        from: 0,
+                        to: 0,
+                        weight: 0.0,
+                        enabled: true,
+                    },
+                ]
+            )
+        );
+    }
 
-        // two empty Vec<Connection>
-        assert_eq!((0.0, 0.0), disjoint_excess_count(&vec![], &vec![]));
-
-        // one empty Vec<Connection>
-        let l = vec![
-            Connection {
-                inno: 1,
-                from: 0,
-                to: 0,
-                weight: 0.0,
-                enabled: true, // excess
-            },
-            Connection {
-                inno: 2,
-                from: 0,
-                to: 0,
-                weight: 0.0,
-                enabled: true, // excess
-            },
-        ];
-        let r: Vec<Connection> = vec![];
-        assert_eq!((0.0, 2.0), disjoint_excess_count(&l, &r));
-
-        // one empty Vec<Connection> (reverse)
-        let l: Vec<Connection> = vec![];
-        let r = vec![
-            Connection {
-                inno: 1,
-                from: 0,
-                to: 0,
-                weight: 0.0,
-                enabled: true,
-            },
-            Connection {
-                inno: 2,
-                from: 0,
-                to: 0,
-                weight: 0.0,
-                enabled: true,
-            },
-        ];
-        assert_eq!((0.0, 2.0), disjoint_excess_count(&l, &r)); // all genes in r are excess
-
-        // no overlapping inno
-        let l = vec![
-            Connection {
-                inno: 1,
-                from: 0,
-                to: 0,
-                weight: 0.0,
-                enabled: true,
-            },
-            Connection {
-                inno: 2,
-                from: 0,
-                to: 0,
-                weight: 0.0,
-                enabled: true,
-            },
-        ];
-        let r = vec![
-            Connection {
-                inno: 3,
-                from: 0,
-                to: 0,
-                weight: 0.0,
-                enabled: true,
-            },
-            Connection {
-                inno: 4,
-                from: 0,
-                to: 0,
-                weight: 0.0,
-                enabled: true,
-            },
-        ];
-        assert_eq!((2.0, 2.0), disjoint_excess_count(&l, &r)); // inno 1 and 2 are disjoint, inno 3 and 4 are excess
-
-        // both Vec<Connection> having their own disjoint genes
-        let l = vec![
-            Connection {
-                inno: 1,
-                from: 0,
-                to: 0,
-                weight: 0.0,
-                enabled: true,
-            },
-            Connection {
-                inno: 2,
-                from: 0,
-                to: 0,
-                weight: 0.0,
-                enabled: true,
-            },
-            Connection {
-                inno: 6,
-                from: 0,
-                to: 0,
-                weight: 0.0,
-                enabled: true,
-            },
-        ];
-        let r = vec![
-            Connection {
-                inno: 1,
-                from: 0,
-                to: 0,
-                weight: 0.0,
-                enabled: true,
-            },
-            Connection {
-                inno: 3,
-                from: 0,
-                to: 0,
-                weight: 0.0,
-                enabled: true,
-            },
-            Connection {
-                inno: 4,
-                from: 0,
-                to: 0,
-                weight: 0.0,
-                enabled: true,
-            },
-        ];
-        assert_eq!((3.0, 1.0), disjoint_excess_count(&l, &r)); // inno 2, 3 and 4 are disjoint, inno 6 is excess
-
-        // both Vec<Connection> having their own disjoint genes and r having one more gene with inno: 10
+    #[test]
+    fn test_disjoint_excess_count_symmetrical() {
         let l = vec![
             Connection {
                 inno: 1,
@@ -621,17 +415,12 @@ mod test {
                 enabled: true,
             },
         ];
-        assert_eq!((4.0, 2.0), disjoint_excess_count(&l, &r));
+        assert_eq!(disjoint_excess_count(&l, &r), disjoint_excess_count(&r, &l));
+    }
 
-        // l having significantly fewer genes than r, but higher maximum inno
-        let l = vec![Connection {
-            inno: 10,
-            from: 0,
-            to: 0,
-            weight: 0.0,
-            enabled: true,
-        }];
-        let r = vec![
+    #[test]
+    fn test_disjoint_excess_count_empty() {
+        let full = vec![
             Connection {
                 inno: 1,
                 from: 0,
@@ -646,14 +435,89 @@ mod test {
                 weight: 0.0,
                 enabled: true,
             },
-            Connection {
-                inno: 3,
-                from: 0,
-                to: 0,
-                weight: 0.0,
-                enabled: true,
-            },
         ];
-        assert_eq!((3.0, 1.0), disjoint_excess_count(&l, &r)); // inno 1, 2, and 3 are disjoint, inno 10 is excess
+        assert_eq!((0.0, 2.0), disjoint_excess_count(&full, &vec![]));
+        assert_eq!((0.0, 2.0), disjoint_excess_count(&vec![], &full));
+        assert_eq!((0.0, 0.0), disjoint_excess_count(&vec![], &vec![]));
+    }
+
+    #[test]
+    fn test_disjoint_excess_count_no_overlap() {
+        assert_eq!(
+            (2.0, 2.0),
+            disjoint_excess_count(
+                &vec![
+                    Connection {
+                        inno: 1,
+                        from: 0,
+                        to: 0,
+                        weight: 0.0,
+                        enabled: true,
+                    },
+                    Connection {
+                        inno: 2,
+                        from: 0,
+                        to: 0,
+                        weight: 0.0,
+                        enabled: true,
+                    },
+                ],
+                &vec![
+                    Connection {
+                        inno: 3,
+                        from: 0,
+                        to: 0,
+                        weight: 0.0,
+                        enabled: true,
+                    },
+                    Connection {
+                        inno: 4,
+                        from: 0,
+                        to: 0,
+                        weight: 0.0,
+                        enabled: true,
+                    },
+                ]
+            )
+        );
+    }
+
+    #[test]
+    fn test_disjoint_excess_count_short_larger_inno() {
+        assert_eq!(
+            (3.0, 1.0),
+            disjoint_excess_count(
+                &vec![Connection {
+                    inno: 10,
+                    from: 0,
+                    to: 0,
+                    weight: 0.0,
+                    enabled: true,
+                }],
+                &vec![
+                    Connection {
+                        inno: 1,
+                        from: 0,
+                        to: 0,
+                        weight: 0.0,
+                        enabled: true,
+                    },
+                    Connection {
+                        inno: 2,
+                        from: 0,
+                        to: 0,
+                        weight: 0.0,
+                        enabled: true,
+                    },
+                    Connection {
+                        inno: 3,
+                        from: 0,
+                        to: 0,
+                        weight: 0.0,
+                        enabled: true,
+                    },
+                ]
+            )
+        );
     }
 }
