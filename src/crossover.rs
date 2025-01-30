@@ -1,6 +1,7 @@
 use crate::genome::Connection;
 use std::{
-    collections::HashMap,
+    cmp::min,
+    collections::{HashMap, HashSet},
     sync::{Arc, Mutex},
 };
 
@@ -20,6 +21,28 @@ fn inno_gen() -> impl Fn((usize, usize)) -> usize {
             }
         }
     };
+}
+
+fn disjoint_excess_count(l: &Vec<Connection>, r: &Vec<Connection>) -> (f64, f64) {
+    if l.is_empty() {
+        (0., r.len() as f64)
+    } else if r.is_empty() {
+        (0., l.len() as f64)
+    } else {
+        let excess_boundary = min(l.last().unwrap().inno, r.last().unwrap().inno);
+
+        let l_inno = l.iter().map(|c| c.inno).collect::<HashSet<_>>();
+        let r_inno = r.iter().map(|c| c.inno).collect::<HashSet<_>>();
+        l_inno
+            .symmetric_difference(&r_inno)
+            .fold((0., 0.), |(d, e), inno| {
+                if *inno > excess_boundary {
+                    (d, e + 1.)
+                } else {
+                    (d + 1., e)
+                }
+            })
+    }
 }
 
 /// if genomes share no overlapping weights, their average diff should be 0
@@ -344,5 +367,293 @@ mod test {
                 .abs()
                 < f64::EPSILON
         );
+    }
+
+    #[test]
+    fn test_disjoint_excess_count() {
+        let l = vec![
+            Connection {
+                inno: 1,
+                from: 0,
+                to: 0,
+                weight: 0.0,
+                enabled: true,
+            },
+            Connection {
+                inno: 2,
+                from: 0,
+                to: 0,
+                weight: 0.0,
+                enabled: true,
+            },
+            Connection {
+                inno: 4,
+                from: 0,
+                to: 0,
+                weight: 0.0,
+                enabled: true,
+            },
+        ];
+        let r = vec![
+            Connection {
+                inno: 1,
+                from: 0,
+                to: 0,
+                weight: 0.0,
+                enabled: true,
+            },
+            Connection {
+                inno: 2,
+                from: 0,
+                to: 0,
+                weight: 0.0,
+                enabled: true,
+            },
+            Connection {
+                inno: 3,
+                from: 0,
+                to: 0,
+                weight: 0.0,
+                enabled: true, // disjoint
+            },
+            Connection {
+                inno: 4,
+                from: 0,
+                to: 0,
+                weight: 0.0,
+                enabled: true,
+            },
+            Connection {
+                inno: 5,
+                from: 0,
+                to: 0,
+                weight: 0.0,
+                enabled: true, // excess
+            },
+        ];
+        assert_eq!((1.0, 1.0), disjoint_excess_count(&l, &r));
+
+        // two empty Vec<Connection>
+        assert_eq!((0.0, 0.0), disjoint_excess_count(&vec![], &vec![]));
+
+        // one empty Vec<Connection>
+        let l = vec![
+            Connection {
+                inno: 1,
+                from: 0,
+                to: 0,
+                weight: 0.0,
+                enabled: true, // excess
+            },
+            Connection {
+                inno: 2,
+                from: 0,
+                to: 0,
+                weight: 0.0,
+                enabled: true, // excess
+            },
+        ];
+        let r: Vec<Connection> = vec![];
+        assert_eq!((0.0, 2.0), disjoint_excess_count(&l, &r));
+
+        // one empty Vec<Connection> (reverse)
+        let l: Vec<Connection> = vec![];
+        let r = vec![
+            Connection {
+                inno: 1,
+                from: 0,
+                to: 0,
+                weight: 0.0,
+                enabled: true,
+            },
+            Connection {
+                inno: 2,
+                from: 0,
+                to: 0,
+                weight: 0.0,
+                enabled: true,
+            },
+        ];
+        assert_eq!((0.0, 2.0), disjoint_excess_count(&l, &r)); // all genes in r are excess
+
+        // no overlapping inno
+        let l = vec![
+            Connection {
+                inno: 1,
+                from: 0,
+                to: 0,
+                weight: 0.0,
+                enabled: true,
+            },
+            Connection {
+                inno: 2,
+                from: 0,
+                to: 0,
+                weight: 0.0,
+                enabled: true,
+            },
+        ];
+        let r = vec![
+            Connection {
+                inno: 3,
+                from: 0,
+                to: 0,
+                weight: 0.0,
+                enabled: true,
+            },
+            Connection {
+                inno: 4,
+                from: 0,
+                to: 0,
+                weight: 0.0,
+                enabled: true,
+            },
+        ];
+        assert_eq!((2.0, 2.0), disjoint_excess_count(&l, &r)); // inno 1 and 2 are disjoint, inno 3 and 4 are excess
+
+        // both Vec<Connection> having their own disjoint genes
+        let l = vec![
+            Connection {
+                inno: 1,
+                from: 0,
+                to: 0,
+                weight: 0.0,
+                enabled: true,
+            },
+            Connection {
+                inno: 2,
+                from: 0,
+                to: 0,
+                weight: 0.0,
+                enabled: true,
+            },
+            Connection {
+                inno: 6,
+                from: 0,
+                to: 0,
+                weight: 0.0,
+                enabled: true,
+            },
+        ];
+        let r = vec![
+            Connection {
+                inno: 1,
+                from: 0,
+                to: 0,
+                weight: 0.0,
+                enabled: true,
+            },
+            Connection {
+                inno: 3,
+                from: 0,
+                to: 0,
+                weight: 0.0,
+                enabled: true,
+            },
+            Connection {
+                inno: 4,
+                from: 0,
+                to: 0,
+                weight: 0.0,
+                enabled: true,
+            },
+        ];
+        assert_eq!((3.0, 1.0), disjoint_excess_count(&l, &r)); // inno 2, 3 and 4 are disjoint, inno 6 is excess
+
+        // both Vec<Connection> having their own disjoint genes and r having one more gene with inno: 10
+        let l = vec![
+            Connection {
+                inno: 1,
+                from: 0,
+                to: 0,
+                weight: 0.0,
+                enabled: true,
+            },
+            Connection {
+                inno: 2,
+                from: 0,
+                to: 0,
+                weight: 0.0,
+                enabled: true,
+            },
+            Connection {
+                inno: 6,
+                from: 0,
+                to: 0,
+                weight: 0.0,
+                enabled: true,
+            },
+        ];
+        let r = vec![
+            Connection {
+                inno: 1,
+                from: 0,
+                to: 0,
+                weight: 0.0,
+                enabled: true,
+            },
+            Connection {
+                inno: 3,
+                from: 0,
+                to: 0,
+                weight: 0.0,
+                enabled: true,
+            },
+            Connection {
+                inno: 4,
+                from: 0,
+                to: 0,
+                weight: 0.0,
+                enabled: true,
+            },
+            Connection {
+                inno: 8,
+                from: 0,
+                to: 0,
+                weight: 0.0,
+                enabled: true,
+            },
+            Connection {
+                inno: 10,
+                from: 0,
+                to: 0,
+                weight: 0.0,
+                enabled: true,
+            },
+        ];
+        assert_eq!((4.0, 2.0), disjoint_excess_count(&l, &r));
+
+        // l having significantly fewer genes than r, but higher maximum inno
+        let l = vec![Connection {
+            inno: 10,
+            from: 0,
+            to: 0,
+            weight: 0.0,
+            enabled: true,
+        }];
+        let r = vec![
+            Connection {
+                inno: 1,
+                from: 0,
+                to: 0,
+                weight: 0.0,
+                enabled: true,
+            },
+            Connection {
+                inno: 2,
+                from: 0,
+                to: 0,
+                weight: 0.0,
+                enabled: true,
+            },
+            Connection {
+                inno: 3,
+                from: 0,
+                to: 0,
+                weight: 0.0,
+                enabled: true,
+            },
+        ];
+        assert_eq!((3.0, 1.0), disjoint_excess_count(&l, &r)); // inno 1, 2, and 3 are disjoint, inno 10 is excess
     }
 }
