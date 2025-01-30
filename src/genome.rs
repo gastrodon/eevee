@@ -2,7 +2,7 @@
 pub enum Node {
     Sensory,
     Action,
-    Bias(usize),
+    Bias(f64),
     Internal,
 }
 
@@ -32,7 +32,7 @@ impl Genome {
         for _ in sensory..sensory + action {
             nodes.push(Node::Action);
         }
-        nodes.push(Node::Bias(1));
+        nodes.push(Node::Bias(1.));
 
         Self {
             sensory,
