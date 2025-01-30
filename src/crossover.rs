@@ -1,4 +1,4 @@
-use crate::genome::{Connection, Genome};
+use crate::genome::Connection;
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
@@ -23,22 +23,20 @@ fn inno_gen() -> impl Fn((usize, usize)) -> usize {
 }
 
 /// if genomes share no overlapping weights, their average diff should be 0
-fn avg_weight_diff(l: &Genome, r: &Genome) -> f64 {
-    let (short, long) = match (l.connections.len(), r.connections.len()) {
+fn avg_weight_diff(l: &Vec<Connection>, r: &Vec<Connection>) -> f64 {
+    let (short, long) = match (l.len(), r.len()) {
         (0, _) | (_, 0) => return 0.,
         (l_len, r_len) if l_len < r_len => (&l, &r),
         _ => (&r, &l),
     };
 
     let s_weights = short
-        .connections
         .iter()
         .map(|c| (c.inno, c.weight))
         .collect::<HashMap<usize, f64>>();
 
     let mut conut = 0.;
     let diff_sum = long
-        .connections
         .iter()
         .filter_map(
             |Connection {
@@ -77,62 +75,52 @@ mod test {
         // non-zero overlapping inno
         assert!(
             (avg_weight_diff(
-                &Genome {
-                    sensory: 0,
-                    action: 0,
-                    nodes: vec![],
-                    connections: vec![
-                        Connection {
-                            inno: 1,
-                            from: 0,
-                            to: 0,
-                            weight: 0.5,
-                            enabled: true
-                        },
-                        Connection {
-                            inno: 2,
-                            from: 0,
-                            to: 0,
-                            weight: -0.5,
-                            enabled: true
-                        },
-                        Connection {
-                            inno: 3,
-                            from: 0,
-                            to: 0,
-                            weight: 1.0,
-                            enabled: true
-                        },
-                    ],
-                },
-                &Genome {
-                    sensory: 0,
-                    action: 0,
-                    nodes: vec![],
-                    connections: vec![
-                        Connection {
-                            inno: 1,
-                            from: 0,
-                            to: 0,
-                            weight: 0.0,
-                            enabled: true
-                        },
-                        Connection {
-                            inno: 2,
-                            from: 0,
-                            to: 0,
-                            weight: -1.0,
-                            enabled: true
-                        },
-                        Connection {
-                            inno: 4,
-                            from: 0,
-                            to: 0,
-                            weight: 2.0,
-                            enabled: true
-                        },
-                    ],
-                }
+                &vec![
+                    Connection {
+                        inno: 1,
+                        from: 0,
+                        to: 0,
+                        weight: 0.5,
+                        enabled: true
+                    },
+                    Connection {
+                        inno: 2,
+                        from: 0,
+                        to: 0,
+                        weight: -0.5,
+                        enabled: true
+                    },
+                    Connection {
+                        inno: 3,
+                        from: 0,
+                        to: 0,
+                        weight: 1.0,
+                        enabled: true
+                    },
+                ],
+                &vec![
+                    Connection {
+                        inno: 1,
+                        from: 0,
+                        to: 0,
+                        weight: 0.0,
+                        enabled: true
+                    },
+                    Connection {
+                        inno: 2,
+                        from: 0,
+                        to: 0,
+                        weight: -1.0,
+                        enabled: true
+                    },
+                    Connection {
+                        inno: 4,
+                        from: 0,
+                        to: 0,
+                        weight: 2.0,
+                        enabled: true
+                    },
+                ]
             ) - 0.5)
                 .abs()
                 < f64::EPSILON
@@ -141,97 +129,30 @@ mod test {
         // empty connections
         assert!(
             (avg_weight_diff(
-                &Genome {
-                    sensory: 0,
-                    action: 0,
-                    nodes: vec![],
-                    connections: vec![
-                        Connection {
-                            inno: 1,
-                            from: 0,
-                            to: 0,
-                            weight: 0.5,
-                            enabled: true
-                        },
-                        Connection {
-                            inno: 2,
-                            from: 0,
-                            to: 0,
-                            weight: -0.5,
-                            enabled: true
-                        },
-                        Connection {
-                            inno: 3,
-                            from: 0,
-                            to: 0,
-                            weight: 1.0,
-                            enabled: true
-                        },
-                    ],
-                },
-                &Genome {
-                    sensory: 0,
-                    action: 0,
-                    nodes: vec![],
-                    connections: vec![],
-                }
-            ) - 0.0)
-                .abs()
-                < f64::EPSILON
-        );
-
-        // zero overlapping inno
-        assert!(
-            (avg_weight_diff(
-                &Genome {
-                    sensory: 0,
-                    action: 0,
-                    nodes: vec![],
-                    connections: vec![
-                        Connection {
-                            inno: 1,
-                            from: 0,
-                            to: 0,
-                            weight: 0.5,
-                            enabled: true
-                        },
-                        Connection {
-                            inno: 2,
-                            from: 0,
-                            to: 0,
-                            weight: -0.5,
-                            enabled: true
-                        },
-                        Connection {
-                            inno: 3,
-                            from: 0,
-                            to: 0,
-                            weight: 1.0,
-                            enabled: true
-                        },
-                    ],
-                },
-                &Genome {
-                    sensory: 0,
-                    action: 0,
-                    nodes: vec![],
-                    connections: vec![
-                        Connection {
-                            inno: 5,
-                            from: 0,
-                            to: 0,
-                            weight: 0.5,
-                            enabled: true
-                        },
-                        Connection {
-                            inno: 6,
-                            from: 0,
-                            to: 0,
-                            weight: -0.5,
-                            enabled: true
-                        },
-                    ],
-                }
+                &vec![
+                    Connection {
+                        inno: 1,
+                        from: 0,
+                        to: 0,
+                        weight: 0.5,
+                        enabled: true
+                    },
+                    Connection {
+                        inno: 2,
+                        from: 0,
+                        to: 0,
+                        weight: -0.5,
+                        enabled: true
+                    },
+                    Connection {
+                        inno: 3,
+                        from: 0,
+                        to: 0,
+                        weight: 1.0,
+                        enabled: true
+                    },
+                ],
+                &vec![]
             ) - 0.0)
                 .abs()
                 < f64::EPSILON
@@ -240,40 +161,77 @@ mod test {
         // empty connections
         assert!(
             (avg_weight_diff(
-                &Genome {
-                    sensory: 0,
-                    action: 0,
-                    nodes: vec![],
-                    connections: vec![],
-                },
-                &Genome {
-                    sensory: 0,
-                    action: 0,
-                    nodes: vec![],
-                    connections: vec![
-                        Connection {
-                            inno: 1,
-                            from: 0,
-                            to: 0,
-                            weight: 0.0,
-                            enabled: true
-                        },
-                        Connection {
-                            inno: 2,
-                            from: 0,
-                            to: 0,
-                            weight: -1.0,
-                            enabled: true
-                        },
-                        Connection {
-                            inno: 4,
-                            from: 0,
-                            to: 0,
-                            weight: 2.0,
-                            enabled: true
-                        },
-                    ],
-                }
+                &vec![],
+                &vec![
+                    Connection {
+                        inno: 1,
+                        from: 0,
+                        to: 0,
+                        weight: 0.0,
+                        enabled: true
+                    },
+                    Connection {
+                        inno: 2,
+                        from: 0,
+                        to: 0,
+                        weight: -1.0,
+                        enabled: true
+                    },
+                    Connection {
+                        inno: 4,
+                        from: 0,
+                        to: 0,
+                        weight: 2.0,
+                        enabled: true
+                    },
+                ]
+            ) - 0.0)
+                .abs()
+                < f64::EPSILON
+        );
+
+        // zero overlapping inno
+        assert!(
+            (avg_weight_diff(
+                &vec![
+                    Connection {
+                        inno: 1,
+                        from: 0,
+                        to: 0,
+                        weight: 0.5,
+                        enabled: true
+                    },
+                    Connection {
+                        inno: 2,
+                        from: 0,
+                        to: 0,
+                        weight: -0.5,
+                        enabled: true
+                    },
+                    Connection {
+                        inno: 3,
+                        from: 0,
+                        to: 0,
+                        weight: 1.0,
+                        enabled: true
+                    },
+                ],
+                &vec![
+                    Connection {
+                        inno: 5,
+                        from: 0,
+                        to: 0,
+                        weight: 0.5,
+                        enabled: true
+                    },
+                    Connection {
+                        inno: 6,
+                        from: 0,
+                        to: 0,
+                        weight: -0.5,
+                        enabled: true
+                    },
+                ]
             ) - 0.0)
                 .abs()
                 < f64::EPSILON
@@ -282,62 +240,52 @@ mod test {
         // varying weights
         assert!(
             (avg_weight_diff(
-                &Genome {
-                    sensory: 0,
-                    action: 0,
-                    nodes: vec![],
-                    connections: vec![
-                        Connection {
-                            inno: 1,
-                            from: 0,
-                            to: 0,
-                            weight: 0.1,
-                            enabled: true
-                        },
-                        Connection {
-                            inno: 2,
-                            from: 0,
-                            to: 0,
-                            weight: 0.2,
-                            enabled: true
-                        },
-                        Connection {
-                            inno: 3,
-                            from: 0,
-                            to: 0,
-                            weight: 0.3,
-                            enabled: true
-                        },
-                    ],
-                },
-                &Genome {
-                    sensory: 0,
-                    action: 0,
-                    nodes: vec![],
-                    connections: vec![
-                        Connection {
-                            inno: 1,
-                            from: 0,
-                            to: 0,
-                            weight: 0.4,
-                            enabled: true
-                        },
-                        Connection {
-                            inno: 2,
-                            from: 0,
-                            to: 0,
-                            weight: 0.5,
-                            enabled: true
-                        },
-                        Connection {
-                            inno: 3,
-                            from: 0,
-                            to: 0,
-                            weight: 0.6,
-                            enabled: true
-                        },
-                    ],
-                }
+                &vec![
+                    Connection {
+                        inno: 1,
+                        from: 0,
+                        to: 0,
+                        weight: 0.1,
+                        enabled: true
+                    },
+                    Connection {
+                        inno: 2,
+                        from: 0,
+                        to: 0,
+                        weight: 0.2,
+                        enabled: true
+                    },
+                    Connection {
+                        inno: 3,
+                        from: 0,
+                        to: 0,
+                        weight: 0.3,
+                        enabled: true
+                    },
+                ],
+                &vec![
+                    Connection {
+                        inno: 1,
+                        from: 0,
+                        to: 0,
+                        weight: 0.4,
+                        enabled: true
+                    },
+                    Connection {
+                        inno: 2,
+                        from: 0,
+                        to: 0,
+                        weight: 0.5,
+                        enabled: true
+                    },
+                    Connection {
+                        inno: 3,
+                        from: 0,
+                        to: 0,
+                        weight: 0.6,
+                        enabled: true
+                    },
+                ]
             ) - 0.3)
                 .abs()
                 < f64::EPSILON
@@ -346,62 +294,52 @@ mod test {
         // weights with zero difference
         assert!(
             (avg_weight_diff(
-                &Genome {
-                    sensory: 0,
-                    action: 0,
-                    nodes: vec![],
-                    connections: vec![
-                        Connection {
-                            inno: 1,
-                            from: 0,
-                            to: 0,
-                            weight: 0.5,
-                            enabled: true
-                        },
-                        Connection {
-                            inno: 2,
-                            from: 0,
-                            to: 0,
-                            weight: -0.5,
-                            enabled: true
-                        },
-                        Connection {
-                            inno: 3,
-                            from: 0,
-                            to: 0,
-                            weight: 1.0,
-                            enabled: true
-                        },
-                    ],
-                },
-                &Genome {
-                    sensory: 0,
-                    action: 0,
-                    nodes: vec![],
-                    connections: vec![
-                        Connection {
-                            inno: 1,
-                            from: 0,
-                            to: 0,
-                            weight: 0.5,
-                            enabled: true
-                        },
-                        Connection {
-                            inno: 2,
-                            from: 0,
-                            to: 0,
-                            weight: -0.5,
-                            enabled: true
-                        },
-                        Connection {
-                            inno: 3,
-                            from: 0,
-                            to: 0,
-                            weight: 1.0,
-                            enabled: true
-                        },
-                    ],
-                }
+                &vec![
+                    Connection {
+                        inno: 1,
+                        from: 0,
+                        to: 0,
+                        weight: 0.5,
+                        enabled: true
+                    },
+                    Connection {
+                        inno: 2,
+                        from: 0,
+                        to: 0,
+                        weight: -0.5,
+                        enabled: true
+                    },
+                    Connection {
+                        inno: 3,
+                        from: 0,
+                        to: 0,
+                        weight: 1.0,
+                        enabled: true
+                    },
+                ],
+                &vec![
+                    Connection {
+                        inno: 1,
+                        from: 0,
+                        to: 0,
+                        weight: 0.5,
+                        enabled: true
+                    },
+                    Connection {
+                        inno: 2,
+                        from: 0,
+                        to: 0,
+                        weight: -0.5,
+                        enabled: true
+                    },
+                    Connection {
+                        inno: 3,
+                        from: 0,
+                        to: 0,
+                        weight: 1.0,
+                        enabled: true
+                    },
+                ]
             ) - 0.0)
                 .abs()
                 < f64::EPSILON
