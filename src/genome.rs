@@ -1,3 +1,6 @@
+use rand::{rngs::ThreadRng, seq::IteratorRandom};
+use std::{collections::HashSet, iter};
+
 #[derive(Debug, Clone)]
 pub enum Node {
     Sensory,
@@ -42,9 +45,39 @@ impl Genome {
         }
     }
 }
+
+/// Given a genome with 0 or more nodes, try to generate a connection between nodes
+/// a connection should have a unique (from, to) from any other connection on genome,
+/// and the connection should not describe a node that points to itself
+fn gen_connection(genome: &Genome, rng: &mut ThreadRng) -> Option<(usize, usize)> {
+    let mut saturated = HashSet::new();
+    loop {
+        let from = (0..genome.nodes.len())
+            .filter(|from| !saturated.contains(from))
+            .choose(rng)?;
+
+        let exclude = genome
+            .connections
+            .iter()
+            .filter_map(|c| (c.from == from).then_some(c.to))
+            .chain(iter::once(from))
+            .collect::<HashSet<_>>();
+
+        if let Some(to) = (0..genome.nodes.len())
+            .filter(|to| !exclude.contains(to))
+            .choose(rng)
+        {
+            break Some((from, to));
+        }
+
+        saturated.insert(from);
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
+    use std::vec;
 
     #[test]
     fn test_genome_creation() {
@@ -81,5 +114,97 @@ mod test {
         assert!(matches!(genome_only_action.nodes[2], Node::Action));
         assert!(matches!(genome_only_action.nodes[3], Node::Bias(_)));
         assert_eq!(genome_only_action.connections.len(), 0);
+    }
+
+    #[test]
+    fn test_gen_connection() {
+        let genome = Genome {
+            sensory: 1,
+            action: 1,
+            nodes: vec![Node::Sensory, Node::Action],
+            connections: vec![],
+        };
+        for _ in 0..100 {
+            match gen_connection(&genome, &mut rand::rng()) {
+                Some((0, o)) | Some((o, 0)) => assert_eq!(o, 1),
+                Some(p) => assert!(false, "invalid pair {p:?} gen'd"),
+                None => assert!(false, "no path gen'd"),
+            }
+        }
+    }
+
+    #[test]
+    fn test_gen_connection_no_dupe() {
+        let genome = Genome {
+            sensory: 1,
+            action: 1,
+            nodes: vec![Node::Sensory, Node::Action],
+            connections: vec![Connection {
+                inno: 0,
+                from: 0,
+                to: 1,
+                weight: 1.,
+                enabled: true,
+            }],
+        };
+        for _ in 0..100 {
+            assert_eq!(gen_connection(&genome, &mut rand::rng()), Some((1, 0)));
+        }
+    }
+
+    #[test]
+    fn test_gen_connection_none_possble() {
+        assert_eq!(
+            gen_connection(
+                &Genome {
+                    sensory: 0,
+                    action: 0,
+                    nodes: vec![],
+                    connections: vec![Connection {
+                        inno: 0,
+                        from: 0,
+                        to: 1,
+                        weight: 1.,
+                        enabled: true,
+                    }],
+                },
+                &mut rand::rng()
+            ),
+            None
+        );
+    }
+
+    #[test]
+    fn test_gen_connection_saturated() {
+        assert_eq!(
+            gen_connection(
+                &Genome {
+                    sensory: 2,
+                    action: 2,
+                    nodes: vec![
+                        Node::Action,
+                        Node::Action,
+                        Node::Sensory,
+                        Node::Sensory,
+                        Node::Bias(1.),
+                    ],
+                    connections: (0..5)
+                        .flat_map(|from| {
+                            (0..5).filter_map(move |to| {
+                                (from != to).then_some(Connection {
+                                    inno: 0,
+                                    from,
+                                    to,
+                                    weight: 1.,
+                                    enabled: true,
+                                })
+                            })
+                        })
+                        .collect(),
+                },
+                &mut rand::rng()
+            ),
+            None
+        )
     }
 }
