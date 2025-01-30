@@ -1,3 +1,4 @@
+use crate::genome::{Connection, Genome};
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
@@ -61,6 +62,7 @@ fn avg_weight_diff(l: &Genome, r: &Genome) -> f64 {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::genome::{Connection, Genome};
 
     #[test]
     fn test_inno_gen() {
