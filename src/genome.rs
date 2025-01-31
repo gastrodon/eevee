@@ -1,6 +1,7 @@
-use rand::{rngs::ThreadRng, seq::IteratorRandom};
+use rand::{rngs::ThreadRng, seq::IteratorRandom, Rng};
 use std::{
     collections::{HashMap, HashSet},
+    error::Error,
     iter,
     sync::{Arc, Mutex},
 };
@@ -31,7 +32,7 @@ pub enum Node {
     Internal,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Connection {
     pub inno: usize,
     pub from: usize,
@@ -40,7 +41,7 @@ pub struct Connection {
     pub enabled: bool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Genome {
     pub sensory: usize,
     pub action: usize,
@@ -65,6 +66,70 @@ impl Genome {
             nodes,
             connections: Vec::new(),
         }
+    }
+
+    // picks an unconnected pair, generates a connection between them, and applies it
+    // fails if no pair can be picked
+    pub fn mutate_connection(
+        &mut self,
+        rng: &mut ThreadRng,
+        inext: impl Fn((usize, usize)) -> usize,
+    ) -> Result<(), Box<dyn Error>> {
+        if let Some((from, to)) = gen_connection(self, rng) {
+            self.connections.push(Connection {
+                inno: inext((from, to)),
+                from,
+                to,
+                weight: 1.,
+                enabled: true,
+            });
+            Ok(())
+        } else {
+            Err("connections on genome are fully saturated".into())
+        }
+    }
+
+    // Picks a source connection, bisects it, and applies it
+    // picked source connection is marked as disabled
+    pub fn mutate_bisection(
+        &mut self,
+        rng: &mut ThreadRng,
+        inext: impl Fn((usize, usize)) -> usize,
+    ) -> Result<(), Box<dyn Error>> {
+        if self.connections.is_empty() {
+            return Err("no connections available to bisect".into());
+        }
+
+        let pick_idx = rng.random_range(0..self.connections.len());
+        let new_node_idx = self.nodes.len();
+        let (lower, upper) = {
+            // possibly: would it make sense for a bisection to require a new inno?
+            let pick = self.connections.get_mut(pick_idx).unwrap();
+            pick.enabled = false;
+            (
+                // from -{1.}> bisect-node
+                Connection {
+                    inno: inext((pick.from, new_node_idx)),
+                    from: pick.from,
+                    to: new_node_idx,
+                    weight: 1.,
+                    enabled: true,
+                },
+                // bisect-node -{w}> to
+                Connection {
+                    inno: inext((new_node_idx, pick.from)),
+                    from: new_node_idx,
+                    to: pick.to,
+                    weight: pick.weight,
+                    enabled: true,
+                },
+            )
+        };
+
+        self.nodes.push(Node::Internal);
+        self.connections.push(lower);
+        self.connections.push(upper);
+        Ok(())
     }
 }
 
@@ -236,5 +301,81 @@ mod test {
             ),
             None
         )
+    }
+
+    #[test]
+    fn test_mutate_connection() {
+        let mut genome = Genome::new(4, 4);
+        let inext = inno_gen();
+        genome.connections = vec![
+            Connection {
+                inno: inext((0, 1)),
+                from: 0,
+                to: 1,
+                weight: 0.5,
+                enabled: true,
+            },
+            Connection {
+                inno: inext((1, 2)),
+                from: 1,
+                to: 2,
+                weight: 0.5,
+                enabled: true,
+            },
+        ];
+
+        let before = genome.clone();
+        genome.mutate_connection(&mut rand::rng(), inext).unwrap();
+
+        assert_eq!(genome.connections.len(), before.connections.len() + 1);
+
+        let tail = genome.connections.last().unwrap();
+        assert!(!before.connections.iter().any(|c| c.inno == tail.inno));
+        assert!(!before
+            .connections
+            .iter()
+            .any(|c| (c.from, c.to) == (tail.from, tail.to)));
+        assert_eq!(tail.weight, 1.);
+    }
+
+    #[test]
+    fn test_mutate_bisection() {
+        let mut genome = Genome::new(0, 1);
+        genome.connections = vec![Connection {
+            inno: 0,
+            from: 0,
+            to: 1,
+            weight: 0.5,
+            enabled: true,
+        }];
+        genome
+            .mutate_bisection(&mut rand::rng(), inno_gen())
+            .unwrap();
+
+        assert!(!genome.connections[0].enabled);
+
+        assert_eq!(genome.connections[1].from, 0);
+        assert_eq!(genome.connections[1].to, 2);
+        assert_eq!(genome.connections[1].weight, 1.0);
+        assert!(genome.connections[1].enabled);
+
+        assert_eq!(genome.connections[2].from, 2);
+        assert_eq!(genome.connections[2].to, 1);
+        assert_eq!(genome.connections[2].weight, 0.5);
+        assert!(genome.connections[2].enabled);
+    }
+
+    #[test]
+    fn test_mutate_bisection_empty_genome() {
+        let mut genome = Genome::new(0, 0);
+        let result = genome.mutate_bisection(&mut rand::rng(), inno_gen());
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_mutate_bisection_no_connections() {
+        let mut genome = Genome::new(2, 2);
+        let result = genome.mutate_bisection(&mut rand::rng(), inno_gen());
+        assert!(result.is_err());
     }
 }
