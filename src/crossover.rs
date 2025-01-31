@@ -2,26 +2,7 @@ use crate::genome::Connection;
 use std::{
     cmp::min,
     collections::{HashMap, HashSet},
-    sync::{Arc, Mutex},
 };
-
-fn inno_gen() -> impl Fn((usize, usize)) -> usize {
-    let head = Arc::new(Mutex::new(0));
-    let inno = Arc::new(Mutex::new(HashMap::<(usize, usize), usize>::new()));
-    return move |v: (usize, usize)| {
-        let mut head = head.lock().unwrap();
-        let mut inno = inno.lock().unwrap();
-        match inno.get(&v) {
-            Some(n) => *n,
-            None => {
-                let n = *head;
-                *head += 1;
-                inno.insert(v, n);
-                n
-            }
-        }
-    };
-}
 
 fn disjoint_excess_count(l: &Vec<Connection>, r: &Vec<Connection>) -> (f64, f64) {
     if l.is_empty() {
@@ -84,14 +65,6 @@ fn avg_weight_diff(l: &Vec<Connection>, r: &Vec<Connection>) -> f64 {
 mod test {
     use super::*;
     use crate::genome::Connection;
-
-    #[test]
-    fn test_inno_gen() {
-        let inno = inno_gen();
-        assert_eq!(inno((0, 1)), 0);
-        assert_eq!(inno((1, 2)), 1);
-        assert_eq!(inno((0, 1)), 0);
-    }
 
     #[test]
     fn test_avg_weight_diff() {
