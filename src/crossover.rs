@@ -61,6 +61,31 @@ fn avg_weight_diff(l: &Vec<Connection>, r: &Vec<Connection>) -> f64 {
     }
 }
 
+const EXCESS_COEFFICIENT: f64 = 1.0;
+const DISJOINT_COEFFICIENT: f64 = 1.0;
+const WEIGHT_COEFFICIENT: f64 = 0.4;
+
+fn delta(l: &Vec<Connection>, r: &Vec<Connection>) -> f64 {
+    let l_size = l.len() as f64;
+    let r_size = r.len() as f64;
+    let fac = {
+        let longest = f64::max(l_size, r_size);
+        if longest < 20. {
+            1.
+        } else {
+            longest
+        }
+    };
+
+    if l_size == 0. || r_size == 0. {
+        (EXCESS_COEFFICIENT * f64::max(l_size, r_size)) / fac
+    } else {
+        let (disjoint, excess) = disjoint_excess_count(l, r);
+        (DISJOINT_COEFFICIENT * disjoint + EXCESS_COEFFICIENT * excess) / fac
+            + WEIGHT_COEFFICIENT * avg_weight_diff(l, r)
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
