@@ -1,0 +1,45 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug executable 'brain-rs-3'",
+      "cargo": {
+        "args": [
+          "build",
+          "--bin=brain-rs-3",
+          "--package=brain-rs-3"
+        ],
+        "filter": {
+          "name": "brain-rs-3",
+          "kind": "bin"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug unit tests in executable 'brain-rs-3'",
+      "cargo": {
+        "args": [
+          "test",
+          "--no-run",
+          "--bin=brain-rs-3",
+          "--package=brain-rs-3"
+        ],
+        "filter": {
+          "name": "brain-rs-3",
+          "kind": "bin"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    }
+  ]
+}
