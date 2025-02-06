@@ -2,9 +2,14 @@ use rand::{rngs::ThreadRng, seq::IteratorRandom, Rng};
 use std::{
     collections::{HashMap, HashSet},
     error::Error,
+    f64::consts::E,
     iter,
     sync::{Arc, Mutex},
 };
+
+pub fn steep_sigmoid(x: f64) -> f64 {
+    1. / (1. + E.powf(-4.9 * x))
+}
 
 fn inno_gen() -> impl Fn((usize, usize)) -> usize {
     let head = Arc::new(Mutex::new(0));
@@ -131,6 +136,33 @@ impl Genome {
         self.connections.push(upper);
         Ok(())
     }
+
+    /// given a mutable state, propagate it with the genome's connections ye
+    pub fn propagate_once(&self, state: &mut [f64]) {
+        for c in self
+            .connections
+            .iter()
+            .filter(|Connection { enabled, .. }| *enabled)
+        {
+            let prop = steep_sigmoid(state[c.from]) * c.weight;
+            if state[c.to] == 0. {
+                state[c.to] = prop
+            } else {
+                state[c.to] = (state[c.to] + prop) / 2. // is this even the right way to rolling avg?
+            }
+        }
+    }
+}
+
+fn state_head(size: usize, state: &mut [f64]) -> &mut [f64] {
+    assert!(state.len() >= size);
+    &mut state[0..size]
+}
+
+fn state_tail(size: usize, state: &[f64]) -> &[f64] {
+    let l = state.len();
+    assert!(l >= size);
+    &state[l - size..l]
 }
 
 /// Given a genome with 0 or more nodes, try to generate a connection between nodes
@@ -377,5 +409,42 @@ mod test {
         let mut genome = Genome::new(2, 2);
         let result = genome.mutate_bisection(&mut rand::rng(), inno_gen());
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_state_head() {
+        let mut state = vec![0.; 5];
+        state_head(3, &mut state).clone_from_slice(&[1., 2., 3.]);
+        assert_eq!(state, vec![1., 2., 3., 0., 0.])
+    }
+
+    #[test]
+    fn test_evaluate_once() {
+        let mut genome = Genome::new(2, 2);
+        genome.connections = vec![
+            Connection {
+                inno: 0,
+                from: 0,
+                to: 3,
+                weight: 0.5,
+                enabled: true,
+            },
+            Connection {
+                inno: 1,
+                from: 0,
+                to: 1,
+                weight: -1.,
+                enabled: true,
+            },
+        ];
+
+        let mut state = vec![0.; genome.nodes.len()];
+        state_head(genome.sensory, &mut state).clone_from_slice(&[1., 1.]);
+        genome.propagate_once(&mut state);
+
+        assert_eq!(
+            state_tail(genome.action, &state),
+            &[steep_sigmoid(1.) * 0.5, 0.]
+        );
     }
 }
