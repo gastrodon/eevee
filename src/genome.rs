@@ -419,7 +419,7 @@ mod test {
     }
 
     #[test]
-    fn test_evaluate_once() {
+    fn test_propagate_once() {
         let mut genome = Genome::new(2, 2);
         genome.connections = vec![
             Connection {
