@@ -1,4 +1,5 @@
 mod crossover;
+mod eval;
 mod genome;
 
 use crate::genome::Genome;

@@ -1,15 +1,11 @@
+use crate::eval::{steep_sigmoid, Game};
 use rand::{rngs::ThreadRng, seq::IteratorRandom, Rng};
 use std::{
     collections::{HashMap, HashSet},
     error::Error,
-    f64::consts::E,
     iter,
     sync::{Arc, Mutex},
 };
-
-pub fn steep_sigmoid(x: f64) -> f64 {
-    1. / (1. + E.powf(-4.9 * x))
-}
 
 fn inno_gen() -> impl Fn((usize, usize)) -> usize {
     let head = Arc::new(Mutex::new(0));
@@ -152,8 +148,13 @@ impl Genome {
             }
         }
     }
+
+    fn propagate(self, game: impl Game) -> usize {
+        todo!()
+    }
 }
 
+// TODO move state_{head,tail} to a common place for game logic?
 fn state_head(size: usize, state: &mut [f64]) -> &mut [f64] {
     assert!(state.len() >= size);
     &mut state[0..size]
