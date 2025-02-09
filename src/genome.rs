@@ -3,26 +3,39 @@ use rand::{rngs::ThreadRng, seq::IteratorRandom, Rng};
 use std::{
     collections::{HashMap, HashSet},
     error::Error,
+    hash::Hash,
     iter,
     sync::{Arc, Mutex},
 };
 
-fn inno_gen() -> impl Fn((usize, usize)) -> usize {
-    let head = Arc::new(Mutex::new(0));
-    let inno = Arc::new(Mutex::new(HashMap::<(usize, usize), usize>::new()));
-    return move |v: (usize, usize)| {
-        let mut head = head.lock().unwrap();
-        let mut inno = inno.lock().unwrap();
-        match inno.get(&v) {
+pub struct InnoGen {
+    pub head: usize,
+    seen: HashMap<(usize, usize), usize>,
+}
+
+impl InnoGen {
+    pub fn new(head: usize) -> Self {
+        Self {
+            head,
+            seen: HashMap::new(),
+        }
+    }
+
+    pub fn new_arc(head: usize) -> Arc<Mutex<Self>> {
+        Arc::new(Mutex::new(Self::new(head)))
+    }
+
+    pub fn path(&mut self, v: (usize, usize)) -> usize {
+        match self.seen.get(&v) {
             Some(n) => *n,
             None => {
-                let n = *head;
-                *head += 1;
-                inno.insert(v, n);
+                let n = self.head;
+                self.head += 1;
+                self.seen.insert(v, n);
                 n
             }
         }
-    };
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -74,11 +87,11 @@ impl Genome {
     pub fn mutate_connection(
         &mut self,
         rng: &mut ThreadRng,
-        inext: impl Fn((usize, usize)) -> usize,
+        inext: &mut InnoGen,
     ) -> Result<(), Box<dyn Error>> {
         if let Some((from, to)) = gen_connection(self, rng) {
             self.connections.push(Connection {
-                inno: inext((from, to)),
+                inno: inext.path((from, to)),
                 from,
                 to,
                 weight: 1.,
@@ -95,7 +108,7 @@ impl Genome {
     pub fn mutate_bisection(
         &mut self,
         rng: &mut ThreadRng,
-        inext: impl Fn((usize, usize)) -> usize,
+        inext: &mut InnoGen,
     ) -> Result<(), Box<dyn Error>> {
         if self.connections.is_empty() {
             return Err("no connections available to bisect".into());
@@ -110,7 +123,7 @@ impl Genome {
             (
                 // from -{1.}> bisect-node
                 Connection {
-                    inno: inext((pick.from, new_node_idx)),
+                    inno: inext.path((pick.from, new_node_idx)),
                     from: pick.from,
                     to: new_node_idx,
                     weight: 1.,
@@ -118,7 +131,7 @@ impl Genome {
                 },
                 // bisect-node -{w}> to
                 Connection {
-                    inno: inext((new_node_idx, pick.from)),
+                    inno: inext.path((new_node_idx, pick.from)),
                     from: new_node_idx,
                     to: pick.to,
                     weight: pick.weight,
@@ -201,10 +214,16 @@ mod test {
 
     #[test]
     fn test_inno_gen() {
-        let inno = inno_gen();
-        assert_eq!(inno((0, 1)), 0);
-        assert_eq!(inno((1, 2)), 1);
-        assert_eq!(inno((0, 1)), 0);
+        let mut inno = InnoGen::new(0);
+        assert_eq!(inno.head, 0);
+        assert_eq!(inno.path((0, 1)), 0);
+        assert_eq!(inno.path((1, 2)), 1);
+        assert_eq!(inno.path((0, 1)), 0);
+        assert_eq!(inno.head, 2);
+
+        let mut inno2 = InnoGen::new(inno.head);
+        assert_eq!(inno2.path((1, 0)), 2);
+        assert_eq!(inno2.path((0, 1)), 3);
     }
 
     #[test]
@@ -339,17 +358,17 @@ mod test {
     #[test]
     fn test_mutate_connection() {
         let mut genome = Genome::new(4, 4);
-        let inext = inno_gen();
+        let mut inext = InnoGen::new(0);
         genome.connections = vec![
             Connection {
-                inno: inext((0, 1)),
+                inno: inext.path((0, 1)),
                 from: 0,
                 to: 1,
                 weight: 0.5,
                 enabled: true,
             },
             Connection {
-                inno: inext((1, 2)),
+                inno: inext.path((1, 2)),
                 from: 1,
                 to: 2,
                 weight: 0.5,
@@ -358,7 +377,9 @@ mod test {
         ];
 
         let before = genome.clone();
-        genome.mutate_connection(&mut rand::rng(), inext).unwrap();
+        genome
+            .mutate_connection(&mut rand::rng(), &mut inext)
+            .unwrap();
 
         assert_eq!(genome.connections.len(), before.connections.len() + 1);
 
@@ -382,7 +403,7 @@ mod test {
             enabled: true,
         }];
         genome
-            .mutate_bisection(&mut rand::rng(), inno_gen())
+            .mutate_bisection(&mut rand::rng(), &mut InnoGen::new(0))
             .unwrap();
 
         assert!(!genome.connections[0].enabled);
@@ -401,14 +422,14 @@ mod test {
     #[test]
     fn test_mutate_bisection_empty_genome() {
         let mut genome = Genome::new(0, 0);
-        let result = genome.mutate_bisection(&mut rand::rng(), inno_gen());
+        let result = genome.mutate_bisection(&mut rand::rng(), &mut InnoGen::new(0));
         assert!(result.is_err());
     }
 
     #[test]
     fn test_mutate_bisection_no_connections() {
         let mut genome = Genome::new(2, 2);
-        let result = genome.mutate_bisection(&mut rand::rng(), inno_gen());
+        let result = genome.mutate_bisection(&mut rand::rng(), &mut InnoGen::new(0));
         assert!(result.is_err());
     }
 
