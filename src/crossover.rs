@@ -4,7 +4,7 @@ use std::{
     collections::{HashMap, HashSet},
 };
 
-fn disjoint_excess_count(l: &Vec<Connection>, r: &Vec<Connection>) -> (f64, f64) {
+fn disjoint_excess_count(l: &[Connection], r: &[Connection]) -> (f64, f64) {
     if l.is_empty() {
         (0., r.len() as f64)
     } else if r.is_empty() {
@@ -27,7 +27,7 @@ fn disjoint_excess_count(l: &Vec<Connection>, r: &Vec<Connection>) -> (f64, f64)
 }
 
 /// if genomes share no overlapping weights, their average diff should be 0
-fn avg_weight_diff(l: &Vec<Connection>, r: &Vec<Connection>) -> f64 {
+fn avg_weight_diff(l: &[Connection], r: &[Connection]) -> f64 {
     let (short, long) = match (l.len(), r.len()) {
         (0, _) | (_, 0) => return 0.,
         (l_len, r_len) if l_len < r_len => (&l, &r),
@@ -65,7 +65,7 @@ const EXCESS_COEFFICIENT: f64 = 1.0;
 const DISJOINT_COEFFICIENT: f64 = 1.0;
 const WEIGHT_COEFFICIENT: f64 = 0.4;
 
-fn delta(l: &Vec<Connection>, r: &Vec<Connection>) -> f64 {
+pub fn delta(l: &[Connection], r: &[Connection]) -> f64 {
     let l_size = l.len() as f64;
     let r_size = r.len() as f64;
     let fac = {
