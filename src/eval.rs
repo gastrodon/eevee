@@ -68,6 +68,6 @@ impl Game for GameXOR {
     /// but also should score exponentialy higher as we approach whole correct f64s
     fn score(&self, data: &[f64]) -> Option<usize> {
         self.input_current
-            .map(|(l, r)| xor_score(xor_f64(l, r), steep_sigmoid(data[0])))
+            .map(|(l, r)| xor_score(xor_f64(l, r), data[0]))
     }
 }
