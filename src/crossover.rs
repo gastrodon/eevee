@@ -1,6 +1,7 @@
 use crate::genome::Connection;
+use rand::{rng, rngs::ThreadRng, Rng};
 use std::{
-    cmp::min,
+    cmp::{min, Ordering},
     collections::{HashMap, HashSet},
 };
 
@@ -84,6 +85,67 @@ pub fn delta(l: &[Connection], r: &[Connection]) -> f64 {
         (DISJOINT_COEFFICIENT * disjoint + EXCESS_COEFFICIENT * excess) / fac
             + WEIGHT_COEFFICIENT * avg_weight_diff(l, r)
     }
+}
+
+/// crossover connections where l and r are equally fit
+fn crossover_eq(
+    l: &HashMap<usize, &Connection>,
+    r: &HashMap<usize, &Connection>,
+    rng: &mut ThreadRng,
+) -> Vec<Connection> {
+    let keys: HashSet<_> = HashSet::from_iter(l.keys().chain(r.keys()).cloned());
+
+    keys.iter()
+        .map(|inno| {
+            (*match (l.get(inno), r.get(inno)) {
+                (None, None) => unreachable!(),
+                (None, Some(conn)) | (Some(conn), None) => conn,
+                (Some(l_conn), Some(r_conn)) => {
+                    if rng.random_bool(0.5) {
+                        l_conn
+                    } else {
+                        r_conn
+                    }
+                }
+            })
+            .clone()
+        })
+        .collect()
+}
+
+/// crossover connections where l is more fit than r
+fn crossover_ne(
+    l: &HashMap<usize, &Connection>,
+    r: &HashMap<usize, &Connection>,
+    rng: &mut ThreadRng,
+) -> Vec<Connection> {
+    l.into_iter()
+        .map(|(inno, l_conn)| {
+            (*if r.contains_key(inno) && rng.random_bool(0.5) {
+                r.get(inno).unwrap()
+            } else {
+                l_conn
+            })
+            .clone()
+        })
+        .collect()
+}
+
+/// crossover connections
+/// l_fit describes how fit l is compared to r,
+pub fn crossover(l: &[Connection], r: &[Connection], l_fit: Ordering) -> Vec<Connection> {
+    let mut rng = rng();
+    let lookup_l = l.iter().map(|conn| (conn.inno, conn)).collect();
+    let lookup_r = r.iter().map(|conn| (conn.inno, conn)).collect();
+
+    let mut usort = match l_fit {
+        Ordering::Equal => crossover_eq(&lookup_l, &lookup_r, &mut rng),
+        Ordering::Less => crossover_ne(&lookup_r, &lookup_l, &mut rng),
+        Ordering::Greater => crossover_ne(&lookup_l, &lookup_r, &mut rng),
+    };
+
+    usort.sort_by_key(|c| c.inno);
+    usort
 }
 
 #[cfg(test)]
@@ -517,5 +579,198 @@ mod test {
                 ]
             )
         );
+    }
+
+    #[test]
+    fn test_crossover_eq() {
+        let l = [
+            Connection {
+                inno: 0,
+                from: 0,
+                to: 1,
+                weight: 0.6,
+                enabled: true,
+            },
+            Connection {
+                inno: 1,
+                from: 1,
+                to: 2,
+                weight: 1.,
+                enabled: true,
+            },
+            Connection {
+                inno: 2,
+                from: 2,
+                to: 1,
+                weight: 1.2,
+                enabled: true,
+            },
+        ];
+        let r = [
+            Connection {
+                inno: 0,
+                from: 0,
+                to: 1,
+                weight: 0.3,
+                enabled: true,
+            },
+            Connection {
+                inno: 2,
+                from: 2,
+                to: 1,
+                weight: 0.2,
+                enabled: false,
+            },
+            Connection {
+                inno: 3,
+                from: 2,
+                to: 3,
+                weight: 1.,
+                enabled: true,
+            },
+        ];
+
+        for _ in 0..1000 {
+            let lr = crossover(&l, &r, Ordering::Equal);
+
+            assert_eq!(lr.len(), 4);
+            assert!(lr[0] == l[0] || lr[0] == r[0]);
+            assert_eq!(lr[1], l[1]);
+            assert!(lr[2] == l[2] || lr[2] == r[1]);
+            assert_eq!(lr[3], r[2])
+        }
+    }
+
+    #[test]
+    fn test_crossover_gt() {
+        let l = [
+            Connection {
+                inno: 0,
+                from: 0,
+                to: 1,
+                weight: 0.6,
+                enabled: true,
+            },
+            Connection {
+                inno: 1,
+                from: 1,
+                to: 2,
+                weight: 1.,
+                enabled: true,
+            },
+            Connection {
+                inno: 2,
+                from: 2,
+                to: 1,
+                weight: 1.2,
+                enabled: true,
+            },
+        ];
+        let r = [
+            Connection {
+                inno: 0,
+                from: 0,
+                to: 1,
+                weight: 0.3,
+                enabled: true,
+            },
+            Connection {
+                inno: 2,
+                from: 2,
+                to: 1,
+                weight: 0.2,
+                enabled: false,
+            },
+            Connection {
+                inno: 3,
+                from: 2,
+                to: 3,
+                weight: 1.,
+                enabled: true,
+            },
+            Connection {
+                inno: 4,
+                from: 2,
+                to: 4,
+                weight: 1.,
+                enabled: true,
+            },
+        ];
+
+        for _ in 0..1000 {
+            let lr = crossover(&l, &r, Ordering::Greater);
+
+            assert_eq!(lr.len(), l.len());
+            assert!(lr[0] == l[0] || lr[0] == r[0]);
+            assert_eq!(lr[1], l[1]);
+            assert!(lr[2] == l[2] || lr[2] == r[1]);
+        }
+    }
+
+    #[test]
+    fn test_crossover_lt() {
+        let l = [
+            Connection {
+                inno: 0,
+                from: 0,
+                to: 1,
+                weight: 0.6,
+                enabled: true,
+            },
+            Connection {
+                inno: 1,
+                from: 1,
+                to: 2,
+                weight: 1.,
+                enabled: true,
+            },
+            Connection {
+                inno: 2,
+                from: 2,
+                to: 1,
+                weight: 1.2,
+                enabled: true,
+            },
+        ];
+        let r = [
+            Connection {
+                inno: 0,
+                from: 0,
+                to: 1,
+                weight: 0.3,
+                enabled: true,
+            },
+            Connection {
+                inno: 2,
+                from: 2,
+                to: 1,
+                weight: 0.2,
+                enabled: false,
+            },
+            Connection {
+                inno: 3,
+                from: 2,
+                to: 3,
+                weight: 1.,
+                enabled: true,
+            },
+            Connection {
+                inno: 4,
+                from: 2,
+                to: 4,
+                weight: 1.,
+                enabled: true,
+            },
+        ];
+
+        for _ in 0..1000 {
+            let lr = crossover(&l, &r, Ordering::Less);
+
+            assert_eq!(lr.len(), r.len());
+            assert!(lr[0] == l[0] || lr[0] == r[0]);
+            assert!(lr[1] == l[2] || lr[1] == r[1]);
+            assert_eq!(lr[2], r[2]);
+            assert_eq!(lr[3], r[3]);
+        }
     }
 }

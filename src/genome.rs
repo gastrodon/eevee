@@ -46,7 +46,7 @@ pub enum Node {
     Internal,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Connection {
     pub inno: usize,
     pub from: usize,
