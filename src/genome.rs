@@ -1,5 +1,6 @@
 use crate::eval::{steep_sigmoid, Game};
 use rand::{rngs::ThreadRng, seq::IteratorRandom, Rng};
+use rand_distr::StandardNormal;
 use std::{
     collections::{HashMap, HashSet},
     error::Error,
@@ -63,6 +64,8 @@ pub struct Genome {
     pub connections: Vec<Connection>,
 }
 
+const MUTATE_WEIGHT_FAC: f64 = 0.05;
+
 impl Genome {
     pub fn new(sensory: usize, action: usize) -> Self {
         let mut nodes = Vec::with_capacity(sensory + action + 1);
@@ -79,6 +82,16 @@ impl Genome {
             action,
             nodes,
             connections: Vec::new(),
+        }
+    }
+
+    pub fn mutate_weights(&mut self, rng: &mut ThreadRng) {
+        for conn in self.connections.iter_mut() {
+            if rng.random_ratio(1, 10) {
+                conn.weight = rng.sample(StandardNormal);
+            } else {
+                conn.weight += MUTATE_WEIGHT_FAC * rng.sample::<f64, _>(StandardNormal)
+            }
         }
     }
 
