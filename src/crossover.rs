@@ -1,5 +1,5 @@
 use crate::genome::Connection;
-use rand::{rng, rngs::ThreadRng, Rng};
+use rand::{rngs::ThreadRng, Rng};
 use std::{
     cmp::{min, Ordering},
     collections::{HashMap, HashSet},
@@ -133,15 +133,19 @@ fn crossover_ne(
 
 /// crossover connections
 /// l_fit describes how fit l is compared to r,
-pub fn crossover(l: &[Connection], r: &[Connection], l_fit: Ordering) -> Vec<Connection> {
-    let mut rng = rng();
+pub fn crossover(
+    l: &[Connection],
+    r: &[Connection],
+    l_fit: Ordering,
+    rng: &mut ThreadRng,
+) -> Vec<Connection> {
     let lookup_l = l.iter().map(|conn| (conn.inno, conn)).collect();
     let lookup_r = r.iter().map(|conn| (conn.inno, conn)).collect();
 
     let mut usort = match l_fit {
-        Ordering::Equal => crossover_eq(&lookup_l, &lookup_r, &mut rng),
-        Ordering::Less => crossover_ne(&lookup_r, &lookup_l, &mut rng),
-        Ordering::Greater => crossover_ne(&lookup_l, &lookup_r, &mut rng),
+        Ordering::Equal => crossover_eq(&lookup_l, &lookup_r, rng),
+        Ordering::Less => crossover_ne(&lookup_r, &lookup_l, rng),
+        Ordering::Greater => crossover_ne(&lookup_l, &lookup_r, rng),
     };
 
     usort.sort_by_key(|c| c.inno);
@@ -152,6 +156,7 @@ pub fn crossover(l: &[Connection], r: &[Connection], l_fit: Ordering) -> Vec<Con
 mod test {
     use super::*;
     use crate::genome::Connection;
+    use rand::rng;
 
     #[test]
     fn test_avg_weight_diff() {
@@ -631,7 +636,7 @@ mod test {
         ];
 
         for _ in 0..1000 {
-            let lr = crossover(&l, &r, Ordering::Equal);
+            let lr = crossover(&l, &r, Ordering::Equal, &mut rng());
 
             assert_eq!(lr.len(), 4);
             assert!(lr[0] == l[0] || lr[0] == r[0]);
@@ -698,7 +703,7 @@ mod test {
         ];
 
         for _ in 0..1000 {
-            let lr = crossover(&l, &r, Ordering::Greater);
+            let lr = crossover(&l, &r, Ordering::Greater, &mut rng());
 
             assert_eq!(lr.len(), l.len());
             assert!(lr[0] == l[0] || lr[0] == r[0]);
@@ -764,7 +769,7 @@ mod test {
         ];
 
         for _ in 0..1000 {
-            let lr = crossover(&l, &r, Ordering::Less);
+            let lr = crossover(&l, &r, Ordering::Less, &mut rng());
 
             assert_eq!(lr.len(), r.len());
             assert!(lr[0] == l[0] || lr[0] == r[0]);
