@@ -97,6 +97,7 @@ fn crossover_eq(
 
     keys.iter()
         .map(|inno| {
+            // TODO 75% chance to disable gene if disabled in either parent
             (*match (l.get(inno), r.get(inno)) {
                 (None, None) => unreachable!(),
                 (None, Some(conn)) | (Some(conn), None) => conn,
@@ -121,6 +122,7 @@ fn crossover_ne(
 ) -> Vec<Connection> {
     l.iter()
         .map(|(inno, l_conn)| {
+            // TODO 75% chance to disable gene if disabled in either parent
             (*if r.contains_key(inno) && rng.random_bool(0.5) {
                 r.get(inno).unwrap()
             } else {
