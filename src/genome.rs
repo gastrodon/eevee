@@ -64,9 +64,12 @@ pub struct Genome {
     pub connections: Vec<Connection>,
 }
 
-const MUTATE_WEIGHT_FAC: f64 = 0.05;
-
 impl Genome {
+    const MUTATE_WEIGHT_FAC: f64 = 0.05;
+    const MUTATE_WEIGHT_CHANCE: f64 = 0.8;
+    const MUTATE_CONNECTION_CHANCE: f64 = 0.03;
+    const MUTATE_BISECTION_CHANCE: f64 = 0.05;
+
     pub fn new(sensory: usize, action: usize) -> Self {
         let mut nodes = Vec::with_capacity(sensory + action + 1);
         for _ in 0..sensory {
@@ -90,7 +93,7 @@ impl Genome {
             if rng.random_ratio(1, 10) {
                 conn.weight = rng.sample(StandardNormal);
             } else {
-                conn.weight += MUTATE_WEIGHT_FAC * rng.sample::<f64, _>(StandardNormal)
+                conn.weight += Self::MUTATE_WEIGHT_FAC * rng.sample::<f64, _>(StandardNormal)
             }
         }
     }
@@ -156,6 +159,24 @@ impl Genome {
         self.nodes.push(Node::Internal);
         self.connections.push(lower);
         self.connections.push(upper);
+        Ok(())
+    }
+
+    pub fn maybe_mutate(
+        &mut self,
+        rng: &mut ThreadRng,
+        innogen: &mut InnoGen,
+    ) -> Result<(), Box<dyn Error>> {
+        if rng.random_bool(Self::MUTATE_WEIGHT_CHANCE) {
+            self.mutate_weights(rng);
+        }
+        if rng.random_bool(Self::MUTATE_CONNECTION_CHANCE) {
+            self.mutate_connection(rng, innogen)?;
+        }
+        if rng.random_bool(Self::MUTATE_BISECTION_CHANCE) {
+            self.mutate_bisection(rng, innogen)?;
+        }
+
         Ok(())
     }
 
