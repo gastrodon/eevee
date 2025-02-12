@@ -119,7 +119,7 @@ fn crossover_ne(
     r: &HashMap<usize, &Connection>,
     rng: &mut ThreadRng,
 ) -> Vec<Connection> {
-    l.into_iter()
+    l.iter()
         .map(|(inno, l_conn)| {
             (*if r.contains_key(inno) && rng.random_bool(0.5) {
                 r.get(inno).unwrap()
@@ -162,7 +162,7 @@ mod test {
     fn test_avg_weight_diff() {
         assert!(
             (avg_weight_diff(
-                &vec![
+                &[
                     Connection {
                         inno: 1,
                         from: 0,
@@ -183,9 +183,9 @@ mod test {
                         to: 0,
                         weight: 1.0,
                         enabled: true
-                    },
+                    }
                 ],
-                &vec![
+                &[
                     Connection {
                         inno: 1,
                         from: 0,
@@ -206,7 +206,7 @@ mod test {
                         to: 0,
                         weight: 2.0,
                         enabled: true
-                    },
+                    }
                 ]
             ) - 0.5)
                 .abs()
@@ -239,16 +239,16 @@ mod test {
                 enabled: true,
             },
         ];
-        assert!((avg_weight_diff(&full, &vec![]) - 0.0).abs() < f64::EPSILON);
-        assert!((avg_weight_diff(&vec![], &full,) - 0.0).abs() < f64::EPSILON);
-        assert!((avg_weight_diff(&vec![], &vec![],) - 0.0).abs() < f64::EPSILON);
+        assert!((avg_weight_diff(&full, &[]) - 0.0).abs() < f64::EPSILON);
+        assert!((avg_weight_diff(&[], &full,) - 0.0).abs() < f64::EPSILON);
+        assert!((avg_weight_diff(&[], &[],) - 0.0).abs() < f64::EPSILON);
     }
 
     #[test]
     fn test_avg_weight_diff_no_overlap() {
         assert!(
             (avg_weight_diff(
-                &vec![
+                &[
                     Connection {
                         inno: 1,
                         from: 0,
@@ -271,7 +271,7 @@ mod test {
                         enabled: true
                     },
                 ],
-                &vec![
+                &[
                     Connection {
                         inno: 5,
                         from: 0,
@@ -297,7 +297,7 @@ mod test {
     fn test_avg_weight_diff_no_diff() {
         assert!(
             (avg_weight_diff(
-                &vec![
+                &[
                     Connection {
                         inno: 1,
                         from: 0,
@@ -320,7 +320,7 @@ mod test {
                         enabled: true
                     },
                 ],
-                &vec![
+                &[
                     Connection {
                         inno: 1,
                         from: 0,
@@ -354,7 +354,7 @@ mod test {
         assert_eq!(
             (4.0, 2.0),
             disjoint_excess_count(
-                &vec![
+                &[
                     Connection {
                         inno: 1,
                         from: 0,
@@ -377,7 +377,7 @@ mod test {
                         enabled: true,
                     },
                 ],
-                &vec![
+                &[
                     Connection {
                         inno: 1,
                         from: 0,
@@ -501,9 +501,9 @@ mod test {
                 enabled: true,
             },
         ];
-        assert_eq!((0.0, 2.0), disjoint_excess_count(&full, &vec![]));
-        assert_eq!((0.0, 2.0), disjoint_excess_count(&vec![], &full));
-        assert_eq!((0.0, 0.0), disjoint_excess_count(&vec![], &vec![]));
+        assert_eq!((0.0, 2.0), disjoint_excess_count(&full, &[]));
+        assert_eq!((0.0, 2.0), disjoint_excess_count(&[], &full));
+        assert_eq!((0.0, 0.0), disjoint_excess_count(&[], &[]));
     }
 
     #[test]
@@ -511,7 +511,7 @@ mod test {
         assert_eq!(
             (2.0, 2.0),
             disjoint_excess_count(
-                &vec![
+                &[
                     Connection {
                         inno: 1,
                         from: 0,
@@ -527,7 +527,7 @@ mod test {
                         enabled: true,
                     },
                 ],
-                &vec![
+                &[
                     Connection {
                         inno: 3,
                         from: 0,
@@ -552,14 +552,14 @@ mod test {
         assert_eq!(
             (3.0, 1.0),
             disjoint_excess_count(
-                &vec![Connection {
+                &[Connection {
                     inno: 10,
                     from: 0,
                     to: 0,
                     weight: 0.0,
                     enabled: true,
                 }],
-                &vec![
+                &[
                     Connection {
                         inno: 1,
                         from: 0,
