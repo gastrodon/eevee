@@ -1,6 +1,5 @@
-use std::{f64::consts::E, ops::BitXor};
-
 use rand::{rng, rngs::SmallRng, Rng, SeedableRng};
+use std::{f64::consts::E, ops::BitXor};
 
 pub fn steep_sigmoid(x: f64) -> f64 {
     1. / (1. + E.powf(-4.9 * x))
