@@ -1,10 +1,12 @@
 use crate::{
+    crossover::crossover,
     eval::{steep_sigmoid, Game},
     population::InnoGen,
 };
 use rand::{rngs::ThreadRng, seq::IteratorRandom, Rng};
 use rand_distr::StandardNormal;
 use std::{
+    cmp::{max, Ordering},
     collections::HashSet,
     error::Error,
     hash::Hash,
@@ -159,6 +161,41 @@ impl Genome {
         }
 
         Ok(())
+    }
+
+    pub fn reproduce_with(&self, other: &Genome, self_fit: Ordering, rng: &mut ThreadRng) -> Self {
+        let connections = crossover(&self.connections, &other.connections, self_fit, rng);
+        let nodes_size = connections
+            .iter()
+            .fold(0, |prev, Connection { from, to, .. }| {
+                max(prev, max(*from, *to))
+            });
+
+        let mut nodes = Vec::with_capacity(self.sensory + self.action + 1);
+        for _ in 0..self.sensory {
+            nodes.push(Node::Sensory);
+        }
+        for _ in self.sensory..self.sensory + self.action {
+            nodes.push(Node::Action);
+        }
+        nodes.push(Node::Bias(1.));
+        for _ in self.sensory + self.action..nodes_size {
+            nodes.push(Node::Internal);
+        }
+
+        assert!(
+            connections
+                .iter()
+                .fold(0, |acc, c| max(acc, max(c.from, c.to)))
+                < nodes.len()
+        );
+
+        Self {
+            sensory: self.sensory,
+            action: self.action,
+            nodes,
+            connections,
+        }
     }
 
     /// given a mutable state, propagate it with the genome's connections ye
