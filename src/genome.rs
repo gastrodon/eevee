@@ -224,8 +224,24 @@ impl Genome {
         }
     }
 
-    fn propagate(self, game: impl Game) -> usize {
-        todo!()
+    pub fn propagate_game(&self, game: &mut impl Game, flush: bool) -> usize {
+        let l = self.nodes.len();
+        let mut state = vec![0.; l];
+        let mut fit_accum = 0;
+        loop {
+            if !game.frame(state_head(self.sensory, &mut state)) {
+                break fit_accum;
+            }
+
+            self.propagate_once(&mut state);
+            fit_accum += game
+                .score(state_tail(self.action, &state))
+                .expect("failed to unwrap score");
+
+            if flush {
+                state = vec![0.; l];
+            }
+        }
     }
 }
 
