@@ -182,6 +182,16 @@ impl Genome {
 
     /// given a mutable state, propagate it with the genome's connections ye
     pub fn propagate_once(&self, state: &mut [f64]) {
+        for (idx, bias) in self.nodes.iter().enumerate().filter_map(|(idx, n)| {
+            if let Node::Bias(b) = n {
+                Some((idx, b))
+            } else {
+                None
+            }
+        }) {
+            state[idx] = *bias
+        }
+
         for c in self
             .connections
             .iter()
