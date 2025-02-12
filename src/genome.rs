@@ -1,43 +1,15 @@
-use crate::eval::{steep_sigmoid, Game};
+use crate::{
+    eval::{steep_sigmoid, Game},
+    population::InnoGen,
+};
 use rand::{rngs::ThreadRng, seq::IteratorRandom, Rng};
 use rand_distr::StandardNormal;
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashSet,
     error::Error,
     hash::Hash,
     iter,
-    sync::{Arc, Mutex},
 };
-
-pub struct InnoGen {
-    pub head: usize,
-    seen: HashMap<(usize, usize), usize>,
-}
-
-impl InnoGen {
-    pub fn new(head: usize) -> Self {
-        Self {
-            head,
-            seen: HashMap::new(),
-        }
-    }
-
-    pub fn new_arc(head: usize) -> Arc<Mutex<Self>> {
-        Arc::new(Mutex::new(Self::new(head)))
-    }
-
-    pub fn path(&mut self, v: (usize, usize)) -> usize {
-        match self.seen.get(&v) {
-            Some(n) => *n,
-            None => {
-                let n = self.head;
-                self.head += 1;
-                self.seen.insert(v, n);
-                n
-            }
-        }
-    }
-}
 
 #[derive(Debug, Clone)]
 pub enum Node {
@@ -54,6 +26,15 @@ pub struct Connection {
     pub to: usize,
     pub weight: f64,
     pub enabled: bool,
+}
+
+impl Hash for Connection {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.inno.hash(state);
+        self.from.hash(state);
+        self.to.hash(state);
+        ((1000. * self.weight) as usize).hash(state);
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -254,21 +235,8 @@ fn gen_connection(genome: &Genome, rng: &mut ThreadRng) -> Option<(usize, usize)
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::population::InnoGen;
     use std::vec;
-
-    #[test]
-    fn test_inno_gen() {
-        let mut inno = InnoGen::new(0);
-        assert_eq!(inno.head, 0);
-        assert_eq!(inno.path((0, 1)), 0);
-        assert_eq!(inno.path((1, 2)), 1);
-        assert_eq!(inno.path((0, 1)), 0);
-        assert_eq!(inno.head, 2);
-
-        let mut inno2 = InnoGen::new(inno.head);
-        assert_eq!(inno2.path((1, 0)), 2);
-        assert_eq!(inno2.path((0, 1)), 3);
-    }
 
     #[test]
     fn test_genome_creation() {
@@ -318,8 +286,8 @@ mod test {
         for _ in 0..100 {
             match gen_connection(&genome, &mut rand::rng()) {
                 Some((0, o)) | Some((o, 0)) => assert_eq!(o, 1),
-                Some(p) => assert!(false, "invalid pair {p:?} gen'd"),
-                None => assert!(false, "no path gen'd"),
+                Some(p) => unreachable!("invalid pair {p:?} gen'd"),
+                None => unreachable!("no path gen'd"),
             }
         }
     }
