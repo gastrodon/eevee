@@ -1,7 +1,7 @@
 use crate::{
     crossover::crossover,
     eval::{steep_sigmoid, Game},
-    population::InnoGen,
+    specie::InnoGen,
 };
 use rand::{rngs::ThreadRng, seq::IteratorRandom, Rng};
 use rand_distr::StandardNormal;
@@ -288,7 +288,7 @@ fn gen_connection(genome: &Genome, rng: &mut ThreadRng) -> Option<(usize, usize)
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::population::InnoGen;
+    use crate::specie::InnoGen;
     use std::vec;
 
     #[test]
