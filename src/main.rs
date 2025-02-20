@@ -4,11 +4,10 @@ mod genome;
 mod specie;
 
 use eval::GameXOR;
+use genome::Genome;
 use rand::{rng, rngs::ThreadRng};
 use specie::{speciate, InnoGen, Specie, SpecieRepr};
 use std::collections::HashMap;
-
-use crate::genome::Genome;
 
 const POPULATION: usize = 100;
 const FIT_SCALE: usize = 512;
