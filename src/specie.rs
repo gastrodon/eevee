@@ -208,6 +208,13 @@ impl Specie<'_> {
 
         Ok(pop)
     }
+
+    pub fn shrink_top_p(&mut self, p: f64) {
+        if p <= 0. || 1. < p {
+            panic!("p must be in range [0,1)")
+        }
+        self.1.truncate((p * self.len() as f64).round() as usize);
+    }
 }
 
 const SPECIE_THRESHOLD: f64 = 4.;
@@ -227,7 +234,8 @@ pub fn speciate<'a>(genomes: impl Iterator<Item = (&'a Genome, usize)>) -> Vec<S
     }
 
     for specie in sp.iter_mut() {
-        specie.1.sort_by_cached_key(|(_, f)| *f);
+        // sorting reversed so that we can easily cull less-fit members by shrinking the vec
+        specie.1.sort_by(|l, r| r.1.cmp(&l.1));
     }
 
     sp
