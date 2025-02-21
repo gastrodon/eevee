@@ -9,9 +9,8 @@ use rand::{rng, rngs::ThreadRng};
 use specie::{speciate, InnoGen, Specie, SpecieRepr};
 use std::collections::HashMap;
 
-const GENERATIONS: usize = 1000;
-const POPULATION: usize = 100;
-const FIT_SCALE: usize = 512;
+const GENERATIONS: usize = 5000;
+const POPULATION: usize = 3500;
 
 fn population_init(
     sensory: usize,
@@ -77,10 +76,7 @@ fn main() {
     let pop_evaluated = loop {
         let scored = population
             .iter()
-            .map(|genome| {
-                let fit = genome.propagate_game(&mut GameXOR::new(FIT_SCALE), false);
-                (genome, fit / FIT_SCALE)
-            })
+            .map(|genome| (genome, genome.propagate_game(&mut GameXOR::new(), true)))
             .collect::<Vec<_>>();
 
         let species = {

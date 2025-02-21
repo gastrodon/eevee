@@ -229,6 +229,7 @@ impl Genome {
         let mut state = vec![0.; l];
         let mut fit_accum = 0;
         loop {
+            game.step();
             if !game.frame(state_head(self.sensory, &mut state)) {
                 break fit_accum;
             }
