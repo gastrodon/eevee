@@ -97,17 +97,17 @@ pub struct Specie<'a>(pub SpecieRepr<'a>, pub Vec<(&'a Genome, usize)>);
 
 impl Specie<'_> {
     #[inline]
-    fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.1.len()
     }
 
     #[inline]
-    fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.1.is_empty()
     }
 
     #[inline]
-    fn last(&self) -> Option<&(&Genome, usize)> {
+    pub fn last(&self) -> Option<&(&Genome, usize)> {
         self.1.last()
     }
 
