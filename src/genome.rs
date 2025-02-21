@@ -216,11 +216,7 @@ impl Genome {
             .filter(|Connection { enabled, .. }| *enabled)
         {
             let prop = steep_sigmoid(state[c.from]) * c.weight;
-            if state[c.to] == 0. {
-                state[c.to] = prop
-            } else {
-                state[c.to] = (state[c.to] + prop) / 2. // is this even the right way to rolling avg?
-            }
+            state[c.to] += prop
         }
     }
 
