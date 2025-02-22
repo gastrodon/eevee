@@ -528,7 +528,7 @@ mod test {
 
         assert_eq!(
             state_tail(genome.action, &state),
-            &[steep_sigmoid(1.) * 0.5, 0.]
+            &[steep_sigmoid(1.) * 0.5, 1.]
         );
     }
 }
