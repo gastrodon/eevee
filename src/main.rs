@@ -1,4 +1,5 @@
 mod crossover;
+mod ctrnn;
 mod eval;
 mod genome;
 mod specie;
