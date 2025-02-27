@@ -1,10 +1,12 @@
 use crate::{
     crossover::crossover,
+    ctrnn::Network,
     eval::{steep_sigmoid, Game},
     specie::InnoGen,
 };
 use rand::{rngs::ThreadRng, seq::IteratorRandom, Rng};
 use rand_distr::StandardNormal;
+use rulinalg::matrix::Matrix;
 use std::{
     cmp::{max, Ordering},
     collections::HashSet,
@@ -198,6 +200,33 @@ impl Genome {
         }
     }
 
+    pub fn network<T: Fn(f64) -> f64>(&self, σ: T) -> Network<T> {
+        let cols = self.nodes.len();
+        Network {
+            σ,
+            y: Matrix::zeros(1, cols),
+            θ: Matrix::new(
+                1,
+                cols,
+                self.nodes
+                    .iter()
+                    .map(|n| if let Node::Bias(b) = n { *b } else { 0. })
+                    .collect::<Vec<_>>(),
+            ),
+            τ: Matrix::ones(1, cols),
+            w: {
+                let mut w = vec![0.; cols * cols];
+                for Connection {
+                    from, to, weight, ..
+                } in self.connections.iter().filter(|c| c.enabled)
+                {
+                    w[from * cols + to] = *weight;
+                }
+                Matrix::new(cols, cols, w)
+            },
+        }
+    }
+
     /// given a mutable state, propagate it with the genome's connections ye
     pub fn propagate_once(&self, state: &mut [f64]) {
         for (idx, bias) in self.nodes.iter().enumerate().filter_map(|(idx, n)| {
@@ -286,6 +315,7 @@ fn gen_connection(genome: &Genome, rng: &mut ThreadRng) -> Option<(usize, usize)
 mod test {
     use super::*;
     use crate::specie::InnoGen;
+    use rulinalg::matrix::BaseMatrix;
     use std::vec;
 
     #[test]
@@ -502,8 +532,28 @@ mod test {
         assert_eq!(state, vec![1., 2., 3., 0., 0.])
     }
 
+    macro_rules! assert_f64_approx {
+        ($l:expr, $r:expr) => {
+            assert!(
+                ($l - $r).abs() < f64::EPSILON,
+                "assertion failed: {} !~ {}",
+                $l,
+                $r
+            )
+        };
+        ($l:expr, $r:expr, $msg:expr) => {
+            assert!(
+                ($l - $r).abs() < f64::EPSILON,
+                "assertion failed: {} !~ {}: {}",
+                $l,
+                $r,
+                $msg
+            )
+        };
+    }
+
     #[test]
-    fn test_propagate_once() {
+    fn test_network() {
         let mut genome = Genome::new(2, 2);
         genome.connections = vec![
             Connection {
@@ -520,15 +570,30 @@ mod test {
                 weight: -1.,
                 enabled: true,
             },
+            Connection {
+                inno: 2,
+                from: 0,
+                to: 1,
+                weight: 1.2,
+                enabled: false,
+            },
         ];
 
-        let mut state = vec![0.; genome.nodes.len()];
-        state_head(genome.sensory, &mut state).clone_from_slice(&[1., 1.]);
-        genome.propagate_once(&mut state);
+        let nn = genome.network(steep_sigmoid);
+        unsafe {
+            for Connection {
+                from, to, weight, ..
+            } in genome.connections.iter().filter(|c| c.enabled)
+            {
+                assert_f64_approx!(nn.w.get_unchecked([*from, *to]), weight);
+            }
 
-        assert_eq!(
-            state_tail(genome.action, &state),
-            &[steep_sigmoid(1.) * 0.5, 1.]
-        );
+            for (i, node) in genome.nodes.iter().enumerate() {
+                assert_f64_approx!(
+                    nn.θ.get_unchecked([0, i]),
+                    if let Node::Bias(b) = node { b } else { &0. }
+                )
+            }
+        }
     }
 }
