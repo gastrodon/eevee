@@ -595,5 +595,18 @@ mod test {
                 )
             }
         }
+
+        for i in nn.sensory.0..nn.sensory.1 {
+            assert!(genome
+                .nodes
+                .get(i)
+                .is_some_and(|n| matches!(n, Node::Sensory)))
+        }
+        for i in nn.action.0..nn.action.1 {
+            assert!(genome
+                .nodes
+                .get(i)
+                .is_some_and(|n| matches!(n, Node::Action)))
+        }
     }
 }
