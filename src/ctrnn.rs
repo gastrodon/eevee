@@ -1,13 +1,35 @@
-use rulinalg::matrix::Matrix;
+use rulinalg::matrix::{BaseMatrix, BaseMatrixMut, Matrix};
 
-const STEP_RATE: usize = 1;
-const STEP_SIZE: usize = 1;
+#[derive(Debug)]
+pub struct Network<T: Fn(f64) -> f64 + Sized> {
+    pub σ: T,           // activation function                  (\u3c3)
+    pub y: Matrix<f64>, // 1d state of neurons 0-N
+    pub θ: Matrix<f64>, // 1d bias of neurons 0-N               (\u3b8)
+    pub τ: Matrix<f64>, // 1d membrane resistance time constant (\u3c4)
+    pub w: Matrix<f64>, // Nd weights between neurons, indexed as [from, to]
+}
 
-/// for every synaptic pair j -> i, describes a anetwork
-struct Network {
-    state: Matrix<f64>,          // y - 1d state of neurons 0-N
-    input: Matrix<f64>,          // I - 1d external input to neurons 0-N
-    bias: Matrix<f64>,           // θ - 1d bias of neurons 0-N
-    time_const: Matrix<f64>,     // τ - 1d membrane resistance time constant ( τ > 0 )
-    weight_from_to: Matrix<f64>, // w - Nd weights between neurons (0-N, 0-N), 0. if disconnected
+impl<T: Fn(f64) -> f64> Network<T> {
+    pub fn new(size: usize, σ: T) -> Self {
+        Self {
+            σ,
+            y: Matrix::zeros(1, size),
+            θ: Matrix::zeros(1, size),
+            τ: Matrix::ones(1, size),
+            w: Matrix::zeros(size, size),
+        }
+    }
+
+    pub fn step(&mut self, prec: usize, input: &Matrix<f64>) {
+        let inv = 1. / (prec as f64);
+        for _ in 0..prec {
+            self.y += (((&self.y + &self.θ).apply(&self.σ) * &self.w) - &self.y + input)
+                .elediv(&self.τ)
+                .apply(&|v| v * inv);
+        }
+    }
+
+    pub fn state(&self) -> &[f64] {
+        self.y.data()
+    }
 }
