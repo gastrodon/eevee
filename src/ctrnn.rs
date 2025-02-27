@@ -39,4 +39,8 @@ impl<T: Fn(f64) -> f64> Network<T> {
     pub fn state(&self) -> &[f64] {
         self.y.data()
     }
+
+    pub fn output(&self) -> &[f64] {
+        &self.y.data()[self.action.0..self.action.1]
+    }
 }

@@ -224,6 +224,8 @@ impl Genome {
                 }
                 Matrix::new(cols, cols, w)
             },
+            sensory: (0, self.sensory),
+            action: (self.sensory, self.sensory + self.action),
         }
     }
 
