@@ -12,18 +12,6 @@ pub struct Network<T: Fn(f64) -> f64 + Sized> {
 }
 
 impl<T: Fn(f64) -> f64> Network<T> {
-    pub fn new(size: usize, σ: T, sensory: (usize, usize), action: (usize, usize)) -> Self {
-        Self {
-            σ,
-            y: Matrix::zeros(1, size),
-            θ: Matrix::zeros(1, size),
-            τ: Matrix::ones(1, size),
-            w: Matrix::zeros(size, size),
-            sensory,
-            action,
-        }
-    }
-
     pub fn step(&mut self, prec: usize, input: &[f64]) {
         let mut m_input = Matrix::zeros(1, self.y.cols());
         m_input.mut_data()[self.sensory.0..self.sensory.1].copy_from_slice(input);
@@ -34,10 +22,6 @@ impl<T: Fn(f64) -> f64> Network<T> {
                 .elediv(&self.τ)
                 .apply(&|v| v * inv);
         }
-    }
-
-    pub fn state(&self) -> &[f64] {
-        self.y.data()
     }
 
     pub fn output(&self) -> &[f64] {
