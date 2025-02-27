@@ -228,61 +228,6 @@ impl Genome {
             action: (self.sensory, self.sensory + self.action),
         }
     }
-
-    /// given a mutable state, propagate it with the genome's connections ye
-    pub fn propagate_once(&self, state: &mut [f64]) {
-        for (idx, bias) in self.nodes.iter().enumerate().filter_map(|(idx, n)| {
-            if let Node::Bias(b) = n {
-                Some((idx, b))
-            } else {
-                None
-            }
-        }) {
-            state[idx] = *bias
-        }
-
-        for c in self
-            .connections
-            .iter()
-            .filter(|Connection { enabled, .. }| *enabled)
-        {
-            let prop = steep_sigmoid(state[c.from]) * c.weight;
-            state[c.to] += prop
-        }
-    }
-
-    pub fn propagate_game(&self, game: &mut impl Game, flush: bool) -> usize {
-        let l = self.nodes.len();
-        let mut state = vec![0.; l];
-        let mut fit_accum = 0;
-        loop {
-            game.step();
-            if !game.frame(state_head(self.sensory, &mut state)) {
-                break fit_accum;
-            }
-
-            self.propagate_once(&mut state);
-            fit_accum += game
-                .score(state_tail(self.action, &state))
-                .expect("failed to unwrap score");
-
-            if flush {
-                state = vec![0.; l];
-            }
-        }
-    }
-}
-
-// TODO move state_{head,tail} to a common place for game logic?
-fn state_head(size: usize, state: &mut [f64]) -> &mut [f64] {
-    assert!(state.len() >= size);
-    &mut state[0..size]
-}
-
-fn state_tail(size: usize, state: &[f64]) -> &[f64] {
-    let l = state.len();
-    assert!(l >= size);
-    &state[l - size..l]
 }
 
 /// Given a genome with 0 or more nodes, try to generate a connection between nodes
@@ -530,7 +475,13 @@ mod test {
     #[test]
     fn test_state_head() {
         let mut state = vec![0.; 5];
-        state_head(3, &mut state).clone_from_slice(&[1., 2., 3.]);
+        {
+            let size = 3;
+            let state: &mut [f64] = &mut state;
+            assert!(state.len() >= size);
+            &mut state[0..size]
+        }
+        .clone_from_slice(&[1., 2., 3.]);
         assert_eq!(state, vec![1., 2., 3., 0., 0.])
     }
 
