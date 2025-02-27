@@ -13,8 +13,8 @@ use rand::{rng, rngs::ThreadRng};
 use specie::{speciate, InnoGen, Specie, SpecieRepr};
 use std::collections::HashMap;
 
-const GENERATIONS: usize = 5000;
-const POPULATION: usize = 3500;
+const GENERATIONS: usize = 100_000;
+const POPULATION: usize = 7500;
 
 fn population_init(
     sensory: usize,
@@ -87,14 +87,20 @@ fn main() {
         let species = {
             let mut species = speciate(scored.into_iter());
             for s in species.iter_mut() {
-                s.shrink_top_p(0.01);
+                s.shrink_top_p(0.1 / 3.);
             }
             species
         };
 
-        let species_pop = specie_populations(&species, POPULATION, 0.5);
+        let species_pop = specie_populations(&species, POPULATION, 0.4);
         if gen_idx == GENERATIONS {
             break species;
+        }
+
+        if gen_idx % 100 == 0{
+            for (idx, s) in species.iter().filter(|s| !s.is_empty()).enumerate() {
+                println!("champ {gen_idx}.{idx}: {}", s.1[0].1)
+            }
         }
 
         let mut innogen = InnoGen::new(inno_head);
@@ -111,7 +117,6 @@ fn main() {
             })
             .collect::<Vec<_>>();
         inno_head = innogen.head;
-
         gen_idx += 1;
     };
 
