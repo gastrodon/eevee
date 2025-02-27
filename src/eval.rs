@@ -1,66 +1,38 @@
-use rand::{rng, rngs::SmallRng, Rng, SeedableRng};
-use std::{f64::consts::E, ops::BitXor};
+use crate::ctrnn::Network;
+use rand_distr::num_traits::Pow;
+use std::f64::consts::E;
 
 pub fn steep_sigmoid(x: f64) -> f64 {
     1. / (1. + E.powf(-4.9 * x))
 }
 
-pub trait Game {
-    /// generate and draw a new frame to the input slice of data
-    fn frame(&self, data: &mut [f64]) -> bool;
-    /// score the output slice of data against the last frame's expected result
-    fn score(&self, data: &[f64]) -> Option<usize>;
-    fn step(&mut self);
+pub trait Game<T: Fn(f64) -> f64 + Sized> {
+    fn eval(&self, network: &mut Network<T>) -> usize;
 }
 
-pub struct GameXOR(u8);
+pub struct GameXOR;
 
 impl GameXOR {
     pub fn new() -> Self {
-        Self(0)
+        Self {}
     }
 }
 
-impl Game for GameXOR {
-    fn frame(&self, data: &mut [f64]) -> bool {
-        match self.0 {
-            0 => {
-                data[0] = 0.;
-                data[1] = 0.;
-                true
-            }
-            1 => {
-                data[0] = 0.;
-                data[1] = 1.;
-                true
-            }
-            2 => {
-                data[0] = 1.;
-                data[1] = 0.;
-                true
-            }
-            3 => {
-                data[0] = 1.;
-                data[1] = 1.;
-                true
-            }
-            _ => false,
-        }
-    }
+impl<T: Fn(f64) -> f64 + Sized> Game<T> for GameXOR {
+    fn eval(&self, network: &mut Network<T>) -> usize {
+        let mut fit = 0;
+        network.step(2, &[0., 0.]);
+        fit += (25. * (1. - (1. - network.output()[0]).abs().pow(2.))) as usize;
 
-    fn score(&self, data: &[f64]) -> Option<usize> {
-        let want = match self.0 {
-            0 | 3 => 0.,
-            1 | 2 => 1.,
-            _ => return None,
-        };
+        network.step(2, &[1., 1.]);
+        fit += (25. * (1. - (1. - network.output()[0]).abs().pow(2.))) as usize;
 
-        Some((25. * (1. - (want - data[0]).abs())) as usize)
-    }
+        network.step(2, &[0., 1.]);
+        fit += (25. * (1. - (0. - network.output()[0]).abs().pow(2.))) as usize;
 
-    fn step(&mut self) {
-        if self.0 < 4 {
-            self.0 += 1
-        }
+        network.step(2, &[1., 0.]);
+        fit += (25. * (1. - (0. - network.output()[0]).abs().pow(2.))) as usize;
+
+        fit
     }
 }

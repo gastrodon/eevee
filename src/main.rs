@@ -7,7 +7,7 @@ mod eval;
 mod genome;
 mod specie;
 
-use eval::GameXOR;
+use eval::{steep_sigmoid, Game, GameXOR};
 use genome::Genome;
 use rand::{rng, rngs::ThreadRng};
 use specie::{speciate, InnoGen, Specie, SpecieRepr};
@@ -77,10 +77,11 @@ fn main() {
 
     let mut population = population_init(2, 1, POPULATION, &mut rng);
     let mut gen_idx = 0;
+    let game = GameXOR::new();
     let pop_evaluated = loop {
         let scored = population
             .iter()
-            .map(|genome| (genome, genome.propagate_game(&mut GameXOR::new(), true)))
+            .map(|genome| (genome, game.eval(&mut genome.network(steep_sigmoid))))
             .collect::<Vec<_>>();
 
         let species = {
