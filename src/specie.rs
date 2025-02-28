@@ -126,9 +126,7 @@ impl Specie<'_> {
 
     pub fn fit_adjusted(&self) -> f64 {
         let l = self.len() as f64;
-        self.1
-            .iter()
-            .fold(0., |acc, (_, fit)| acc + *fit as f64 / l)
+        self.1.iter().fold(0., |acc, (_, fit)| acc + *fit / l)
     }
 
     fn reproduce_crossover(
