@@ -39,19 +39,13 @@ fn main() {
             break species;
         }
 
-        if gen_idx % 100 == 0 {
-            for (idx, s) in species.iter().filter(|s| !s.is_empty()).enumerate() {
-                println!("champ {gen_idx}.{idx}: {}", s.1[0].1)
-            }
-        }
         (population, inno_head) =
             population_reproduce(&species, POPULATION, 0.4, inno_head, &mut rng);
 
         gen_idx += 1;
     };
 
-    println!("{gen_idx}");
     for (idx, s) in pop_evaluated.iter().filter(|s| !s.is_empty()).enumerate() {
-        println!("champ {idx}: {}", s.1[0].1)
+        println!("champ {gen_idx}.{idx}: {}", s.1[0].1)
     }
 }
