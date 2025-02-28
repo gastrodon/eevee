@@ -1,8 +1,11 @@
 use rulinalg::matrix::{BaseMatrix, BaseMatrixMut, Matrix};
-use std::f64::consts::E;
 
-pub fn steep_sigmoid(x: f64) -> f64 {
-    1. / (1. + E.powf(-4.9 * x))
+pub mod activate {
+    use std::f64::consts::E;
+
+    pub fn steep_sigmoid(x: f64) -> f64 {
+        1. / (1. + E.powf(-4.9 * x))
+    }
 }
 
 pub trait Network {
