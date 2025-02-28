@@ -1,7 +1,7 @@
 use rulinalg::matrix::{BaseMatrix, BaseMatrixMut, Matrix};
 
 #[derive(Debug)]
-pub struct Network<T: Fn(f64) -> f64 + Sized> {
+pub struct Ctrnn<T: Fn(f64) -> f64 + Sized> {
     pub σ: T,           // activation function                  (\u3c3)
     pub y: Matrix<f64>, // 1d state of neurons 0-N
     pub θ: Matrix<f64>, // 1d bias of neurons 0-N               (\u3b8)
@@ -11,7 +11,7 @@ pub struct Network<T: Fn(f64) -> f64 + Sized> {
     pub action: (usize, usize),
 }
 
-impl<T: Fn(f64) -> f64> Network<T> {
+impl<T: Fn(f64) -> f64> Ctrnn<T> {
     pub fn step(&mut self, prec: usize, input: &[f64]) {
         let mut m_input = Matrix::zeros(1, self.y.cols());
         m_input.mut_data()[self.sensory.0..self.sensory.1].copy_from_slice(input);

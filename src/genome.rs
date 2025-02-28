@@ -1,4 +1,4 @@
-use crate::{crossover::crossover, ctrnn::Network, specie::InnoGen};
+use crate::{crossover::crossover, network::Ctrnn, specie::InnoGen};
 use rand::{rngs::ThreadRng, seq::IteratorRandom, Rng};
 use rand_distr::StandardNormal;
 use rulinalg::matrix::Matrix;
@@ -195,9 +195,9 @@ impl Genome {
         }
     }
 
-    pub fn network<T: Fn(f64) -> f64>(&self, σ: T) -> Network<T> {
+    pub fn network<T: Fn(f64) -> f64>(&self, σ: T) -> Ctrnn<T> {
         let cols = self.nodes.len();
-        Network {
+        Ctrnn {
             σ,
             y: Matrix::zeros(1, cols),
             θ: Matrix::new(

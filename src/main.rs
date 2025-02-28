@@ -2,9 +2,9 @@
 #![allow(confusable_idents)]
 
 mod crossover;
-mod ctrnn;
 mod eval;
 mod genome;
+mod network;
 mod specie;
 
 use eval::{steep_sigmoid, Game, GameXOR};
@@ -97,7 +97,7 @@ fn main() {
             break species;
         }
 
-        if gen_idx % 100 == 0{
+        if gen_idx % 100 == 0 {
             for (idx, s) in species.iter().filter(|s| !s.is_empty()).enumerate() {
                 println!("champ {gen_idx}.{idx}: {}", s.1[0].1)
             }

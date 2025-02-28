@@ -1,4 +1,4 @@
-use crate::ctrnn::Network;
+use crate::network::Ctrnn;
 use rand_distr::num_traits::Pow;
 use std::f64::consts::E;
 
@@ -7,7 +7,7 @@ pub fn steep_sigmoid(x: f64) -> f64 {
 }
 
 pub trait Game<T: Fn(f64) -> f64 + Sized> {
-    fn eval(&self, network: &mut Network<T>) -> usize;
+    fn eval(&self, network: &mut Ctrnn<T>) -> usize;
 }
 
 pub struct GameXOR;
@@ -19,7 +19,7 @@ impl GameXOR {
 }
 
 impl<T: Fn(f64) -> f64 + Sized> Game<T> for GameXOR {
-    fn eval(&self, network: &mut Network<T>) -> usize {
+    fn eval(&self, network: &mut Ctrnn<T>) -> usize {
         let mut fit = 0;
         network.step(2, &[0., 0.]);
         fit += (25. * (1. - (1. - network.output()[0]).abs().pow(2.))) as usize;
