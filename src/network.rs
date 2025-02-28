@@ -6,6 +6,14 @@ pub mod activate {
     pub fn steep_sigmoid(x: f64) -> f64 {
         1. / (1. + E.powf(-4.9 * x))
     }
+
+    pub fn relu(x: f64) -> f64 {
+        if x < 0. {
+            0.
+        } else {
+            x
+        }
+    }
 }
 
 pub trait Network {
