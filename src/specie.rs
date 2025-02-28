@@ -42,6 +42,11 @@ impl SpecieRepr<'_> {
     fn delta(&self, other: &[Connection]) -> f64 {
         delta(self.0, other)
     }
+
+    #[inline]
+    fn cloned(&self) -> Vec<Connection> {
+        self.0.to_vec()
+    }
 }
 
 impl SpecieRepr<'_> {
@@ -109,6 +114,14 @@ impl Specie<'_> {
     #[inline]
     pub fn last(&self) -> Option<&(&Genome, usize)> {
         self.1.last()
+    }
+
+    #[inline]
+    pub fn cloned(&self) -> (Vec<Connection>, Vec<(Genome, usize)>) {
+        (
+            self.0.cloned(),
+            self.1.iter().map(|(g, s)| ((*g).clone(), *s)).collect(),
+        )
     }
 
     pub fn fit_adjusted(&self) -> f64 {
