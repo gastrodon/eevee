@@ -98,7 +98,7 @@ fn uniq_2<'a, T>(pool: &'a [T], rng: &mut ThreadRng) -> Option<(&'a T, &'a T)> {
 }
 
 #[derive(Debug)]
-pub struct Specie<'a>(pub SpecieRepr<'a>, pub Vec<(&'a Genome, usize)>);
+pub struct Specie<'a>(pub SpecieRepr<'a>, pub Vec<(&'a Genome, f64)>);
 
 impl Specie<'_> {
     #[inline]
@@ -112,12 +112,12 @@ impl Specie<'_> {
     }
 
     #[inline]
-    pub fn last(&self) -> Option<&(&Genome, usize)> {
+    pub fn last(&self) -> Option<&(&Genome, f64)> {
         self.1.last()
     }
 
     #[inline]
-    pub fn cloned(&self) -> (Vec<Connection>, Vec<(Genome, usize)>) {
+    pub fn cloned(&self) -> (Vec<Connection>, Vec<(Genome, f64)>) {
         (
             self.0.cloned(),
             self.1.iter().map(|(g, s)| ((*g).clone(), *s)).collect(),
@@ -148,7 +148,7 @@ impl Specie<'_> {
         let mut pop = Vec::with_capacity(size);
         while pop.len() < size {
             let (l, r) = uniq_2(&self.1, rng).unwrap();
-            let mut child = l.0.reproduce_with(r.0, l.1.cmp(&r.1), rng);
+            let mut child = l.0.reproduce_with(r.0, l.1.partial_cmp(&r.1).unwrap(), rng);
             child.maybe_mutate(rng, innogen)?;
             pop.push(child);
         }
@@ -305,7 +305,7 @@ pub fn population_reproduce(
 
 const SPECIE_THRESHOLD: f64 = 4.;
 
-pub fn speciate<'a>(genomes: impl Iterator<Item = (&'a Genome, usize)>) -> Vec<Specie<'a>> {
+pub fn speciate<'a>(genomes: impl Iterator<Item = (&'a Genome, f64)>) -> Vec<Specie<'a>> {
     let mut sp = Vec::new();
     for pair in genomes {
         match sp
@@ -321,7 +321,7 @@ pub fn speciate<'a>(genomes: impl Iterator<Item = (&'a Genome, usize)>) -> Vec<S
 
     for specie in sp.iter_mut() {
         // sorting reversed so that we can easily cull less-fit members by shrinking the vec
-        specie.1.sort_by(|l, r| r.1.cmp(&l.1));
+        specie.1.sort_by(|l, r| r.1.partial_cmp(&l.1).unwrap());
     }
 
     sp

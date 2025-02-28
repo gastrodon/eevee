@@ -4,10 +4,9 @@ use crate::{
     specie::{population_reproduce, speciate, Specie},
 };
 use rand::rng;
-use rand_distr::num_traits::Pow;
 
 pub enum EvolutionTarget {
-    Fitness(usize),
+    Fitness(f64),
     Generation(usize),
 }
 
@@ -27,7 +26,7 @@ impl EvolutionTarget {
 
 pub trait Scenario {
     fn io() -> (usize, usize);
-    fn eval(&self, network: &mut impl Network) -> usize;
+    fn eval(&self, network: &mut impl Network) -> f64;
 
     fn evolve(
         &self,
@@ -37,7 +36,7 @@ pub trait Scenario {
         σ: impl Fn(f64) -> f64,
         genome_top_p: f64,
         specie_top_p: f64,
-    ) -> (Vec<(Genome, usize)>, usize) {
+    ) -> (Vec<(Genome, f64)>, usize) {
         let (mut pop_unspeciated, mut inno_head) = init(Self::io());
 
         let mut rng = rng();
