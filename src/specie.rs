@@ -234,7 +234,7 @@ impl Specie<'_> {
 /// works by scaling populaiton -> p' such that p' * top_p = population,
 /// followed by picking top species whos populations sum <= population.
 ///
-/// The very last specie is truncated to be no more than specie
+/// The very last specie is truncated to be no more than the remaining population
 fn population_alloc<'a>(
     species: &'a [Specie<'a>],
     population: usize,
