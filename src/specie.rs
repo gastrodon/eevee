@@ -217,6 +217,79 @@ impl Specie<'_> {
     }
 }
 
+/// allocate a target population for every specie in an existing population
+/// works by scaling populaiton -> p' such that p' * top_p = population,
+/// followed by picking top species whos populations sum <= population.
+///
+/// The very last specie is truncated to be no more than specie
+fn population_alloc<'a>(
+    species: &'a [Specie<'a>],
+    population: usize,
+    top_p: f64,
+) -> HashMap<&'a SpecieRepr<'a>, usize> {
+    let mut fits = species
+        .iter()
+        .map(|s| (&s.0, s.fit_adjusted()))
+        .collect::<Vec<_>>();
+
+    // I speculate partial_cmp may be none if the fitness is NaN,
+    // which would indicate a bigger issue somewhere else
+    fits.sort_by(|(_, l), (_, r)| r.partial_cmp(l).unwrap());
+
+    let population_scaled = population as f64 / top_p;
+    let fit_total = fits.iter().fold(0., |acc, (_, n)| acc + n);
+    let mut sizes = HashMap::new();
+    let mut size_acc = 0;
+    for (specie_repr, fit) in fits.into_iter() {
+        let s_pop = f64::round(population_scaled * fit / fit_total) as usize;
+        if size_acc + s_pop < population {
+            sizes.insert(specie_repr, s_pop);
+            size_acc += s_pop;
+        } else {
+            sizes.insert(specie_repr, population - size_acc);
+            break;
+        }
+    }
+    sizes
+}
+
+pub fn population_init(
+    sensory: usize,
+    action: usize,
+    population: usize,
+    rng: &mut ThreadRng,
+) -> (Vec<Genome>, usize) {
+    let mut v = vec![Genome::new(sensory, action); population];
+    let mut inext = InnoGen::new(0);
+    for g in v.iter_mut() {
+        g.mutate_connection(rng, &mut inext).unwrap();
+    }
+    (v, inext.head)
+}
+
+// reproduce a whole speciated population into a non-speciated population
+pub fn population_reproduce(
+    species: &[Specie],
+    population: usize,
+    top_p: f64,
+    inno_head: usize,
+    rng: &mut ThreadRng,
+) -> (Vec<Genome>, usize) {
+    let species_pop = population_alloc(species, population, top_p);
+    let mut innogen = InnoGen::new(inno_head);
+    (
+        species
+            .iter()
+            .flat_map(|specie| {
+                specie
+                    .reproduce(*species_pop.get(&specie.0).unwrap_or(&0), &mut innogen, rng)
+                    .unwrap()
+            })
+            .collect::<Vec<_>>(),
+        innogen.head,
+    )
+}
+
 const SPECIE_THRESHOLD: f64 = 4.;
 
 pub fn speciate<'a>(genomes: impl Iterator<Item = (&'a Genome, usize)>) -> Vec<Specie<'a>> {
