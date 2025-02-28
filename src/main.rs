@@ -2,14 +2,15 @@
 #![allow(confusable_idents)]
 
 mod crossover;
-mod eval;
 mod genome;
 mod network;
+mod scenario;
 mod specie;
 
-use eval::{steep_sigmoid, Game, GameXOR};
 use genome::Genome;
+use network::steep_sigmoid;
 use rand::{rng, rngs::ThreadRng};
+use scenario::{ConstXOR, Scenario};
 use specie::{speciate, InnoGen, Specie, SpecieRepr};
 use std::collections::HashMap;
 
@@ -77,7 +78,7 @@ fn main() {
 
     let mut population = population_init(2, 1, POPULATION, &mut rng);
     let mut gen_idx = 0;
-    let game = GameXOR::new();
+    let game = ConstXOR::new();
     let pop_evaluated = loop {
         let scored = population
             .iter()
