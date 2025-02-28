@@ -1,8 +1,8 @@
-use crate::network::Ctrnn;
+use crate::network::Network;
 use rand_distr::num_traits::Pow;
 
-pub trait Scenario<T: Fn(f64) -> f64 + Sized> {
-    fn eval(&self, network: &mut Ctrnn<T>) -> usize;
+pub trait Scenario {
+    fn eval(&self, network: &mut impl Network) -> usize;
 }
 
 pub struct ConstXOR;
@@ -13,8 +13,8 @@ impl ConstXOR {
     }
 }
 
-impl<T: Fn(f64) -> f64 + Sized> Scenario<T> for ConstXOR {
-    fn eval(&self, network: &mut Ctrnn<T>) -> usize {
+impl Scenario for ConstXOR {
+    fn eval(&self, network: &mut impl Network) -> usize {
         let mut fit = 0;
         network.step(2, &[0., 0.]);
         fit += (25. * (1. - (1. - network.output()[0]).abs().pow(2.))) as usize;

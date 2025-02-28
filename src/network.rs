@@ -5,6 +5,11 @@ pub fn steep_sigmoid(x: f64) -> f64 {
     1. / (1. + E.powf(-4.9 * x))
 }
 
+pub trait Network {
+    fn step(&mut self, prec: usize, input: &[f64]);
+    fn output(&self) -> &[f64];
+}
+
 #[derive(Debug)]
 pub struct Ctrnn<T: Fn(f64) -> f64 + Sized> {
     pub σ: T,           // activation function                  (\u3c3)
@@ -16,8 +21,8 @@ pub struct Ctrnn<T: Fn(f64) -> f64 + Sized> {
     pub action: (usize, usize),
 }
 
-impl<T: Fn(f64) -> f64> Ctrnn<T> {
-    pub fn step(&mut self, prec: usize, input: &[f64]) {
+impl<T: Fn(f64) -> f64 + Sized> Network for Ctrnn<T> {
+    fn step(&mut self, prec: usize, input: &[f64]) {
         let mut m_input = Matrix::zeros(1, self.y.cols());
         m_input.mut_data()[self.sensory.0..self.sensory.1].copy_from_slice(input);
 
@@ -29,7 +34,7 @@ impl<T: Fn(f64) -> f64> Ctrnn<T> {
         }
     }
 
-    pub fn output(&self) -> &[f64] {
+    fn output(&self) -> &[f64] {
         &self.y.data()[self.action.0..self.action.1]
     }
 }

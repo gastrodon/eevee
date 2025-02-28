@@ -256,7 +256,7 @@ fn gen_connection(genome: &Genome, rng: &mut ThreadRng) -> Option<(usize, usize)
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{eval::steep_sigmoid, specie::InnoGen};
+    use crate::{network::steep_sigmoid, specie::InnoGen};
     use rulinalg::matrix::BaseMatrix;
     use std::vec;
 
