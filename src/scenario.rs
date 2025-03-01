@@ -26,7 +26,7 @@ impl EvolutionTarget {
 
 pub trait Scenario {
     fn io() -> (usize, usize);
-    fn eval(&self, network: &mut impl Network) -> f64;
+    fn eval<F: Fn(f64) -> f64>(&self, network: &mut impl Network, σ: F) -> f64;
 
     fn evolve(
         &self,
@@ -44,7 +44,10 @@ pub trait Scenario {
         loop {
             let scored = pop_unspeciated
                 .iter()
-                .map(|genome| (genome, self.eval(&mut genome.network(&σ))))
+                .map(|genome| {
+                    let mut network = genome.network();
+                    (genome, self.eval(&mut network, &σ))
+                })
                 .collect::<Vec<_>>();
 
             let species = {

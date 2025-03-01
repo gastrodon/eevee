@@ -17,13 +17,12 @@ pub mod activate {
 }
 
 pub trait Network {
-    fn step(&mut self, prec: usize, input: &[f64]);
+    fn step<F: Fn(f64) -> f64>(&mut self, prec: usize, input: &[f64], σ: F);
     fn output(&self) -> &[f64];
 }
 
 #[derive(Debug)]
-pub struct Ctrnn<T: Fn(f64) -> f64 + Sized> {
-    pub σ: T,           // activation function                  (\u3c3)
+pub struct Ctrnn {
     pub y: Matrix<f64>, // 1d state of neurons 0-N
     pub θ: Matrix<f64>, // 1d bias of neurons 0-N               (\u3b8)
     pub τ: Matrix<f64>, // 1d membrane resistance time constant (\u3c4)
@@ -32,14 +31,14 @@ pub struct Ctrnn<T: Fn(f64) -> f64 + Sized> {
     pub action: (usize, usize),
 }
 
-impl<T: Fn(f64) -> f64 + Sized> Network for Ctrnn<T> {
-    fn step(&mut self, prec: usize, input: &[f64]) {
+impl Network for Ctrnn {
+    fn step<F: Fn(f64) -> f64>(&mut self, prec: usize, input: &[f64], σ: F) {
         let mut m_input = Matrix::zeros(1, self.y.cols());
         m_input.mut_data()[self.sensory.0..self.sensory.1].copy_from_slice(input);
 
         let inv = 1. / (prec as f64);
         for _ in 0..prec {
-            self.y += (((&self.y + &self.θ).apply(&self.σ) * &self.w) - &self.y + &m_input)
+            self.y += (((&self.y + &self.θ).apply(&σ) * &self.w) - &self.y + &m_input)
                 .elediv(&self.τ)
                 .apply(&|v| v * inv);
         }

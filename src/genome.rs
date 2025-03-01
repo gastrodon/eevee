@@ -195,10 +195,9 @@ impl Genome {
         }
     }
 
-    pub fn network<T: Fn(f64) -> f64>(&self, σ: T) -> Ctrnn<T> {
+    pub fn network(&self) -> Ctrnn {
         let cols = self.nodes.len();
         Ctrnn {
-            σ,
             y: Matrix::zeros(1, cols),
             θ: Matrix::new(
                 1,
@@ -527,7 +526,7 @@ mod test {
             },
         ];
 
-        let nn = genome.network(steep_sigmoid);
+        let nn = genome.network();
         unsafe {
             for Connection {
                 from, to, weight, ..

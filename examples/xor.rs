@@ -1,8 +1,7 @@
-use brain::{
-    activate::{relu, steep_sigmoid},
-    specie::population_init,
-    EvolutionTarget, Network, Scenario,
-};
+#![allow(mixed_script_confusables)]
+#![allow(confusable_idents)]
+
+use brain::{activate::relu, specie::population_init, EvolutionTarget, Network, Scenario};
 use core::f64;
 use rand::rng;
 
@@ -15,18 +14,18 @@ impl Scenario for Xor {
         (2, 1)
     }
 
-    fn eval(&self, network: &mut impl Network) -> f64 {
+    fn eval<F: Fn(f64) -> f64>(&self, network: &mut impl Network, σ: F) -> f64 {
         let mut fit = 0.;
-        network.step(2, &[0., 0.]);
+        network.step(2, &[0., 0.], &σ);
         fit += 1. - (1. - network.output()[0]).abs().powf(2.);
 
-        network.step(2, &[1., 1.]);
+        network.step(2, &[1., 1.], &σ);
         fit += 1. - (1. - network.output()[0]).abs().powf(2.);
 
-        network.step(2, &[0., 1.]);
+        network.step(2, &[0., 1.], &σ);
         fit += 1. - (0. - network.output()[0]).abs().powf(2.);
 
-        network.step(2, &[1., 0.]);
+        network.step(2, &[1., 0.], &σ);
         fit += 1. - (0. - network.output()[0]).abs().powf(2.);
 
         fit / 4.
