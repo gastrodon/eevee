@@ -1,15 +1,14 @@
-use core::f64;
-
 use brain::{
     activate::{relu, steep_sigmoid},
     specie::population_init,
     EvolutionTarget, Network, Scenario,
 };
+use core::f64;
 use rand::rng;
 
 const POPULATION: usize = 2500;
 
-pub struct Xor;
+struct Xor;
 
 impl Scenario for Xor {
     fn io() -> (usize, usize) {
