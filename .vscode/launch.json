@@ -7,16 +7,17 @@
     {
       "type": "lldb",
       "request": "launch",
-      "name": "Debug executable 'brain-rs-3'",
+      "name": "Debug unit tests in library 'brain'",
       "cargo": {
         "args": [
-          "build",
-          "--bin=brain-rs-3",
-          "--package=brain-rs-3"
+          "test",
+          "--no-run",
+          "--lib",
+          "--package=brain"
         ],
         "filter": {
-          "name": "brain-rs-3",
-          "kind": "bin"
+          "name": "brain",
+          "kind": "lib"
         }
       },
       "args": [],
@@ -25,17 +26,72 @@
     {
       "type": "lldb",
       "request": "launch",
-      "name": "Debug unit tests in executable 'brain-rs-3'",
+      "name": "Debug example 'cart-pole'",
+      "cargo": {
+        "args": [
+          "build",
+          "--example=cart-pole",
+          "--package=brain"
+        ],
+        "filter": {
+          "name": "cart-pole",
+          "kind": "example"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug unit tests in example 'cart-pole'",
       "cargo": {
         "args": [
           "test",
           "--no-run",
-          "--bin=brain-rs-3",
-          "--package=brain-rs-3"
+          "--example=cart-pole",
+          "--package=brain"
         ],
         "filter": {
-          "name": "brain-rs-3",
-          "kind": "bin"
+          "name": "cart-pole",
+          "kind": "example"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug example 'xor'",
+      "cargo": {
+        "args": [
+          "build",
+          "--example=xor",
+          "--package=brain"
+        ],
+        "filter": {
+          "name": "xor",
+          "kind": "example"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug unit tests in example 'xor'",
+      "cargo": {
+        "args": [
+          "test",
+          "--no-run",
+          "--example=xor",
+          "--package=brain"
+        ],
+        "filter": {
+          "name": "xor",
+          "kind": "example"
         }
       },
       "args": [],
