@@ -34,21 +34,9 @@ impl Scenario for Xor {
 }
 
 fn main() {
-    let mut res = Xor {}.evolve(
-        // EvolutionTarget::Fitness(scale(0) as usize),
-        EvolutionTarget::Fitness(0.99),
-        |(i, o)| population_init(i, o, POPULATION, &mut rng()),
-        POPULATION,
-        steep_sigmoid,
-        0.22,
-        0.4,
-    );
-
-    res.0.sort_by(|(_, l), (_, r)| r.partial_cmp(l).unwrap());
     let res = Xor {}.evolve(
-        // EvolutionTarget::Fitness(scale(0) as usize),
-        EvolutionTarget::Fitness(0.99999),
-        |_| (res.0.into_iter().map(|(g, _)| g).take(100).collect(), res.1),
+        EvolutionTarget::Fitness(0.9999),
+        |(i, o)| population_init(i, o, POPULATION, &mut rng()),
         POPULATION,
         relu,
         0.22,
