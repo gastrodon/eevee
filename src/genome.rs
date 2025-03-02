@@ -2,15 +2,18 @@ use crate::{crossover::crossover, network::Ctrnn, specie::InnoGen};
 use rand::{rngs::ThreadRng, seq::IteratorRandom, Rng};
 use rand_distr::StandardNormal;
 use rulinalg::matrix::Matrix;
+use serde::{Deserialize, Serialize};
 use std::{
     cmp::{max, Ordering},
     collections::HashSet,
     error::Error,
+    fs,
     hash::Hash,
     iter,
+    path::Path,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Node {
     Sensory,
     Action,
@@ -18,7 +21,7 @@ pub enum Node {
     Internal,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Connection {
     pub inno: usize,
     pub from: usize,
@@ -36,12 +39,32 @@ impl Hash for Connection {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Genome {
     pub sensory: usize,
     pub action: usize,
     pub nodes: Vec<Node>,
     pub connections: Vec<Connection>,
+}
+
+impl Genome {
+    pub fn to_string(&self) -> Result<String, Box<dyn Error>> {
+        Ok(serde_json::to_string(self)?)
+    }
+
+    #[allow(clippy::should_implement_trait)]
+    pub fn from_str(s: &str) -> Result<Self, Box<dyn Error>> {
+        serde_json::from_str(s).map_err(|op| op.into())
+    }
+
+    pub fn to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), Box<dyn Error>> {
+        fs::write(path, self.to_string()?)?;
+        Ok(())
+    }
+
+    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, Box<dyn Error>> {
+        Self::from_str(&fs::read_to_string(path)?)
+    }
 }
 
 impl Genome {

@@ -25,7 +25,7 @@ pub trait Network: Serialize + for<'de> Deserialize<'de> {
     fn output(&self) -> &[f64];
 
     fn to_string(&self) -> Result<String, Box<dyn Error>> {
-        Ok(serde_json::to_string_pretty(self)?)
+        Ok(serde_json::to_string(self)?)
     }
 
     fn from_str(s: &str) -> Result<Self, Box<dyn Error>>
