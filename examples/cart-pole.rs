@@ -20,12 +20,12 @@ impl Scenario for CartPole {
         (4, 2)
     }
 
-    fn eval(&self, network: &mut impl brain::Network) -> f64 {
+    fn eval<T: Fn(f64) -> f64>(&self, network: &mut impl brain::Network, σ: T) -> f64 {
         let mut env = CartPoleEnv::new(self.render);
         let mut fit = 0.;
         let mut act = 0;
         for _ in 0..self.evals {
-            network.step(3, &Into::<Vec<f64>>::into(env.state));
+            network.step(3, &Into::<Vec<f64>>::into(env.state), &σ);
 
             let out = network.output();
             if out[0] >= 0.8 && out[0] > out[1] {
@@ -62,5 +62,5 @@ fn main() {
         .unwrap();
 
     println!("champ fit: {}", champ.1);
-    CartPole::new(2500, RenderMode::Human).eval(&mut champ.0.network(steep_sigmoid));
+    CartPole::new(2500, RenderMode::Human).eval(&mut champ.0.network(), steep_sigmoid);
 }

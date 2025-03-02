@@ -18,4 +18,4 @@ name = "xor"
 
 [[example]]
 name = "cart-pole"
-required-features = ["gym-rs"]
+required-features = ["gym"]
