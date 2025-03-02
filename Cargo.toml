@@ -24,7 +24,12 @@ required-features = ["gym"]
 
 [dev-dependencies]
 criterion = "0.5.1"
+flamegraph = "0.6.7"
 
 [[bench]]
-name = "ctrnn-rand-100"
+name = "ctrnn"
+harness = false
+
+[[bench]]
+name = "genome"
 harness = false
