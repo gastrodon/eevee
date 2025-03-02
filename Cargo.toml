@@ -31,5 +31,9 @@ name = "ctrnn"
 harness = false
 
 [[bench]]
-name = "genome"
+name = "genome-mutate-bisection"
+harness = false
+
+[[bench]]
+name = "genome-mutate-connection"
 harness = false
