@@ -21,3 +21,10 @@ name = "xor"
 [[example]]
 name = "cart-pole"
 required-features = ["gym"]
+
+[dev-dependencies]
+criterion = "0.5.1"
+
+[[bench]]
+name = "ctrnn-rand-100"
+harness = false
