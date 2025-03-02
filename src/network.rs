@@ -143,12 +143,10 @@ mod test {
 
     #[test]
     fn test_ctrnn_serialization_deserialization() {
-        // Create a CTRNN with random values
         let n_neurons = 10;
         let mut rng = rng();
         let dist = Uniform::new(-10., 10.).unwrap();
 
-        // Generate random data for matrices
         let mut y_data = vec![0.0; n_neurons];
         let mut theta_data = vec![0.0; n_neurons];
         let mut tau_data = vec![0.0; n_neurons];
@@ -164,7 +162,6 @@ mod test {
             }
         }
 
-        // Create the original CTRNN
         let original = Ctrnn {
             y: Matrix::new(1, n_neurons, y_data),
             θ: Matrix::new(1, n_neurons, theta_data),
@@ -174,75 +171,61 @@ mod test {
             action: (3, 5),
         };
 
-        // Serialize
         let serialized = original.to_string().expect("Failed to serialize");
 
-        // Deserialize
         let deserialized = Ctrnn::from_str(&serialized).expect("Failed to deserialize");
 
-        // Assert that matrices contain the same values within floating-point tolerance
         assert_matrices_f64_eq!(original.y.data(), deserialized.y.data());
         assert_matrices_f64_eq!(original.θ.data(), deserialized.θ.data());
         assert_matrices_f64_eq!(original.τ.data(), deserialized.τ.data());
         assert_matrices_f64_eq!(original.w.data(), deserialized.w.data());
 
-        // Assert that indices are preserved
         assert_eq!(original.sensory, deserialized.sensory);
         assert_eq!(original.action, deserialized.action);
     }
 
     #[test]
     fn test_ctrnn_behavioral_equivalence() {
-        // Create a CTRNN with random values
         let n_neurons = 10;
         let mut rng = rng();
         let dist = Uniform::new(-10., 10.).unwrap();
 
-        // Generate random data for matrices
         let mut y_data = vec![0.0; n_neurons];
-        let mut theta_data = vec![0.0; n_neurons];
-        let mut tau_data = vec![0.0; n_neurons];
+        let mut θ_data = vec![0.0; n_neurons];
+        let mut τ_data = vec![0.0; n_neurons];
         let mut w_data = vec![0.0; n_neurons * n_neurons];
 
         for i in 0..n_neurons {
             y_data[i] = dist.sample(&mut rng);
-            theta_data[i] = dist.sample(&mut rng);
-            tau_data[i] = dist.sample(&mut rng).abs() + 0.1;
+            θ_data[i] = dist.sample(&mut rng);
+            τ_data[i] = dist.sample(&mut rng).abs() + 0.1;
 
             for j in 0..n_neurons {
                 w_data[i * n_neurons + j] = dist.sample(&mut rng);
             }
         }
 
-        // Create the original CTRNN
         let mut original = Ctrnn {
             y: Matrix::new(1, n_neurons, y_data),
-            θ: Matrix::new(1, n_neurons, theta_data),
-            τ: Matrix::new(1, n_neurons, tau_data),
+            θ: Matrix::new(1, n_neurons, θ_data),
+            τ: Matrix::new(1, n_neurons, τ_data),
             w: Matrix::new(n_neurons, n_neurons, w_data),
             sensory: (0, 2),
             action: (3, 5),
         };
 
-        // Serialize
-        let serialized = original.to_string().expect("Failed to serialize");
+        let mut deserialized = Ctrnn::from_str(&original.to_string().expect("Failed to serialize"))
+            .expect("Failed to deserialize");
 
-        // Deserialize
-        let mut deserialized = Ctrnn::from_str(&serialized).expect("Failed to deserialize");
-
-        // Run both networks with identical inputs for multiple steps and compare outputs
         let precision = 10;
         let n_steps = 500;
 
         for __ in 0..n_steps {
-            // Generate random input
             let input: Vec<f64> = (0..2).map(|_| dist.sample(&mut rng)).collect();
 
-            // Step both networks with identical input
             original.step(precision, &input, activate::steep_sigmoid);
             deserialized.step(precision, &input, activate::steep_sigmoid);
 
-            // Compare outputs using the existing macro
             let original_output = original.output();
             let deserialized_output = deserialized.output();
 
