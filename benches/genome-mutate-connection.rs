@@ -4,26 +4,19 @@ use rand::rng;
 
 fn bench(bench: &mut Criterion) {
     let genome = Genome::from_str(include_str!("genome-rand-100.json")).unwrap();
-    let head = genome
-        .connections
-        .iter()
-        .max_by_key(|c| c.inno)
-        .unwrap()
-        .inno
-        + 1;
-
     bench.bench_function("genome-mutate-connection", |b| {
         b.iter(|| {
             genome
                 .clone()
-                .mutate_connection(&mut rng(), &mut InnoGen::new(head))
+                .mutate_connection(&mut rng(), &mut InnoGen::new(300))
+                .unwrap()
         })
     });
 }
 
 criterion_group!(
   name = benches;
-  config = Criterion::default();
+  config = Criterion::default().sample_size(50).significance_level(0.1);
   targets = bench
 );
 criterion_main!(benches);
