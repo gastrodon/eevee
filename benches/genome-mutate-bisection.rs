@@ -1,5 +1,5 @@
 use brain::{specie::InnoGen, Genome};
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::Criterion;
 use rand::rng;
 
 fn bench(bench: &mut Criterion) {
@@ -14,9 +14,27 @@ fn bench(bench: &mut Criterion) {
     });
 }
 
-criterion_group!(
-  name = benches;
-  config = Criterion::default().sample_size(50).significance_level(0.1);
-  targets = bench
-);
-criterion_main!(benches);
+pub fn benches() {
+    #[cfg(not(feature = "smol_bench"))]
+    let mut criterion: criterion::Criterion<_> = Criterion::default()
+        .sample_size(2000)
+        .significance_level(0.1);
+    #[cfg(feature = "smol_bench")]
+    let mut criterion: criterion::Criterion<_> = {
+        use std::time::Duration;
+        Criterion::default()
+            .measurement_time(Duration::from_millis(1))
+            .sample_size(10)
+            .nresamples(1)
+            .without_plots()
+            .configure_from_args()
+    };
+    bench(&mut criterion);
+}
+
+fn main() {
+    benches();
+    criterion::Criterion::default()
+        .configure_from_args()
+        .final_summary();
+}
