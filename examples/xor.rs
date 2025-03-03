@@ -5,7 +5,7 @@ use brain::{activate::relu, specie::population_init, EvolutionTarget, Network, S
 use core::f64;
 use rand::rng;
 
-const POPULATION: usize = 2500;
+const POPULATION: usize = 100;
 
 struct Xor;
 
