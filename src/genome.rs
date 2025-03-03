@@ -150,7 +150,7 @@ impl Genome {
                 },
                 // bisect-node -{w}> to
                 Connection {
-                    inno: inext.path((new_node_idx, pick.from)),
+                    inno: inext.path((new_node_idx, pick.to)),
                     from: new_node_idx,
                     to: pick.to,
                     weight: pick.weight,
@@ -458,9 +458,8 @@ mod test {
             weight: 0.5,
             enabled: true,
         }];
-        genome
-            .mutate_bisection(&mut rand::rng(), &mut InnoGen::new(0))
-            .unwrap();
+        let innogen = &mut InnoGen::new(1);
+        genome.mutate_bisection(&mut rand::rng(), innogen).unwrap();
 
         assert!(!genome.connections[0].enabled);
 
@@ -468,11 +467,23 @@ mod test {
         assert_eq!(genome.connections[1].to, 2);
         assert_eq!(genome.connections[1].weight, 1.0);
         assert!(genome.connections[1].enabled);
+        assert_eq!(
+            genome.connections[1].inno,
+            innogen.path((genome.connections[1].from, genome.connections[1].to))
+        );
 
         assert_eq!(genome.connections[2].from, 2);
         assert_eq!(genome.connections[2].to, 1);
         assert_eq!(genome.connections[2].weight, 0.5);
         assert!(genome.connections[2].enabled);
+        assert_eq!(
+            genome.connections[2].inno,
+            innogen.path((genome.connections[2].from, genome.connections[2].to))
+        );
+
+        assert_ne!(genome.connections[0].inno, genome.connections[1].inno);
+        assert_ne!(genome.connections[1].inno, genome.connections[2].inno);
+        assert_ne!(genome.connections[0].inno, genome.connections[2].inno);
     }
 
     #[test]
