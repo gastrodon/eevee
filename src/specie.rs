@@ -2,6 +2,7 @@ use crate::{
     crossover::delta,
     genome::{Connection, Genome},
 };
+use fxhash::FxHashMap;
 use rand::{rngs::ThreadRng, seq::IndexedRandom, Rng};
 use std::{
     collections::HashMap,
@@ -11,14 +12,14 @@ use std::{
 
 pub struct InnoGen {
     pub head: usize,
-    seen: HashMap<(usize, usize), usize>,
+    seen: FxHashMap<(usize, usize), usize>,
 }
 
 impl InnoGen {
     pub fn new(head: usize) -> Self {
         Self {
             head,
-            seen: HashMap::new(),
+            seen: FxHashMap::default(),
         }
     }
 
