@@ -38,3 +38,7 @@ harness = false
 [[bench]]
 name = "genome-mutate-connection"
 harness = false
+
+[[bench]]
+name = "xor-100"
+harness = false
