@@ -1,10 +1,8 @@
 #![allow(mixed_script_confusables)]
 #![allow(confusable_idents)]
 
-use std::time::Duration;
-
 use brain::{activate::relu, Ctrnn, Network};
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::Criterion;
 
 fn bench(bench: &mut Criterion) {
     let net = &mut Ctrnn::from_str(include_str!("ctrnn-rand-100.json")).unwrap();
@@ -13,9 +11,27 @@ fn bench(bench: &mut Criterion) {
     bench.bench_function("ctrnn-step", |b| b.iter(|| net.step(100, &i, relu)));
 }
 
-criterion_group!(
-    name = benches;
-    config = Criterion::default().measurement_time(Duration::from_secs(10));
-    targets = bench
-);
-criterion_main!(benches);
+pub fn benches() {
+    #[cfg(not(feature = "smol_bench"))]
+    let mut criterion: criterion::Criterion<_> = Criterion::default()
+        .sample_size(1000)
+        .significance_level(0.1);
+    #[cfg(feature = "smol_bench")]
+    let mut criterion: criterion::Criterion<_> = {
+        use std::time::Duration;
+        Criterion::default()
+            .measurement_time(Duration::from_millis(1))
+            .sample_size(10)
+            .nresamples(1)
+            .without_plots()
+            .configure_from_args()
+    };
+    bench(&mut criterion);
+}
+
+fn main() {
+    benches();
+    criterion::Criterion::default()
+        .configure_from_args()
+        .final_summary();
+}
