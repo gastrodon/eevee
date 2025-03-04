@@ -203,7 +203,7 @@ impl Genome {
             nodes.push(Node::Internal);
         }
 
-        assert!(
+        debug_assert!(
             connections
                 .iter()
                 .fold(0, |acc, c| max(acc, max(c.from, c.to)))

@@ -1,64 +1,113 @@
 use crate::genome::Connection;
 use rand::{rngs::ThreadRng, Rng};
 use std::{
-    cmp::{min, Ordering},
+    cmp::Ordering,
     collections::{HashMap, HashSet},
 };
 
-fn disjoint_excess_count(l: &[Connection], r: &[Connection]) -> (f64, f64) {
-    if l.is_empty() {
-        (0., r.len() as f64)
-    } else if r.is_empty() {
-        (0., l.len() as f64)
-    } else {
-        let excess_boundary = min(l.last().unwrap().inno, r.last().unwrap().inno);
+pub fn disjoint_excess_count(l: &[Connection], r: &[Connection]) -> (f64, f64) {
+    let mut l_iter = l.iter();
+    let mut r_iter = r.iter();
 
-        let l_inno = l.iter().map(|c| c.inno).collect::<HashSet<_>>();
-        let r_inno = r.iter().map(|c| c.inno).collect::<HashSet<_>>();
-        l_inno
-            .symmetric_difference(&r_inno)
-            .fold((0., 0.), |(d, e), inno| {
-                if *inno > excess_boundary {
-                    (d, e + 1.)
-                } else {
-                    (d + 1., e)
+    let mut l_conn = match l_iter.next() {
+        Some(c) => c,
+        None => return (0., r_iter.count() as f64),
+    };
+
+    let mut r_conn = match r_iter.next() {
+        Some(c) => c,
+        None => return (0., l_iter.count() as f64 + 1.),
+    };
+
+    let mut disjoint = 0.;
+    let excess_passed = loop {
+        match l_conn.inno.cmp(&r_conn.inno) {
+            Ordering::Equal => {
+                l_conn = match l_iter.next() {
+                    Some(c) => c,
+                    None => break 0.,
+                };
+
+                r_conn = match r_iter.next() {
+                    Some(c) => c,
+                    None => break 1.,
+                };
+            }
+            Ordering::Greater => {
+                disjoint += 1.;
+                r_conn = match r_iter.next() {
+                    Some(c) => c,
+                    None => break 1.,
                 }
-            })
-    }
+            }
+            Ordering::Less => {
+                disjoint += 1.;
+                l_conn = match l_iter.next() {
+                    Some(c) => c,
+                    None => break 1.,
+                }
+            }
+        }
+    };
+
+    (
+        disjoint,
+        l_iter.count() as f64 + r_iter.count() as f64 + excess_passed,
+    )
 }
 
 /// if genomes share no overlapping weights, their average diff should be 0
-fn avg_weight_diff(l: &[Connection], r: &[Connection]) -> f64 {
-    let (short, long) = match (l.len(), r.len()) {
-        (0, _) | (_, 0) => return 0.,
-        (l_len, r_len) if l_len < r_len => (&l, &r),
-        _ => (&r, &l),
+pub fn avg_weight_diff(l: &[Connection], r: &[Connection]) -> f64 {
+    let mut diff = 0.;
+    let mut count = 0.;
+    let mut l_iter = l.iter();
+    let mut r_iter = r.iter();
+
+    let mut l_conn = match l_iter.next() {
+        Some(c) => c,
+        None => return 0.,
     };
 
-    let s_weights = short
-        .iter()
-        .map(|c| (c.inno, c.weight))
-        .collect::<HashMap<usize, f64>>();
+    let mut r_conn = match r_iter.next() {
+        Some(c) => c,
+        None => return 0.,
+    };
 
-    let mut conut = 0.;
-    let diff_sum = long
-        .iter()
-        .filter_map(
-            |Connection {
-                 inno, weight: l_w, ..
-             }| {
-                s_weights.get(inno).map(|s_w| {
-                    conut += 1.;
-                    (s_w - l_w).abs()
-                })
-            },
-        )
-        .sum::<f64>();
+    loop {
+        match l_conn.inno.cmp(&r_conn.inno) {
+            Ordering::Equal => {
+                diff += (l_conn.weight - r_conn.weight).abs();
+                count += 1.;
 
-    if conut == 0. {
+                l_conn = match l_iter.next() {
+                    Some(c) => c,
+                    None => break,
+                };
+
+                r_conn = match r_iter.next() {
+                    Some(c) => c,
+                    None => break,
+                };
+            }
+            Ordering::Greater => {
+                r_conn = match r_iter.next() {
+                    Some(c) => c,
+                    None => break,
+                }
+            }
+            Ordering::Less => {
+                l_conn = match l_iter.next() {
+                    Some(c) => c,
+                    None => break,
+                }
+            }
+        }
+    }
+
+    if count == 0. {
         0.
     } else {
-        diff_sum / conut
+        diff / count
     }
 }
 
@@ -162,58 +211,55 @@ mod test {
 
     #[test]
     fn test_avg_weight_diff() {
-        assert!(
-            (avg_weight_diff(
-                &[
-                    Connection {
-                        inno: 1,
-                        from: 0,
-                        to: 0,
-                        weight: 0.5,
-                        enabled: true
-                    },
-                    Connection {
-                        inno: 2,
-                        from: 0,
-                        to: 0,
-                        weight: -0.5,
-                        enabled: true
-                    },
-                    Connection {
-                        inno: 3,
-                        from: 0,
-                        to: 0,
-                        weight: 1.0,
-                        enabled: true
-                    }
-                ],
-                &[
-                    Connection {
-                        inno: 1,
-                        from: 0,
-                        to: 0,
-                        weight: 0.0,
-                        enabled: true
-                    },
-                    Connection {
-                        inno: 2,
-                        from: 0,
-                        to: 0,
-                        weight: -1.0,
-                        enabled: true
-                    },
-                    Connection {
-                        inno: 4,
-                        from: 0,
-                        to: 0,
-                        weight: 2.0,
-                        enabled: true
-                    }
-                ]
-            ) - 0.5)
-                .abs()
-                < f64::EPSILON
+        let diff = avg_weight_diff(
+            &[
+                Connection {
+                    inno: 1,
+                    from: 0,
+                    to: 0,
+                    weight: 0.5,
+                    enabled: true,
+                },
+                Connection {
+                    inno: 2,
+                    from: 0,
+                    to: 0,
+                    weight: -0.5,
+                    enabled: true,
+                },
+                Connection {
+                    inno: 3,
+                    from: 0,
+                    to: 0,
+                    weight: 1.0,
+                    enabled: true,
+                },
+            ],
+            &[
+                Connection {
+                    inno: 1,
+                    from: 0,
+                    to: 0,
+                    weight: 0.0,
+                    enabled: true,
+                },
+                Connection {
+                    inno: 2,
+                    from: 0,
+                    to: 0,
+                    weight: -1.0,
+                    enabled: true,
+                },
+                Connection {
+                    inno: 4,
+                    from: 0,
+                    to: 0,
+                    weight: 2.0,
+                    enabled: true,
+                },
+            ],
         );
+        assert!((diff - 0.5).abs() < f64::EPSILON, "diff ne: {diff}, 0.5");
     }
 
     #[test]
@@ -241,114 +287,114 @@ mod test {
                 enabled: true,
             },
         ];
-        assert!((avg_weight_diff(&full, &[]) - 0.0).abs() < f64::EPSILON);
-        assert!((avg_weight_diff(&[], &full,) - 0.0).abs() < f64::EPSILON);
-        assert!((avg_weight_diff(&[], &[],) - 0.0).abs() < f64::EPSILON);
+
+        let diff = avg_weight_diff(&full, &[]);
+        assert!((diff - 0.0).abs() < f64::EPSILON, "diff ne: {diff}, 0.");
+
+        let diff = avg_weight_diff(&[], &full);
+        assert!((diff - 0.0).abs() < f64::EPSILON, "diff ne: {diff}, 0.");
+
+        let diff = avg_weight_diff(&[], &[]);
+        assert!((diff - 0.0).abs() < f64::EPSILON, "diff ne: {diff}, 0.");
     }
 
     #[test]
     fn test_avg_weight_diff_no_overlap() {
-        assert!(
-            (avg_weight_diff(
-                &[
-                    Connection {
-                        inno: 1,
-                        from: 0,
-                        to: 0,
-                        weight: 0.5,
-                        enabled: true
-                    },
-                    Connection {
-                        inno: 2,
-                        from: 0,
-                        to: 0,
-                        weight: -0.5,
-                        enabled: true
-                    },
-                    Connection {
-                        inno: 3,
-                        from: 0,
-                        to: 0,
-                        weight: 1.0,
-                        enabled: true
-                    },
-                ],
-                &[
-                    Connection {
-                        inno: 5,
-                        from: 0,
-                        to: 0,
-                        weight: 0.5,
-                        enabled: true
-                    },
-                    Connection {
-                        inno: 6,
-                        from: 0,
-                        to: 0,
-                        weight: -0.5,
-                        enabled: true
-                    },
-                ]
-            ) - 0.0)
-                .abs()
-                < f64::EPSILON
+        let diff = avg_weight_diff(
+            &[
+                Connection {
+                    inno: 1,
+                    from: 0,
+                    to: 0,
+                    weight: 0.5,
+                    enabled: true,
+                },
+                Connection {
+                    inno: 2,
+                    from: 0,
+                    to: 0,
+                    weight: -0.5,
+                    enabled: true,
+                },
+                Connection {
+                    inno: 3,
+                    from: 0,
+                    to: 0,
+                    weight: 1.0,
+                    enabled: true,
+                },
+            ],
+            &[
+                Connection {
+                    inno: 5,
+                    from: 0,
+                    to: 0,
+                    weight: 0.5,
+                    enabled: true,
+                },
+                Connection {
+                    inno: 6,
+                    from: 0,
+                    to: 0,
+                    weight: -0.5,
+                    enabled: true,
+                },
+            ],
         );
+        assert!((diff - 0.0).abs() < f64::EPSILON, "diff ne: {diff}, 0.");
     }
 
     #[test]
     fn test_avg_weight_diff_no_diff() {
-        assert!(
-            (avg_weight_diff(
-                &[
-                    Connection {
-                        inno: 1,
-                        from: 0,
-                        to: 0,
-                        weight: 0.5,
-                        enabled: true
-                    },
-                    Connection {
-                        inno: 2,
-                        from: 0,
-                        to: 0,
-                        weight: -0.5,
-                        enabled: true
-                    },
-                    Connection {
-                        inno: 3,
-                        from: 0,
-                        to: 0,
-                        weight: 1.0,
-                        enabled: true
-                    },
-                ],
-                &[
-                    Connection {
-                        inno: 1,
-                        from: 0,
-                        to: 0,
-                        weight: 0.5,
-                        enabled: true
-                    },
-                    Connection {
-                        inno: 2,
-                        from: 0,
-                        to: 0,
-                        weight: -0.5,
-                        enabled: true
-                    },
-                    Connection {
-                        inno: 3,
-                        from: 0,
-                        to: 0,
-                        weight: 1.0,
-                        enabled: true
-                    },
-                ]
-            ) - 0.0)
-                .abs()
-                < f64::EPSILON
+        let diff = avg_weight_diff(
+            &[
+                Connection {
+                    inno: 1,
+                    from: 0,
+                    to: 0,
+                    weight: 0.5,
+                    enabled: true,
+                },
+                Connection {
+                    inno: 2,
+                    from: 0,
+                    to: 0,
+                    weight: -0.5,
+                    enabled: true,
+                },
+                Connection {
+                    inno: 3,
+                    from: 0,
+                    to: 0,
+                    weight: 1.0,
+                    enabled: true,
+                },
+            ],
+            &[
+                Connection {
+                    inno: 1,
+                    from: 0,
+                    to: 0,
+                    weight: 0.5,
+                    enabled: true,
+                },
+                Connection {
+                    inno: 2,
+                    from: 0,
+                    to: 0,
+                    weight: -0.5,
+                    enabled: true,
+                },
+                Connection {
+                    inno: 3,
+                    from: 0,
+                    to: 0,
+                    weight: 1.0,
+                    enabled: true,
+                },
+            ],
         );
+        assert!((diff - 0.0).abs() < f64::EPSILON, "diff ne: {diff}, 0.");
     }
 
     #[test]
@@ -506,6 +552,54 @@ mod test {
         assert_eq!((0.0, 2.0), disjoint_excess_count(&full, &[]));
         assert_eq!((0.0, 2.0), disjoint_excess_count(&[], &full));
         assert_eq!((0.0, 0.0), disjoint_excess_count(&[], &[]));
+    }
+
+    #[test]
+    fn test_disjoint_excess_count_hanging_l() {
+        assert_eq!(
+            (0.0, 1.0),
+            disjoint_excess_count(
+                &[
+                    Connection {
+                        inno: 0,
+                        from: 0,
+                        to: 0,
+                        weight: 0.0,
+                        enabled: true,
+                    },
+                    Connection {
+                        inno: 1,
+                        from: 0,
+                        to: 0,
+                        weight: 0.0,
+                        enabled: true,
+                    },
+                    Connection {
+                        inno: 2,
+                        from: 0,
+                        to: 0,
+                        weight: 0.0,
+                        enabled: true,
+                    },
+                ],
+                &[
+                    Connection {
+                        inno: 0,
+                        from: 0,
+                        to: 0,
+                        weight: 0.0,
+                        enabled: true,
+                    },
+                    Connection {
+                        inno: 1,
+                        from: 0,
+                        to: 0,
+                        weight: 0.0,
+                        enabled: true,
+                    },
+                ]
+            )
+        )
     }
 
     #[test]

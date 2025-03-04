@@ -1,14 +1,12 @@
-#![allow(mixed_script_confusables)]
-#![allow(confusable_idents)]
-
-use brain::{activate::relu, Ctrnn, Network};
+use brain::crossover::avg_weight_diff;
 use criterion::Criterion;
-
 fn bench(bench: &mut Criterion) {
-    let net = &mut Ctrnn::from_str(include_str!("ctrnn-rand-100.json")).unwrap();
-    let i = vec![0.7, 0.3];
+    let l_conn = serde_json::from_str::<Vec<_>>(include_str!("connection-rand-l.json")).unwrap();
+    let r_conn = serde_json::from_str::<Vec<_>>(include_str!("connection-rand-r.json")).unwrap();
 
-    bench.bench_function("ctrnn-step", |b| b.iter(|| net.step(100, &i, relu)));
+    bench.bench_function("avg-weight-diff", |b| {
+        b.iter(|| avg_weight_diff(&l_conn, &r_conn))
+    });
 }
 
 pub fn benches() {

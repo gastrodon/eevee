@@ -33,6 +33,14 @@ name = "ctrnn"
 harness = false
 
 [[bench]]
+name = "avg-weight-diff"
+harness = false
+
+[[bench]]
+name = "disjoint-excess-count"
+harness = false
+
+[[bench]]
 name = "genome-mutate-bisection"
 harness = false
 
