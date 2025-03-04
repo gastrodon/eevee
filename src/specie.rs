@@ -99,35 +99,41 @@ fn uniq_2<'a, T>(pool: &'a [T], rng: &mut ThreadRng) -> Option<(&'a T, &'a T)> {
 }
 
 #[derive(Debug)]
-pub struct Specie<'a>(pub SpecieRepr<'a>, pub Vec<(&'a Genome, f64)>);
+pub struct Specie<'a> {
+    pub repr: SpecieRepr<'a>,
+    pub members: Vec<(&'a Genome, f64)>,
+}
 
 impl Specie<'_> {
     #[inline]
     pub fn len(&self) -> usize {
-        self.1.len()
+        self.members.len()
     }
 
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.1.is_empty()
+        self.members.is_empty()
     }
 
     #[inline]
     pub fn last(&self) -> Option<&(&Genome, f64)> {
-        self.1.last()
+        self.members.last()
     }
 
     #[inline]
     pub fn cloned(&self) -> (Vec<Connection>, Vec<(Genome, f64)>) {
         (
-            self.0.cloned(),
-            self.1.iter().map(|(g, s)| ((*g).clone(), *s)).collect(),
+            self.repr.cloned(),
+            self.members
+                .iter()
+                .map(|(g, s)| ((*g).clone(), *s))
+                .collect(),
         )
     }
 
     pub fn fit_adjusted(&self) -> f64 {
         let l = self.len() as f64;
-        self.1.iter().fold(0., |acc, (_, fit)| acc + *fit / l)
+        self.members.iter().fold(0., |acc, (_, fit)| acc + *fit / l)
     }
 
     fn reproduce_crossover(
@@ -146,7 +152,7 @@ impl Specie<'_> {
 
         let mut pop = Vec::with_capacity(size);
         while pop.len() < size {
-            let (l, r) = uniq_2(&self.1, rng).unwrap();
+            let (l, r) = uniq_2(&self.members, rng).unwrap();
             let mut child = l.0.reproduce_with(r.0, l.1.partial_cmp(&r.1).unwrap(), rng);
             child.maybe_mutate(rng, innogen)?;
             pop.push(child);
@@ -171,7 +177,7 @@ impl Specie<'_> {
 
         let mut pop = Vec::with_capacity(size);
         while pop.len() < size {
-            let mut src = self.1.choose(rng).unwrap().0.clone();
+            let mut src = self.members.choose(rng).unwrap().0.clone();
             src.maybe_mutate(rng, innogen)?;
             pop.push(src);
         }
@@ -225,7 +231,8 @@ impl Specie<'_> {
         if p <= 0. || 1. < p {
             panic!("p must be in range [0,1)")
         }
-        self.1.truncate((p * self.len() as f64).round() as usize);
+        self.members
+            .truncate((p * self.len() as f64).round() as usize);
     }
 }
 
@@ -241,7 +248,7 @@ fn population_alloc<'a>(
 ) -> HashMap<&'a SpecieRepr<'a>, usize> {
     let mut fits = species
         .iter()
-        .map(|s| (&s.0, s.fit_adjusted()))
+        .map(|s| (&s.repr, s.fit_adjusted()))
         .collect::<Vec<_>>();
 
     // I speculate partial_cmp may be none if the fitness is NaN,
@@ -294,7 +301,11 @@ pub fn population_reproduce(
             .iter()
             .flat_map(|specie| {
                 specie
-                    .reproduce(*species_pop.get(&specie.0).unwrap_or(&0), &mut innogen, rng)
+                    .reproduce(
+                        *species_pop.get(&specie.repr).unwrap_or(&0),
+                        &mut innogen,
+                        rng,
+                    )
                     .unwrap()
             })
             .collect::<Vec<_>>(),
@@ -309,18 +320,23 @@ pub fn speciate<'a>(genomes: impl Iterator<Item = (&'a Genome, f64)>) -> Vec<Spe
     for pair in genomes {
         match sp
             .iter_mut()
-            .find(|Specie(repr, _)| repr.delta(&pair.0.connections) < SPECIE_THRESHOLD)
+            .find(|Specie { repr, .. }| repr.delta(&pair.0.connections) < SPECIE_THRESHOLD)
         {
-            Some(Specie(_, members)) => members.push(pair),
+            Some(Specie { members, .. }) => members.push(pair),
             None => {
-                sp.push(Specie(SpecieRepr(&pair.0.connections), vec![pair]));
+                sp.push(Specie {
+                    repr: SpecieRepr(&pair.0.connections),
+                    members: vec![pair],
+                });
             }
         }
     }
 
     for specie in sp.iter_mut() {
         // sorting reversed so that we can easily cull less-fit members by shrinking the vec
-        specie.1.sort_by(|l, r| r.1.partial_cmp(&l.1).unwrap());
+        specie
+            .members
+            .sort_by(|l, r| r.1.partial_cmp(&l.1).unwrap());
     }
 
     sp

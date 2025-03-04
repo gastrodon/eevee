@@ -15,7 +15,7 @@ impl EvolutionTarget {
         if let Self::Fitness(t) = self {
             species
                 .iter()
-                .any(|f| f.1.first().is_some_and(|(_, f)| f >= t))
+                .any(|f| f.members.first().is_some_and(|(_, f)| f >= t))
         } else if let Self::Generation(t) = self {
             t <= &generation
         } else {
