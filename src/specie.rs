@@ -386,6 +386,27 @@ mod tests {
     }
 
     #[test]
+    fn test_population_init() {
+        let count = 40;
+        let (members, inno_head) = population_init(2, 2, count, &mut rng());
+        assert_eq!(count, members.len());
+        assert!(inno_head != 0);
+        assert_eq!(
+            inno_head - 1,
+            members
+                .iter()
+                .flat_map(|Genome { connections, .. }| connections
+                    .iter()
+                    .map(|Connection { inno, .. }| *inno))
+                .max()
+                .unwrap()
+        );
+        for Genome { connections, .. } in members {
+            assert_ne!(0, connections.len())
+        }
+    }
+
+    #[test]
     fn test_specie_reproduce() {
         let mut rng = rng();
         let count = 40;
