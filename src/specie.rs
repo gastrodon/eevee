@@ -383,4 +383,28 @@ mod tests {
             assert_ne!(*l, *r)
         }
     }
+
+    #[test]
+    fn test_specie_reproduce() {
+        let mut rng = rng();
+        let count = 40;
+        let (members, inno_head) = population_init(2, 2, count, &mut rng);
+        let specie = Specie {
+            repr: SpecieRepr(&[]),
+            members: members
+                .iter()
+                .map(|genome| (genome, 100. * rng.random::<f64>()))
+                .collect(),
+        };
+
+        for i in [0, 1, count, count * 10] {
+            assert_eq!(
+                i,
+                specie
+                    .reproduce(i, &mut InnoGen::new(inno_head), &mut rng)
+                    .unwrap()
+                    .len()
+            );
+        }
+    }
 }
