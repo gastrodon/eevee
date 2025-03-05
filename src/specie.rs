@@ -137,98 +137,6 @@ impl Specie {
         self.members.iter().fold(0., |acc, (_, fit)| acc + *fit / l)
     }
 
-    fn reproduce_crossover(
-        &self,
-        size: usize,
-        rng: &mut ThreadRng,
-        innogen: &mut InnoGen,
-    ) -> Result<Vec<Genome>, Box<dyn Error>> {
-        if size == 0 {
-            return Ok(vec![]);
-        }
-
-        if self.len() < 2 {
-            return Err("too few members to crossover".into());
-        }
-
-        let mut pop = Vec::with_capacity(size);
-        while pop.len() < size {
-            let (l, r) = uniq_2(&self.members, rng).unwrap();
-            let mut child =
-                l.0.reproduce_with(&r.0, l.1.partial_cmp(&r.1).unwrap(), rng);
-            child.maybe_mutate(rng, innogen)?;
-            pop.push(child);
-        }
-
-        Ok(pop)
-    }
-
-    fn reproduce_copy(
-        &self,
-        size: usize,
-        rng: &mut ThreadRng,
-        innogen: &mut InnoGen,
-    ) -> Result<Vec<Genome>, Box<dyn Error>> {
-        if size == 0 {
-            return Ok(vec![]);
-        }
-
-        if self.is_empty() {
-            return Err("too few members to copy".into());
-        }
-
-        let mut pop = Vec::with_capacity(size);
-        while pop.len() < size {
-            let mut src = self.members.choose(rng).unwrap().0.clone();
-            src.maybe_mutate(rng, innogen)?;
-            pop.push(src);
-        }
-
-        Ok(pop)
-    }
-
-    pub fn reproduce(
-        &self,
-        size: usize,
-        innogen: &mut InnoGen,
-        rng: &mut ThreadRng,
-    ) -> Result<Vec<Genome>, Box<dyn Error>> {
-        if size == 0 {
-            return Ok(vec![]);
-        }
-
-        if self.is_empty() {
-            return Err("too few members to reproduce".into());
-        }
-
-        let mut pop: Vec<Genome> = Vec::with_capacity(size);
-        pop.push(self.last().unwrap().0.clone());
-        if size == 1 {
-            return Ok(pop);
-        }
-
-        let size = size - 1;
-        let size_copy = size / 4;
-        let size_copy = if size_copy == 0 || self.len() == 1 {
-            size
-        } else {
-            size_copy
-        };
-
-        // TODO reproduce_crossover and reproduce_copy can potentially be made faster
-        // if they're handed a slice to write into intead of returning a vec that we then need to copy
-        self.reproduce_copy(size_copy, rng, innogen)?
-            .into_iter()
-            .for_each(|genome| pop.push(genome));
-
-        let size_crossover = size - size_copy;
-        self.reproduce_crossover(size_crossover, rng, innogen)?
-            .into_iter()
-            .for_each(|genome| pop.push(genome));
-
-        Ok(pop)
-    }
-
     pub fn shrink_top_p(&mut self, p: f64) {
         if p <= 0. || 1. < p {
             panic!("p must be in range [0,1)")
@@ -236,6 +144,98 @@ impl Specie {
         self.members
             .truncate((p * self.len() as f64).round() as usize);
     }
+}
+
+fn reproduce_crossover(
+    genomes: &Specie,
+    size: usize,
+    rng: &mut ThreadRng,
+    innogen: &mut InnoGen,
+) -> Result<Vec<Genome>, Box<dyn Error>> {
+    if size == 0 {
+        return Ok(vec![]);
+    }
+
+    if genomes.len() < 2 {
+        return Err("too few members to crossover".into());
+    }
+
+    let mut pop = Vec::with_capacity(size);
+    while pop.len() < size {
+        let (l, r) = uniq_2(&genomes.members, rng).unwrap();
+        let mut child =
+            l.0.reproduce_with(&r.0, l.1.partial_cmp(&r.1).unwrap(), rng);
+        child.maybe_mutate(rng, innogen)?;
+        pop.push(child);
+    }
+
+    Ok(pop)
+}
+
+fn reproduce_copy(
+    genomes: &Specie,
+    size: usize,
+    rng: &mut ThreadRng,
+    innogen: &mut InnoGen,
+) -> Result<Vec<Genome>, Box<dyn Error>> {
+    if size == 0 {
+        return Ok(vec![]);
+    }
+
+    if genomes.is_empty() {
+        return Err("too few members to copy".into());
+    }
+
+    let mut pop = Vec::with_capacity(size);
+    while pop.len() < size {
+        let mut src = genomes.members.choose(rng).unwrap().0.clone();
+        src.maybe_mutate(rng, innogen)?;
+        pop.push(src);
+    }
+
+    Ok(pop)
+}
+
+pub fn reproduce(
+    genomes: &Specie,
+    size: usize,
+    innogen: &mut InnoGen,
+    rng: &mut ThreadRng,
+) -> Result<Vec<Genome>, Box<dyn Error>> {
+    if size == 0 {
+        return Ok(vec![]);
+    }
+
+    if genomes.is_empty() {
+        return Err("too few members to reproduce".into());
+    }
+
+    let mut pop: Vec<Genome> = Vec::with_capacity(size);
+    pop.push(genomes.last().unwrap().0.clone());
+    if size == 1 {
+        return Ok(pop);
+    }
+
+    let size = size - 1;
+    let size_copy = size / 4;
+    let size_copy = if size_copy == 0 || genomes.len() == 1 {
+        size
+    } else {
+        size_copy
+    };
+
+    // TODO reproduce_crossover and reproduce_copy can potentially be made faster
+    // if they're handed a slice to write into intead of returning a vec that we then need to copy
+    reproduce_copy(genomes, size_copy, rng, innogen)?
+        .into_iter()
+        .for_each(|genome| pop.push(genome));
+
+    let size_crossover = size - size_copy;
+    reproduce_crossover(genomes, size_crossover, rng, innogen)?
+        .into_iter()
+        .for_each(|genome| pop.push(genome));
+
+    Ok(pop)
 }
 
 /// allocate a target population for every specie in an existing population
@@ -317,13 +317,13 @@ pub fn population_reproduce(
         species
             .iter()
             .flat_map(|specie| {
-                specie
-                    .reproduce(
-                        *species_pop.get(&specie.repr).unwrap_or(&0),
-                        &mut innogen,
-                        rng,
-                    )
-                    .unwrap()
+                reproduce(
+                    specie,
+                    *species_pop.get(&specie.repr).unwrap_or(&0),
+                    &mut innogen,
+                    rng,
+                )
+                .unwrap()
             })
             .collect::<Vec<_>>(),
         innogen.head,
@@ -440,12 +440,11 @@ mod tests {
         let count = 40;
         let (species, inno_head) = population_init(2, 2, count, &mut rng);
 
-        for specie in species {
+        for ref specie in species {
             for i in [0, 1, count, count * 10] {
                 assert_eq!(
                     i,
-                    specie
-                        .reproduce(i, &mut InnoGen::new(inno_head), &mut rng)
+                    reproduce(specie, i, &mut InnoGen::new(inno_head), &mut rng)
                         .unwrap()
                         .len()
                 );
