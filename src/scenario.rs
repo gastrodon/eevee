@@ -1,5 +1,4 @@
 use crate::{
-    genome::Genome,
     network::Network,
     specie::{population_reproduce, speciate, Specie},
 };
@@ -31,24 +30,32 @@ pub trait Scenario {
     fn evolve(
         &self,
         target: EvolutionTarget,
-        init: impl FnOnce((usize, usize)) -> (Vec<Genome>, usize),
+        init: impl FnOnce((usize, usize)) -> (Vec<Specie>, usize),
         population_lim: usize,
         σ: impl Fn(f64) -> f64,
         genome_top_p: f64,
         specie_top_p: f64,
-    ) -> (Vec<(Genome, f64)>, usize) {
-        let (mut pop_unspeciated, mut inno_head) = init(Self::io());
+    ) -> (Vec<Specie>, usize) {
+        let (mut pop_unspeciated, mut inno_head) = {
+            let (species, inno_head) = init(Self::io());
+            (
+                species
+                    .iter()
+                    .flat_map(|Specie { members, .. }| {
+                        members.iter().map(|(genome, _)| genome.clone())
+                    })
+                    .collect::<Vec<_>>(),
+                inno_head,
+            )
+        };
 
         let mut rng = rng();
         let mut gen_idx = 0;
         loop {
-            let scored = pop_unspeciated
-                .into_iter()
-                .map(|genome| {
-                    let mut network = genome.network();
-                    (genome, self.eval(&mut network, &σ))
-                })
-                .collect::<Vec<_>>();
+            let scored = pop_unspeciated.into_iter().map(|genome| {
+                let mut network = genome.network();
+                (genome, self.eval(&mut network, &σ))
+            });
 
             let species = {
                 let mut species = speciate(scored.into_iter());
@@ -59,10 +66,7 @@ pub trait Scenario {
             };
 
             if target.satisfied(&species, gen_idx) {
-                break (
-                    species.iter().flat_map(|s| s.cloned().1).collect(),
-                    inno_head,
-                );
+                break (species, inno_head);
             };
 
             (pop_unspeciated, inno_head) =

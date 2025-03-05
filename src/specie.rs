@@ -8,6 +8,7 @@ use std::{
     collections::HashMap,
     error::Error,
     hash::{DefaultHasher, Hash, Hasher},
+    iter::once,
 };
 
 pub struct InnoGen {
@@ -273,18 +274,33 @@ fn population_alloc(
     sizes
 }
 
+/// initial population of a single specie consisting of single connection genomes
+/// while it's not necessarily recommended to do an initual mutation, it allows us to mutate a
+/// bisection on any genome without the need to check for existing connections beforehand
 pub fn population_init(
     sensory: usize,
     action: usize,
     population: usize,
     rng: &mut ThreadRng,
-) -> (Vec<Genome>, usize) {
-    let mut v = vec![Genome::new(sensory, action); population];
+) -> (Vec<Specie>, usize) {
     let mut inext = InnoGen::new(0);
-    for g in v.iter_mut() {
-        g.mutate_connection(rng, &mut inext).unwrap();
-    }
-    (v, inext.head)
+
+    let members = once(())
+        .cycle()
+        .map(|_| {
+            let mut g = Genome::new(sensory, action);
+            g.mutate_connection(rng, &mut inext).unwrap();
+            (g, 0.)
+        })
+        .take(population)
+        .collect::<Vec<_>>();
+    (
+        vec![Specie {
+            repr: SpecieRepr(members.first().unwrap().0.connections.clone()),
+            members,
+        }],
+        inext.head,
+    )
 }
 
 // reproduce a whole speciated population into a non-speciated population
@@ -388,21 +404,33 @@ mod tests {
     #[test]
     fn test_population_init() {
         let count = 40;
-        let (members, inno_head) = population_init(2, 2, count, &mut rng());
-        assert_eq!(count, members.len());
+        let (species, inno_head) = population_init(2, 2, count, &mut rng());
+        assert_eq!(
+            count,
+            species
+                .iter()
+                .fold(0, |acc, Specie { members, .. }| acc + members.len())
+        );
         assert!(inno_head != 0);
         assert_eq!(
             inno_head - 1,
-            members
+            species
                 .iter()
-                .flat_map(|Genome { connections, .. }| connections
+                .flat_map(|Specie { members, .. }| members)
+                .flat_map(|(Genome { connections, .. }, _)| connections
                     .iter()
                     .map(|Connection { inno, .. }| *inno))
                 .max()
                 .unwrap()
         );
-        for Genome { connections, .. } in members {
-            assert_ne!(0, connections.len())
+        for specie in species.iter() {
+            assert_ne!(0, specie.len());
+        }
+        for (Genome { connections, .. }, fit) in
+            species.iter().flat_map(|Specie { members, .. }| members)
+        {
+            assert_ne!(0, connections.len());
+            assert_eq!(0., *fit);
         }
     }
 
@@ -410,23 +438,18 @@ mod tests {
     fn test_specie_reproduce() {
         let mut rng = rng();
         let count = 40;
-        let (members, inno_head) = population_init(2, 2, count, &mut rng);
-        let specie = Specie {
-            repr: SpecieRepr(vec![]),
-            members: members
-                .into_iter()
-                .map(|genome| (genome, 100. * rng.random::<f64>()))
-                .collect(),
-        };
+        let (species, inno_head) = population_init(2, 2, count, &mut rng);
 
-        for i in [0, 1, count, count * 10] {
-            assert_eq!(
-                i,
-                specie
-                    .reproduce(i, &mut InnoGen::new(inno_head), &mut rng)
-                    .unwrap()
-                    .len()
-            );
+        for specie in species {
+            for i in [0, 1, count, count * 10] {
+                assert_eq!(
+                    i,
+                    specie
+                        .reproduce(i, &mut InnoGen::new(inno_head), &mut rng)
+                        .unwrap()
+                        .len()
+                );
+            }
         }
     }
 }
