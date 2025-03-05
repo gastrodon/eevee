@@ -43,7 +43,7 @@ pub trait Scenario {
         let mut gen_idx = 0;
         loop {
             let scored = pop_unspeciated
-                .iter()
+                .into_iter()
                 .map(|genome| {
                     let mut network = genome.network();
                     (genome, self.eval(&mut network, &σ))

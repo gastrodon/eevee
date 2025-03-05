@@ -37,11 +37,11 @@ impl InnoGen {
 }
 
 #[derive(Debug)]
-pub struct SpecieRepr<'a>(pub &'a [Connection]);
+pub struct SpecieRepr(pub Vec<Connection>);
 
-impl SpecieRepr<'_> {
+impl SpecieRepr {
     fn delta(&self, other: &[Connection]) -> f64 {
-        delta(self.0, other)
+        delta(&self.0, other)
     }
 
     #[inline]
@@ -50,7 +50,7 @@ impl SpecieRepr<'_> {
     }
 }
 
-impl SpecieRepr<'_> {
+impl SpecieRepr {
     fn id(&self) -> u64 {
         let mut h = DefaultHasher::new();
         self.hash(&mut h);
@@ -58,23 +58,23 @@ impl SpecieRepr<'_> {
     }
 }
 
-impl Hash for SpecieRepr<'_> {
+impl Hash for SpecieRepr {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.0.hash(state);
     }
 }
 
-impl PartialEq for SpecieRepr<'_> {
+impl PartialEq for SpecieRepr {
     fn eq(&self, other: &Self) -> bool {
         self.id() == other.id()
     }
 }
 
-impl Eq for SpecieRepr<'_> {}
+impl Eq for SpecieRepr {}
 
-impl AsRef<[Connection]> for SpecieRepr<'_> {
+impl AsRef<[Connection]> for SpecieRepr {
     fn as_ref(&self) -> &[Connection] {
-        self.0
+        &self.0
     }
 }
 
@@ -99,12 +99,12 @@ fn uniq_2<'a, T>(pool: &'a [T], rng: &mut ThreadRng) -> Option<(&'a T, &'a T)> {
 }
 
 #[derive(Debug)]
-pub struct Specie<'a> {
-    pub repr: SpecieRepr<'a>,
-    pub members: Vec<(&'a Genome, f64)>,
+pub struct Specie {
+    pub repr: SpecieRepr,
+    pub members: Vec<(Genome, f64)>,
 }
 
-impl Specie<'_> {
+impl Specie {
     #[inline]
     pub fn len(&self) -> usize {
         self.members.len()
@@ -116,7 +116,7 @@ impl Specie<'_> {
     }
 
     #[inline]
-    pub fn last(&self) -> Option<&(&Genome, f64)> {
+    pub fn last(&self) -> Option<&(Genome, f64)> {
         self.members.last()
     }
 
@@ -153,7 +153,8 @@ impl Specie<'_> {
         let mut pop = Vec::with_capacity(size);
         while pop.len() < size {
             let (l, r) = uniq_2(&self.members, rng).unwrap();
-            let mut child = l.0.reproduce_with(r.0, l.1.partial_cmp(&r.1).unwrap(), rng);
+            let mut child =
+                l.0.reproduce_with(&r.0, l.1.partial_cmp(&r.1).unwrap(), rng);
             child.maybe_mutate(rng, innogen)?;
             pop.push(child);
         }
@@ -241,11 +242,11 @@ impl Specie<'_> {
 /// followed by picking top species whos populations sum <= population.
 ///
 /// The very last specie is truncated to be no more than the remaining population
-fn population_alloc<'a>(
-    species: &'a [Specie<'a>],
+fn population_alloc(
+    species: &[Specie],
     population: usize,
     top_p: f64,
-) -> HashMap<&'a SpecieRepr<'a>, usize> {
+) -> HashMap<&SpecieRepr, usize> {
     let mut species_fitted = species
         .iter()
         .map(|s| (&s.repr, s.fit_adjusted()))
@@ -315,7 +316,7 @@ pub fn population_reproduce(
 
 const SPECIE_THRESHOLD: f64 = 4.;
 
-pub fn speciate<'a>(genomes: impl Iterator<Item = (&'a Genome, f64)>) -> Vec<Specie<'a>> {
+pub fn speciate<'a>(genomes: impl Iterator<Item = (Genome, f64)>) -> Vec<Specie> {
     let mut sp = Vec::new();
     for pair in genomes {
         match sp
@@ -325,7 +326,7 @@ pub fn speciate<'a>(genomes: impl Iterator<Item = (&'a Genome, f64)>) -> Vec<Spe
             Some(Specie { members, .. }) => members.push(pair),
             None => {
                 sp.push(Specie {
-                    repr: SpecieRepr(&pair.0.connections),
+                    repr: SpecieRepr(pair.0.connections.clone()),
                     members: vec![pair],
                 });
             }
@@ -390,9 +391,9 @@ mod tests {
         let count = 40;
         let (members, inno_head) = population_init(2, 2, count, &mut rng);
         let specie = Specie {
-            repr: SpecieRepr(&[]),
+            repr: SpecieRepr(vec![]),
             members: members
-                .iter()
+                .into_iter()
                 .map(|genome| (genome, 100. * rng.random::<f64>()))
                 .collect(),
         };
