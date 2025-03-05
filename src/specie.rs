@@ -332,18 +332,18 @@ pub fn population_reproduce(
 
 const SPECIE_THRESHOLD: f64 = 4.;
 
-pub fn speciate<'a>(genomes: impl Iterator<Item = (Genome, f64)>) -> Vec<Specie> {
+pub fn speciate(genomes: impl Iterator<Item = (Genome, f64)>) -> Vec<Specie> {
     let mut sp = Vec::new();
-    for pair in genomes {
+    for (genome, fitness) in genomes {
         match sp
             .iter_mut()
-            .find(|Specie { repr, .. }| repr.delta(&pair.0.connections) < SPECIE_THRESHOLD)
+            .find(|Specie { repr, .. }| repr.delta(&genome.connections) < SPECIE_THRESHOLD)
         {
-            Some(Specie { members, .. }) => members.push(pair),
+            Some(Specie { members, .. }) => members.push((genome, fitness)),
             None => {
                 sp.push(Specie {
-                    repr: SpecieRepr(pair.0.connections.clone()),
-                    members: vec![pair],
+                    repr: SpecieRepr(genome.connections.clone()),
+                    members: vec![(genome, fitness)],
                 });
             }
         }
