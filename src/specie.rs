@@ -246,20 +246,20 @@ fn population_alloc<'a>(
     population: usize,
     top_p: f64,
 ) -> HashMap<&'a SpecieRepr<'a>, usize> {
-    let mut fits = species
+    let mut species_fitted = species
         .iter()
         .map(|s| (&s.repr, s.fit_adjusted()))
         .collect::<Vec<_>>();
 
     // I speculate partial_cmp may be none if the fitness is NaN,
     // which would indicate a bigger issue somewhere else
-    fits.sort_by(|(_, l), (_, r)| r.partial_cmp(l).unwrap());
+    species_fitted.sort_by(|(_, l), (_, r)| r.partial_cmp(l).unwrap());
 
     let population_scaled = population as f64 / top_p;
-    let fit_total = fits.iter().fold(0., |acc, (_, n)| acc + n);
+    let fit_total = species_fitted.iter().fold(0., |acc, (_, n)| acc + n);
     let mut sizes = HashMap::new();
     let mut size_acc = 0;
-    for (specie_repr, fit) in fits.into_iter() {
+    for (specie_repr, fit) in species_fitted.into_iter() {
         let s_pop = f64::round(population_scaled * fit / fit_total) as usize;
         if size_acc + s_pop < population {
             sizes.insert(specie_repr, s_pop);
