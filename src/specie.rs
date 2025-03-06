@@ -37,7 +37,7 @@ impl InnoGen {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SpecieRepr(pub Vec<Connection>);
 
 impl SpecieRepr {
@@ -147,7 +147,7 @@ impl Specie {
 }
 
 fn reproduce_crossover(
-    genomes: &Specie,
+    genomes: &[(Genome, f64)],
     size: usize,
     rng: &mut ThreadRng,
     innogen: &mut InnoGen,
@@ -162,7 +162,7 @@ fn reproduce_crossover(
 
     let mut pop = Vec::with_capacity(size);
     while pop.len() < size {
-        let (l, r) = uniq_2(&genomes.members, rng).unwrap();
+        let (l, r) = uniq_2(genomes, rng).unwrap();
         let mut child =
             l.0.reproduce_with(&r.0, l.1.partial_cmp(&r.1).unwrap(), rng);
         child.maybe_mutate(rng, innogen)?;
@@ -173,7 +173,7 @@ fn reproduce_crossover(
 }
 
 fn reproduce_copy(
-    genomes: &Specie,
+    genomes: &[(Genome, f64)],
     size: usize,
     rng: &mut ThreadRng,
     innogen: &mut InnoGen,
@@ -188,16 +188,17 @@ fn reproduce_copy(
 
     let mut pop = Vec::with_capacity(size);
     while pop.len() < size {
-        let mut src = genomes.members.choose(rng).unwrap().0.clone();
-        src.maybe_mutate(rng, innogen)?;
-        pop.push(src);
+        let pair = genomes.choose(rng).unwrap();
+        let mut genome = pair.0.clone();
+        genome.maybe_mutate(rng, innogen)?;
+        pop.push((genome, pair.1));
     }
 
-    Ok(pop)
+    Ok(pop.into_iter().map(|(genome, _)| genome).collect())
 }
 
 pub fn reproduce(
-    genomes: &Specie,
+    genomes: Vec<(Genome, f64)>,
     size: usize,
     innogen: &mut InnoGen,
     rng: &mut ThreadRng,
@@ -211,7 +212,15 @@ pub fn reproduce(
     }
 
     let mut pop: Vec<Genome> = Vec::with_capacity(size);
-    pop.push(genomes.last().unwrap().0.clone());
+
+    debug_assert!(
+        genomes.last().unwrap().1 <= genomes.first().unwrap().1,
+        "{:?}, {:?}",
+        genomes.last(),
+        genomes.first()
+    );
+
+    pop.push(genomes.first().unwrap().0.clone());
     if size == 1 {
         return Ok(pop);
     }
@@ -226,12 +235,12 @@ pub fn reproduce(
 
     // TODO reproduce_crossover and reproduce_copy can potentially be made faster
     // if they're handed a slice to write into intead of returning a vec that we then need to copy
-    reproduce_copy(genomes, size_copy, rng, innogen)?
+    reproduce_copy(&genomes, size_copy, rng, innogen)?
         .into_iter()
         .for_each(|genome| pop.push(genome));
 
     let size_crossover = size - size_copy;
-    reproduce_crossover(genomes, size_crossover, rng, innogen)?
+    reproduce_crossover(&genomes, size_crossover, rng, innogen)?
         .into_iter()
         .for_each(|genome| pop.push(genome));
 
@@ -243,13 +252,12 @@ pub fn reproduce(
 /// followed by picking top species whos populations sum <= population.
 ///
 /// The very last specie is truncated to be no more than the remaining population
-fn population_alloc(
-    species: &[Specie],
+fn population_alloc<'a>(
+    species: impl Iterator<Item = &'a Specie>,
     population: usize,
     top_p: f64,
-) -> HashMap<&SpecieRepr, usize> {
+) -> HashMap<&'a SpecieRepr, usize> {
     let mut species_fitted = species
-        .iter()
         .map(|s| (&s.repr, s.fit_adjusted()))
         .collect::<Vec<_>>();
 
@@ -305,20 +313,26 @@ pub fn population_init(
 
 // reproduce a whole speciated population into a non-speciated population
 pub fn population_reproduce(
-    species: &[Specie],
+    species: &[(Specie, f64)],
     population: usize,
     top_p: f64,
     inno_head: usize,
     rng: &mut ThreadRng,
 ) -> (Vec<Genome>, usize) {
-    let species_pop = population_alloc(species, population, top_p);
+    let species_pop = population_alloc(species.iter().map(|(specie, _)| specie), population, top_p);
     let mut innogen = InnoGen::new(inno_head);
     (
         species
-            .iter()
-            .flat_map(|specie| {
+            .into_iter()
+            .flat_map(|(specie, min_fit)| {
                 reproduce(
-                    specie,
+                    specie
+                        .members
+                        .iter()
+                        .filter_map(|(genome, fitness)| {
+                            (fitness >= min_fit).then_some((genome.clone(), *fitness))
+                        })
+                        .collect(),
                     *species_pop.get(&specie.repr).unwrap_or(&0),
                     &mut innogen,
                     rng,
@@ -440,13 +454,18 @@ mod tests {
         let count = 40;
         let (species, inno_head) = population_init(2, 2, count, &mut rng);
 
-        for ref specie in species {
+        for specie in species {
             for i in [0, 1, count, count * 10] {
                 assert_eq!(
                     i,
-                    reproduce(specie, i, &mut InnoGen::new(inno_head), &mut rng)
-                        .unwrap()
-                        .len()
+                    reproduce(
+                        specie.members.clone(),
+                        i,
+                        &mut InnoGen::new(inno_head),
+                        &mut rng
+                    )
+                    .unwrap()
+                    .len()
                 );
             }
         }
