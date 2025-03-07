@@ -35,8 +35,6 @@ pub trait Scenario {
         init: impl FnOnce((usize, usize)) -> (Vec<Specie>, usize),
         population_lim: usize,
         σ: impl Fn(f64) -> f64,
-        genome_top_p: f64,
-        specie_top_p: f64,
     ) -> (Vec<Specie>, usize) {
         let (mut pop_unspeciated, mut inno_head) = {
             let (species, inno_head) = init(Self::io());
@@ -60,27 +58,22 @@ pub trait Scenario {
                 .iter()
                 .map(|genome| self.eval(&mut genome.network(), &σ));
 
-            let scores_prev = scores;
-            let species = {
-                let mut species = speciate(pop_unspeciated.iter().cloned().zip(pop_scored));
-                for s in species.iter_mut() {
-                    s.shrink_top_p(genome_top_p);
-                }
-                scores = species
-                    .iter()
-                    .filter_map(|Specie { repr, members }| {
-                        members
-                            .iter()
-                            .max_by(|(_, l), (_, r)| l.partial_cmp(r).unwrap())
-                            .map(|(_, max)| (repr.clone(), *max))
-                    })
-                    .collect();
-                species
-            };
+            let species = speciate(pop_unspeciated.iter().cloned().zip(pop_scored));
 
             if target.satisfied(&species, gen_idx) {
                 break (species, inno_head);
             };
+
+            let scores_prev = scores;
+            scores = species
+                .iter()
+                .filter_map(|Specie { repr, members }| {
+                    members
+                        .iter()
+                        .max_by(|(_, l), (_, r)| l.partial_cmp(r).unwrap())
+                        .map(|(_, max)| (repr.clone(), *max))
+                })
+                .collect();
 
             let p_scored = species
                 .into_iter()
@@ -91,7 +84,7 @@ pub trait Scenario {
                 .collect::<Vec<_>>();
 
             (pop_unspeciated, inno_head) =
-                population_reproduce(&p_scored, population_lim, specie_top_p, inno_head, &mut rng);
+                population_reproduce(&p_scored, population_lim, inno_head, &mut rng);
 
             gen_idx += 1
         }

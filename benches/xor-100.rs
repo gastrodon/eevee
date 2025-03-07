@@ -41,8 +41,6 @@ fn bench(bench: &mut Criterion) {
                 |(i, o)| population_init(i, o, POPULATION, &mut rng()),
                 POPULATION,
                 relu,
-                0.22,
-                0.4,
             )
         })
     });

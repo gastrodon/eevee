@@ -136,14 +136,6 @@ impl Specie {
         let l = self.len() as f64;
         self.members.iter().fold(0., |acc, (_, fit)| acc + *fit / l)
     }
-
-    pub fn shrink_top_p(&mut self, p: f64) {
-        if p <= 0. || 1. < p {
-            panic!("p must be in range [0,1)")
-        }
-        self.members
-            .truncate((p * self.len() as f64).round() as usize);
-    }
 }
 
 fn reproduce_crossover(
@@ -248,38 +240,25 @@ pub fn reproduce(
 }
 
 /// allocate a target population for every specie in an existing population
-/// works by scaling populaiton -> p' such that p' * top_p = population,
-/// followed by picking top species whos populations sum <= population.
-///
-/// The very last specie is truncated to be no more than the remaining population
 fn population_alloc<'a>(
     species: impl Iterator<Item = &'a Specie>,
     population: usize,
-    top_p: f64,
 ) -> HashMap<&'a SpecieRepr, usize> {
-    let mut species_fitted = species
+    let species_fitted = species
         .map(|s| (&s.repr, s.fit_adjusted()))
         .collect::<Vec<_>>();
 
-    // I speculate partial_cmp may be none if the fitness is NaN,
-    // which would indicate a bigger issue somewhere else
-    species_fitted.sort_by(|(_, l), (_, r)| r.partial_cmp(l).unwrap());
-
-    let population_scaled = population as f64 / top_p;
     let fit_total = species_fitted.iter().fold(0., |acc, (_, n)| acc + n);
-    let mut sizes = HashMap::new();
-    let mut size_acc = 0;
-    for (specie_repr, fit) in species_fitted.into_iter() {
-        let s_pop = f64::round(population_scaled * fit / fit_total) as usize;
-        if size_acc + s_pop < population {
-            sizes.insert(specie_repr, s_pop);
-            size_acc += s_pop;
-        } else {
-            sizes.insert(specie_repr, population - size_acc);
-            break;
-        }
-    }
-    sizes
+    let population_f = population as f64;
+    species_fitted
+        .into_iter()
+        .map(|(specie_repr, fit_adjusted)| {
+            (
+                specie_repr,
+                f64::round(population_f * fit_adjusted / fit_total) as usize,
+            )
+        })
+        .collect()
 }
 
 /// initial population of a single specie consisting of single connection genomes
@@ -315,15 +294,14 @@ pub fn population_init(
 pub fn population_reproduce(
     species: &[(Specie, f64)],
     population: usize,
-    top_p: f64,
     inno_head: usize,
     rng: &mut ThreadRng,
 ) -> (Vec<Genome>, usize) {
-    let species_pop = population_alloc(species.iter().map(|(specie, _)| specie), population, top_p);
+    let species_pop = population_alloc(species.iter().map(|(specie, _)| specie), population);
     let mut innogen = InnoGen::new(inno_head);
     (
         species
-            .into_iter()
+            .iter()
             .flat_map(|(specie, min_fit)| {
                 reproduce(
                     specie
