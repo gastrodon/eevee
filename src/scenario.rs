@@ -36,7 +36,7 @@ pub trait Scenario {
         population_lim: usize,
         σ: impl Fn(f64) -> f64,
     ) -> (Vec<Specie>, usize) {
-        let (mut pop_unspeciated, mut inno_head) = {
+        let (mut pop_flat, mut inno_head) = {
             let (species, inno_head) = init(Self::io());
             (
                 species
@@ -54,11 +54,10 @@ pub trait Scenario {
         let mut rng = rng();
         let mut gen_idx = 0;
         loop {
-            let pop_scored = pop_unspeciated
-                .iter()
-                .map(|genome| self.eval(&mut genome.network(), &σ));
-
-            let species = speciate(pop_unspeciated.iter().cloned().zip(pop_scored));
+            let species = speciate(pop_flat.into_iter().map(|genome| {
+                let fitness = self.eval(&mut genome.network(), &σ);
+                (genome, fitness)
+            }));
 
             if target.satisfied(&species, gen_idx) {
                 break (species, inno_head);
@@ -83,7 +82,7 @@ pub trait Scenario {
                 })
                 .collect::<Vec<_>>();
 
-            (pop_unspeciated, inno_head) =
+            (pop_flat, inno_head) =
                 population_reproduce(&p_scored, population_lim, inno_head, &mut rng);
 
             gen_idx += 1
