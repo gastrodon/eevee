@@ -149,7 +149,11 @@ fn reproduce_crossover(
     }
 
     if genomes.len() < 2 {
-        return Err("too few members to crossover".into());
+        return Err(format!(
+            "too few members to crossover (wanted to produce {size} from {}",
+            genomes.len()
+        )
+        .into());
     }
 
     let mut pop = Vec::with_capacity(size);
@@ -175,7 +179,11 @@ fn reproduce_copy(
     }
 
     if genomes.is_empty() {
-        return Err("too few members to copy".into());
+        return Err(format!(
+            "too few members to copy (wanted to produce {size} from {}",
+            genomes.len()
+        )
+        .into());
     }
 
     let mut pop = Vec::with_capacity(size);
@@ -200,7 +208,11 @@ pub fn reproduce(
     }
 
     if genomes.is_empty() {
-        return Err("too few members to reproduce".into());
+        return Err(format!(
+            "too few members to reproduce (wanted to produce {size} from {}",
+            genomes.len()
+        )
+        .into());
     }
 
     let mut pop: Vec<Genome> = Vec::with_capacity(size);
