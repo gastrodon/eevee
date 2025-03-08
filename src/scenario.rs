@@ -54,13 +54,22 @@ pub trait Scenario {
         let mut rng = rng();
         let mut gen_idx = 0;
         loop {
-            let species = speciate(
-                pop_flat.into_iter().map(|genome| {
+            let species = {
+                let genomes = pop_flat.into_iter().map(|genome| {
                     let fitness = self.eval(&mut genome.network(), &σ);
                     (genome, fitness)
-                }),
-                scores.keys().cloned(),
-            );
+                });
+                let reprs = scores.keys().cloned();
+
+                #[cfg(not(feature = "smol_bench"))]
+                let species = speciate(genomes, reprs);
+                #[cfg(feature = "smol_bench")]
+                let species = speciate(
+                    genomes.collect::<Vec<_>>().into_iter(),
+                    reprs.collect::<Vec<_>>().into_iter(),
+                );
+                species
+            };
 
             if target.satisfied(&species, gen_idx) {
                 break (species, inno_head);
