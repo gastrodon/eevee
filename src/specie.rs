@@ -374,13 +374,6 @@ pub fn speciate(
         }
     }
 
-    for specie in sp.iter_mut() {
-        // sorting reversed so that we can easily cull less-fit members by shrinking the vec
-        specie
-            .members
-            .sort_by(|l, r| r.1.partial_cmp(&l.1).unwrap());
-    }
-
     sp
 }
 
