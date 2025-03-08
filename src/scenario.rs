@@ -54,10 +54,13 @@ pub trait Scenario {
         let mut rng = rng();
         let mut gen_idx = 0;
         loop {
-            let species = speciate(pop_flat.into_iter().map(|genome| {
-                let fitness = self.eval(&mut genome.network(), &σ);
-                (genome, fitness)
-            }));
+            let species = speciate(
+                pop_flat.into_iter().map(|genome| {
+                    let fitness = self.eval(&mut genome.network(), &σ);
+                    (genome, fitness)
+                }),
+                scores.keys().cloned(),
+            );
 
             if target.satisfied(&species, gen_idx) {
                 break (species, inno_head);

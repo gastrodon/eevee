@@ -243,9 +243,9 @@ pub fn reproduce(
 fn population_alloc<'a>(
     species: impl Iterator<Item = &'a Specie>,
     population: usize,
-) -> HashMap<&'a SpecieRepr, usize> {
+) -> HashMap<SpecieRepr, usize> {
     let species_fitted = species
-        .map(|s| (&s.repr, s.fit_adjusted()))
+        .map(|s| (s.repr.clone(), s.fit_adjusted()))
         .collect::<Vec<_>>();
 
     let fit_total = species_fitted.iter().fold(0., |acc, (_, n)| acc + n);
@@ -290,6 +290,34 @@ pub fn population_init(
     )
 }
 
+fn population_allocated<'a, T: Iterator<Item = &'a (Specie, f64)>>(
+    species: T,
+    population: usize,
+) -> impl Iterator<Item = (Vec<(Genome, f64)>, usize)> + use<'a, T> {
+    let viable = species
+        .filter_map(|(specie, min_fitness)| {
+            let viable = specie
+                .members
+                .iter()
+                .filter(|&pair| (&pair.1 >= min_fitness))
+                .cloned()
+                .collect::<Vec<_>>();
+
+            // (!viable.is_empty()).then_some((&specie.repr, viable));
+            (!viable.is_empty()).then(|| Specie {
+                repr: specie.repr.clone(),
+                members: viable,
+            })
+        })
+        .collect::<Vec<_>>();
+
+    let alloc = population_alloc(viable.iter(), population);
+
+    viable
+        .into_iter()
+        .filter_map(move |specie| alloc.get(&specie.repr).map(|pop| (specie.members, *pop)))
+}
+
 // reproduce a whole speciated population into a non-speciated population
 pub fn population_reproduce(
     species: &[(Specie, f64)],
@@ -297,26 +325,12 @@ pub fn population_reproduce(
     inno_head: usize,
     rng: &mut ThreadRng,
 ) -> (Vec<Genome>, usize) {
-    let species_pop = population_alloc(species.iter().map(|(specie, _)| specie), population);
+    // let species = population_viable(species.into_iter());
+    // let species_pop = population_alloc(species, population);
     let mut innogen = InnoGen::new(inno_head);
     (
-        species
-            .iter()
-            .flat_map(|(specie, min_fit)| {
-                reproduce(
-                    specie
-                        .members
-                        .iter()
-                        .filter_map(|(genome, fitness)| {
-                            (fitness >= min_fit).then_some((genome.clone(), *fitness))
-                        })
-                        .collect(),
-                    *species_pop.get(&specie.repr).unwrap_or(&0),
-                    &mut innogen,
-                    rng,
-                )
-                .unwrap()
-            })
+        population_allocated(species.iter(), population)
+            .flat_map(|(members, pop)| reproduce(members, pop, &mut innogen, rng).unwrap())
             .collect::<Vec<_>>(),
         innogen.head,
     )
@@ -324,8 +338,15 @@ pub fn population_reproduce(
 
 const SPECIE_THRESHOLD: f64 = 4.;
 
-pub fn speciate(genomes: impl Iterator<Item = (Genome, f64)>) -> Vec<Specie> {
-    let mut sp = Vec::new();
+pub fn speciate(
+    genomes: impl Iterator<Item = (Genome, f64)>,
+    reprs: impl Iterator<Item = SpecieRepr>,
+) -> Vec<Specie> {
+    let mut sp = Vec::from_iter(reprs.map(|repr| Specie {
+        repr,
+        members: Vec::new(),
+    }));
+
     for (genome, fitness) in genomes {
         match sp
             .iter_mut()
