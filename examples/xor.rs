@@ -1,7 +1,7 @@
 #![allow(mixed_script_confusables)]
 #![allow(confusable_idents)]
 
-use brain::{activate::relu, specie::population_init, EvolutionTarget, Network, Scenario};
+use brain::{activate::relu, specie::population_init, EvolutionTarget, Network, Scenario, Specie};
 use core::f64;
 use rand::rng;
 
@@ -38,14 +38,13 @@ fn main() {
         |(i, o)| population_init(i, o, POPULATION, &mut rng()),
         POPULATION,
         relu,
-        0.22,
-        0.4,
     );
 
     println!(
         "top score: {:?}",
         res.0
             .into_iter()
+            .flat_map(|Specie { members, .. }| members)
             .max_by(|(_, l), (_, r)| l.partial_cmp(r).unwrap())
             .unwrap()
             .1

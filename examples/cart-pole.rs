@@ -53,8 +53,6 @@ fn main() {
             |(i, o)| population_init(i, o, POPULATION, &mut rng()),
             POPULATION,
             steep_sigmoid,
-            0.2,
-            0.4,
         )
         .0
         .into_iter()

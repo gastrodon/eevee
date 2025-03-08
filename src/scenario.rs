@@ -1,7 +1,8 @@
+use std::collections::HashMap;
+
 use crate::{
-    genome::Genome,
     network::Network,
-    specie::{population_reproduce, speciate, Specie},
+    specie::{population_reproduce, speciate, Specie, SpecieRepr},
 };
 use rand::rng;
 
@@ -15,7 +16,7 @@ impl EvolutionTarget {
         if let Self::Fitness(t) = self {
             species
                 .iter()
-                .any(|f| f.1.first().is_some_and(|(_, f)| f >= t))
+                .any(|f| f.members.first().is_some_and(|(_, f)| f >= t))
         } else if let Self::Generation(t) = self {
             t <= &generation
         } else {
@@ -31,42 +32,61 @@ pub trait Scenario {
     fn evolve(
         &self,
         target: EvolutionTarget,
-        init: impl FnOnce((usize, usize)) -> (Vec<Genome>, usize),
+        init: impl FnOnce((usize, usize)) -> (Vec<Specie>, usize),
         population_lim: usize,
         σ: impl Fn(f64) -> f64,
-        genome_top_p: f64,
-        specie_top_p: f64,
-    ) -> (Vec<(Genome, f64)>, usize) {
-        let (mut pop_unspeciated, mut inno_head) = init(Self::io());
+    ) -> (Vec<Specie>, usize) {
+        let (mut pop_flat, mut inno_head) = {
+            let (species, inno_head) = init(Self::io());
+            (
+                species
+                    .iter()
+                    .flat_map(|Specie { members, .. }| {
+                        members.iter().map(|(genome, _)| genome.clone())
+                    })
+                    .collect::<Vec<_>>(),
+                inno_head,
+            )
+        };
+
+        let mut scores: HashMap<SpecieRepr, _> = HashMap::new();
 
         let mut rng = rng();
         let mut gen_idx = 0;
         loop {
-            let scored = pop_unspeciated
+            let species = speciate(
+                pop_flat.into_iter().map(|genome| {
+                    let fitness = self.eval(&mut genome.network(), &σ);
+                    (genome, fitness)
+                }),
+                scores.keys().cloned(),
+            );
+
+            if target.satisfied(&species, gen_idx) {
+                break (species, inno_head);
+            };
+
+            let scores_prev = scores;
+            scores = species
                 .iter()
-                .map(|genome| {
-                    let mut network = genome.network();
-                    (genome, self.eval(&mut network, &σ))
+                .filter_map(|Specie { repr, members }| {
+                    members
+                        .iter()
+                        .max_by(|(_, l), (_, r)| l.partial_cmp(r).unwrap())
+                        .map(|(_, max)| (repr.clone(), *max))
+                })
+                .collect();
+
+            let p_scored = species
+                .into_iter()
+                .map(|s| {
+                    let min_fit = *scores_prev.get(&s.repr).unwrap_or(&0.);
+                    (s, min_fit)
                 })
                 .collect::<Vec<_>>();
 
-            let species = {
-                let mut species = speciate(scored.into_iter());
-                for s in species.iter_mut() {
-                    s.shrink_top_p(genome_top_p);
-                }
-                species
-            };
-
-            if target.satisfied(&species, gen_idx) {
-                break (
-                    species.iter().flat_map(|s| s.cloned().1).collect(),
-                    inno_head,
-                );
-            };
-
-            (pop_unspeciated, inno_head) =
-                population_reproduce(&species, population_lim, specie_top_p, inno_head, &mut rng);
+            (pop_flat, inno_head) =
+                population_reproduce(&p_scored, population_lim, inno_head, &mut rng);
 
             gen_idx += 1
         }
