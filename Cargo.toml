@@ -49,6 +49,10 @@ name = "genome-mutate-connection"
 harness = false
 
 [[bench]]
+name = "speciate"
+harness = false
+
+[[bench]]
 name = "innogen"
 harness = false
 
