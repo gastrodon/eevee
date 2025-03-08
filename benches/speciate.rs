@@ -1,7 +1,7 @@
 use brain::specie::speciate;
 use criterion::Criterion;
 fn bench(bench: &mut Criterion) {
-    let genomes = serde_json::from_str::<Vec<_>>(include_str!("genome-xor-100.json")).unwrap();
+    let genomes = serde_json::from_str::<Vec<_>>(include_str!("data/genome-xor-100.json")).unwrap();
     bench.bench_function("speciate", |b| b.iter(|| speciate(genomes.clone(), vec![])));
 }
 

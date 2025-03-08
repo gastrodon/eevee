@@ -41,11 +41,11 @@ name = "disjoint-excess-count"
 harness = false
 
 [[bench]]
-name = "genome-mutate-bisection"
+name = "mutate-bisection"
 harness = false
 
 [[bench]]
-name = "genome-mutate-connection"
+name = "mutate-connection"
 harness = false
 
 [[bench]]

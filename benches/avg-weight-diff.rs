@@ -1,8 +1,10 @@
 use brain::crossover::avg_weight_diff;
 use criterion::Criterion;
 fn bench(bench: &mut Criterion) {
-    let l_conn = serde_json::from_str::<Vec<_>>(include_str!("connection-rand-l.json")).unwrap();
-    let r_conn = serde_json::from_str::<Vec<_>>(include_str!("connection-rand-r.json")).unwrap();
+    let l_conn =
+        serde_json::from_str::<Vec<_>>(include_str!("data/connection-rand-l.json")).unwrap();
+    let r_conn =
+        serde_json::from_str::<Vec<_>>(include_str!("data/connection-rand-r.json")).unwrap();
 
     bench.bench_function("avg-weight-diff", |b| {
         b.iter(|| avg_weight_diff(&l_conn, &r_conn))

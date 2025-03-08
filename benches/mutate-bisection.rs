@@ -3,8 +3,8 @@ use criterion::Criterion;
 use rand::rng;
 
 fn bench(bench: &mut Criterion) {
-    let genome = Genome::from_str(include_str!("genome-rand-100.json")).unwrap();
-    bench.bench_function("genome-mutate-bisection", |b| {
+    let genome = Genome::from_str(include_str!("data/genome-rand-100.json")).unwrap();
+    bench.bench_function("mutate-bisection", |b| {
         b.iter(|| {
             genome
                 .clone()
