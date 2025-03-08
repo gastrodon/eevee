@@ -26,7 +26,7 @@ impl EvolutionTarget {
 }
 
 pub trait Scenario {
-    fn io() -> (usize, usize);
+    fn io(&self) -> (usize, usize);
     fn eval<F: Fn(f64) -> f64>(&self, network: &mut impl Network, σ: F) -> f64;
 
     fn evolve(
@@ -37,7 +37,7 @@ pub trait Scenario {
         σ: impl Fn(f64) -> f64,
     ) -> (Vec<Specie>, usize) {
         let (mut pop_flat, mut inno_head) = {
-            let (species, inno_head) = init(Self::io());
+            let (species, inno_head) = init(self.io());
             (
                 species
                     .iter()

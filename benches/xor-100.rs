@@ -11,7 +11,7 @@ const POPULATION: usize = 100;
 struct Xor;
 
 impl Scenario for Xor {
-    fn io() -> (usize, usize) {
+    fn io(&self) -> (usize, usize) {
         (2, 1)
     }
 
