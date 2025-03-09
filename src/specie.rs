@@ -5,6 +5,7 @@ use crate::{
 use fxhash::FxHashMap;
 use rand::rngs::ThreadRng;
 use std::{
+    cmp::Ordering,
     collections::HashMap,
     error::Error,
     hash::{DefaultHasher, Hash, Hasher},
@@ -139,10 +140,17 @@ fn reproduce_crossover(
     let pairs = {
         let mut pairs = genomes
             .iter()
-            .flat_map(|(l, l_fit)| {
-                genomes.iter().filter_map(move |(r, r_fit)| {
-                    (l_fit > r_fit).then_some(((l, l_fit), (r, r_fit)))
-                })
+            .enumerate()
+            .flat_map(|(l_idx, (l, l_fit))| {
+                genomes
+                    .iter()
+                    .enumerate()
+                    .filter_map(move |(r_idx, (r, r_fit))| match l_fit.partial_cmp(r_fit) {
+                        Some(Ordering::Greater) | Some(Ordering::Equal) if l_idx > r_idx => {
+                            Some(((l, l_fit), (r, r_fit)))
+                        }
+                        _ => None,
+                    })
             })
             .collect::<Vec<_>>();
         pairs.sort_by(|l, r| (r.0 .1 + r.1 .1).partial_cmp(&(l.0 .1 + l.1 .1)).unwrap());
