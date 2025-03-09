@@ -3,7 +3,7 @@ use crate::{
     genome::{Connection, Genome},
 };
 use fxhash::FxHashMap;
-use rand::{rngs::ThreadRng, seq::IndexedRandom, Rng};
+use rand::rngs::ThreadRng;
 use std::{
     collections::HashMap,
     error::Error,
@@ -79,26 +79,6 @@ impl AsRef<[Connection]> for SpecieRepr {
     }
 }
 
-#[inline]
-fn uniq_2<'a, T>(pool: &'a [T], rng: &mut ThreadRng) -> Option<(&'a T, &'a T)> {
-    let len = pool.len();
-    if len < 2 {
-        None
-    } else {
-        let l = rng.random_range(0..len);
-        let r = rng.random_range(0..len);
-        if l == r {
-            if r + 1 == len {
-                Some((&pool[l], &pool[0]))
-            } else {
-                Some((&pool[l], &pool[r + 1]))
-            }
-        } else {
-            Some((&pool[l], &pool[r]))
-        }
-    }
-}
-
 #[derive(Debug)]
 pub struct Specie {
     pub repr: SpecieRepr,
@@ -156,16 +136,29 @@ fn reproduce_crossover(
         .into());
     }
 
-    let mut pop = Vec::with_capacity(size);
-    while pop.len() < size {
-        let (l, r) = uniq_2(genomes, rng).unwrap();
-        let mut child =
-            l.0.reproduce_with(&r.0, l.1.partial_cmp(&r.1).unwrap(), rng);
-        child.maybe_mutate(rng, innogen)?;
-        pop.push(child);
-    }
+    let pairs = {
+        let mut pairs = genomes
+            .iter()
+            .flat_map(|(l, l_fit)| {
+                genomes.iter().filter_map(move |(r, r_fit)| {
+                    (l_fit > r_fit).then_some(((l, l_fit), (r, r_fit)))
+                })
+            })
+            .collect::<Vec<_>>();
+        pairs.sort_by(|l, r| (r.0 .1 + r.1 .1).partial_cmp(&(l.0 .1 + l.1 .1)).unwrap());
+        pairs
+    };
 
-    Ok(pop)
+    pairs
+        .into_iter()
+        .cycle()
+        .take(size)
+        .map(|((l, _), (r, _))| {
+            let mut child = l.reproduce_with(r, std::cmp::Ordering::Greater, rng);
+            child.maybe_mutate(rng, innogen)?;
+            Ok(child)
+        })
+        .collect()
 }
 
 fn reproduce_copy(
@@ -186,15 +179,17 @@ fn reproduce_copy(
         .into());
     }
 
-    let mut pop = Vec::with_capacity(size);
-    while pop.len() < size {
-        let pair = genomes.choose(rng).unwrap();
-        let mut genome = pair.0.clone();
-        genome.maybe_mutate(rng, innogen)?;
-        pop.push((genome, pair.1));
-    }
-
-    Ok(pop.into_iter().map(|(genome, _)| genome).collect())
+    let mut top = genomes.iter().collect::<Vec<_>>();
+    top.sort_by(|(_, l), (_, r)| r.partial_cmp(l).unwrap());
+    top.into_iter()
+        .cycle()
+        .take(size)
+        .map(|(genome, _)| {
+            let mut child = genome.clone();
+            child.maybe_mutate(rng, innogen)?;
+            Ok(child)
+        })
+        .collect()
 }
 
 pub fn reproduce(
@@ -216,15 +211,15 @@ pub fn reproduce(
     }
 
     let mut pop: Vec<Genome> = Vec::with_capacity(size);
-
-    debug_assert!(
-        genomes.last().unwrap().1 <= genomes.first().unwrap().1,
-        "{:?}, {:?}",
-        genomes.last(),
-        genomes.first()
+    pop.push(
+        genomes
+            .iter()
+            .max_by(|(_, l), (_, r)| l.partial_cmp(r).unwrap())
+            .unwrap()
+            .0
+            .clone(),
     );
 
-    pop.push(genomes.first().unwrap().0.clone());
     if size == 1 {
         return Ok(pop);
     }
@@ -394,29 +389,6 @@ mod tests {
         let mut inno2 = InnoGen::new(inno.head);
         assert_eq!(inno2.path((1, 0)), 2);
         assert_eq!(inno2.path((0, 1)), 3);
-    }
-
-    #[test]
-    fn test_uniq_2() {
-        let mut rng = rng();
-        assert_eq!(uniq_2::<usize>(&[], &mut rng), None);
-        assert_eq!(uniq_2(&[&1], &mut rng), None);
-
-        for _ in 0..10_000 {
-            let (l, r) = uniq_2(&[1, 2], &mut rng).unwrap();
-            if *l == 1 {
-                assert_eq!(*r, 2);
-            } else {
-                assert_eq!(*r, 1);
-                assert_eq!(*l, 2);
-            }
-        }
-
-        let pool = (0..100).collect::<Vec<usize>>();
-        for _ in 0..10_000 {
-            let (l, r) = uniq_2(&pool, &mut rng).unwrap();
-            assert_ne!(*l, *r)
-        }
     }
 
     #[test]
