@@ -413,7 +413,7 @@ mod tests {
             species.iter().flat_map(|Specie { members, .. }| members)
         {
             assert_ne!(0, connections.len());
-            assert_eq!(0., *fit);
+            assert_eq!(f64::MIN, *fit);
         }
     }
 
