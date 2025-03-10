@@ -20,6 +20,12 @@ pub mod activate {
     }
 }
 
+pub mod loss {
+    pub fn decay_quadratic(want: f64, x: f64) -> f64 {
+        1. - (want - x).abs().powf(2.)
+    }
+}
+
 pub trait Network: Serialize + for<'de> Deserialize<'de> {
     fn step<F: Fn(f64) -> f64>(&mut self, prec: usize, input: &[f64], σ: F);
     fn flush(&mut self);

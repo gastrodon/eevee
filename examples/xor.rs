@@ -1,7 +1,10 @@
 #![allow(mixed_script_confusables)]
 #![allow(confusable_idents)]
 
-use brain::{activate::relu, specie::population_init, EvolutionTarget, Network, Scenario, Specie};
+use brain::{
+    activate::relu, network::loss::decay_quadratic, specie::population_init, EvolutionTarget,
+    Network, Scenario, Specie,
+};
 use core::f64;
 
 const POPULATION: usize = 100;
@@ -16,19 +19,19 @@ impl Scenario for Xor {
     fn eval<F: Fn(f64) -> f64>(&self, network: &mut impl Network, σ: F) -> f64 {
         let mut fit = 0.;
         network.step(2, &[0., 0.], &σ);
-        fit += 1. - (1. - network.output()[0]).abs().powf(2.);
+        fit += decay_quadratic(1., network.output()[0]);
         network.flush();
 
         network.step(2, &[1., 1.], &σ);
-        fit += 1. - (1. - network.output()[0]).abs().powf(2.);
+        fit += decay_quadratic(1., network.output()[0]);
         network.flush();
 
         network.step(2, &[0., 1.], &σ);
-        fit += 1. - (0. - network.output()[0]).abs().powf(2.);
+        fit += decay_quadratic(0., network.output()[0]);
         network.flush();
 
         network.step(2, &[1., 0.], &σ);
-        fit += 1. - (0. - network.output()[0]).abs().powf(2.);
+        fit += decay_quadratic(0., network.output()[0]);
 
         fit / 4.
     }
