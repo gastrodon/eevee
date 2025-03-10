@@ -17,12 +17,15 @@ impl Scenario for Xor {
         let mut fit = 0.;
         network.step(2, &[0., 0.], &σ);
         fit += 1. - (1. - network.output()[0]).abs().powf(2.);
+        network.flush();
 
         network.step(2, &[1., 1.], &σ);
         fit += 1. - (1. - network.output()[0]).abs().powf(2.);
+        network.flush();
 
         network.step(2, &[0., 1.], &σ);
         fit += 1. - (0. - network.output()[0]).abs().powf(2.);
+        network.flush();
 
         network.step(2, &[1., 0.], &σ);
         fit += 1. - (0. - network.output()[0]).abs().powf(2.);

@@ -22,6 +22,7 @@ pub mod activate {
 
 pub trait Network: Serialize + for<'de> Deserialize<'de> {
     fn step<F: Fn(f64) -> f64>(&mut self, prec: usize, input: &[f64], σ: F);
+    fn flush(&mut self);
     fn output(&self) -> &[f64];
 
     fn to_string(&self) -> Result<String, Box<dyn Error>> {
@@ -109,6 +110,10 @@ impl Network for Ctrnn {
                 .elediv(&self.τ)
                 .apply(&|v| v * inv);
         }
+    }
+
+    fn flush(&mut self) {
+        self.y = Matrix::zeros(1, self.y.cols());
     }
 
     fn output(&self) -> &[f64] {
