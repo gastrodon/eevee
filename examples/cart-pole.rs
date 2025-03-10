@@ -50,7 +50,7 @@ fn main() {
     let champ = CartPole::new(2500, RenderMode::None)
         .evolve(
             EvolutionTarget::Fitness(100.),
-            |(i, o)| population_init(i, o, POPULATION, &mut rng()),
+            |(i, o)| population_init(i, o, POPULATION),
             POPULATION,
             steep_sigmoid,
         )
