@@ -9,7 +9,7 @@ use std::{
     error::Error,
     fs,
     hash::Hash,
-    iter,
+    iter::{self, once},
     path::Path,
 };
 
@@ -73,7 +73,7 @@ impl Genome {
     const MUTATE_CONNECTION_CHANCE: f64 = 0.03;
     const MUTATE_BISECTION_CHANCE: f64 = 0.05;
 
-    pub fn new(sensory: usize, action: usize) -> Self {
+    pub fn new(sensory: usize, action: usize) -> (Self, usize) {
         let mut nodes = Vec::with_capacity(sensory + action + 1);
         for _ in 0..sensory {
             nodes.push(Node::Sensory);
@@ -83,12 +83,28 @@ impl Genome {
         }
         nodes.push(Node::Bias(1.));
 
-        Self {
-            sensory,
-            action,
-            nodes,
-            connections: Vec::new(),
-        }
+        let connections = (0..sensory)
+            .chain(once(sensory + action))
+            .flat_map(|from| (0..action).map(move |to| (from, to + sensory)))
+            .enumerate()
+            .map(|(inno, (from, to))| Connection {
+                inno,
+                from,
+                to,
+                weight: 1.,
+                enabled: true,
+            })
+            .collect();
+
+        (
+            Self {
+                sensory,
+                action,
+                nodes,
+                connections,
+            },
+            (sensory + 1) * action,
+        )
     }
 
     pub fn mutate_weights(&mut self, rng: &mut ThreadRng) {
@@ -284,23 +300,35 @@ mod test {
 
     #[test]
     fn test_genome_creation() {
-        let genome = Genome::new(3, 2);
+        let (genome, inno_head) = Genome::new(3, 2);
+        assert_eq!(inno_head, 8);
         assert_eq!(genome.sensory, 3);
         assert_eq!(genome.action, 2);
         assert_eq!(genome.nodes.len(), 6);
         assert!(matches!(genome.nodes[0], Node::Sensory));
         assert!(matches!(genome.nodes[3], Node::Action));
         assert!(matches!(genome.nodes[5], Node::Bias(_)));
-        assert_eq!(genome.connections.len(), 0);
+        assert_eq!(genome.connections.len(), 8);
+        assert_eq!(
+            *genome
+                .connections
+                .iter()
+                .map(|Connection { inno, .. }| inno)
+                .max()
+                .unwrap(),
+            genome.connections.len() - 1,
+        );
 
-        let genome_empty = Genome::new(0, 0);
+        let (genome_empty, inno_head) = Genome::new(0, 0);
+        assert_eq!(inno_head, 0);
         assert_eq!(genome_empty.sensory, 0);
         assert_eq!(genome_empty.action, 0);
         assert_eq!(genome_empty.nodes.len(), 1);
         assert!(matches!(genome_empty.nodes[0], Node::Bias(_)));
         assert_eq!(genome_empty.connections.len(), 0);
 
-        let genome_only_sensory = Genome::new(3, 0);
+        let (genome_only_sensory, inno_head) = Genome::new(3, 0);
+        assert_eq!(inno_head, 0);
         assert_eq!(genome_only_sensory.sensory, 3);
         assert_eq!(genome_only_sensory.action, 0);
         assert_eq!(genome_only_sensory.nodes.len(), 4);
@@ -309,14 +337,15 @@ mod test {
         assert!(matches!(genome_only_sensory.nodes[3], Node::Bias(_)));
         assert_eq!(genome_only_sensory.connections.len(), 0);
 
-        let genome_only_action = Genome::new(0, 3);
+        let (genome_only_action, inno_head) = Genome::new(0, 3);
+        assert_eq!(inno_head, 3);
         assert_eq!(genome_only_action.sensory, 0);
         assert_eq!(genome_only_action.action, 3);
         assert_eq!(genome_only_action.nodes.len(), 4);
         assert!(matches!(genome_only_action.nodes[0], Node::Action));
         assert!(matches!(genome_only_action.nodes[2], Node::Action));
         assert!(matches!(genome_only_action.nodes[3], Node::Bias(_)));
-        assert_eq!(genome_only_action.connections.len(), 0);
+        assert_eq!(genome_only_action.connections.len(), 3);
     }
 
     #[test]
@@ -413,7 +442,7 @@ mod test {
 
     #[test]
     fn test_mutate_connection() {
-        let mut genome = Genome::new(4, 4);
+        let (mut genome, _) = Genome::new(4, 4);
         let mut inext = InnoGen::new(0);
         genome.connections = vec![
             Connection {
@@ -450,7 +479,7 @@ mod test {
 
     #[test]
     fn test_mutate_bisection() {
-        let mut genome = Genome::new(0, 1);
+        let (mut genome, _) = Genome::new(0, 1);
         genome.connections = vec![Connection {
             inno: 0,
             from: 0,
@@ -488,14 +517,15 @@ mod test {
 
     #[test]
     fn test_mutate_bisection_empty_genome() {
-        let mut genome = Genome::new(0, 0);
+        let (mut genome, _) = Genome::new(0, 0);
         let result = genome.mutate_bisection(&mut rand::rng(), &mut InnoGen::new(0));
         assert!(result.is_err());
     }
 
     #[test]
     fn test_mutate_bisection_no_connections() {
-        let mut genome = Genome::new(2, 2);
+        let (mut genome, _) = Genome::new(2, 2);
+        genome.connections = vec![];
         let result = genome.mutate_bisection(&mut rand::rng(), &mut InnoGen::new(0));
         assert!(result.is_err());
     }
@@ -535,7 +565,7 @@ mod test {
 
     #[test]
     fn test_network() {
-        let mut genome = Genome::new(2, 2);
+        let (mut genome, _) = Genome::new(2, 2);
         genome.connections = vec![
             Connection {
                 inno: 0,

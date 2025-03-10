@@ -3,7 +3,6 @@
 
 use brain::{activate::relu, specie::population_init, EvolutionTarget, Network, Scenario, Specie};
 use core::f64;
-use rand::rng;
 
 const POPULATION: usize = 100;
 
@@ -35,7 +34,7 @@ impl Scenario for Xor {
 fn main() {
     let res = Xor {}.evolve(
         EvolutionTarget::Fitness(0.9999),
-        |(i, o)| population_init(i, o, POPULATION, &mut rng()),
+        |(i, o)| population_init(i, o, POPULATION),
         POPULATION,
         relu,
     );

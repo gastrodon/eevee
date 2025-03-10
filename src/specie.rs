@@ -9,7 +9,6 @@ use std::{
     collections::HashMap,
     error::Error,
     hash::{DefaultHasher, Hash, Hasher},
-    iter::once,
 };
 
 pub struct InnoGen {
@@ -279,29 +278,14 @@ fn population_alloc<'a>(
 /// initial population of a single specie consisting of single connection genomes
 /// while it's not necessarily recommended to do an initual mutation, it allows us to mutate a
 /// bisection on any genome without the need to check for existing connections beforehand
-pub fn population_init(
-    sensory: usize,
-    action: usize,
-    population: usize,
-    rng: &mut ThreadRng,
-) -> (Vec<Specie>, usize) {
-    let mut inext = InnoGen::new(0);
-
-    let members = once(())
-        .cycle()
-        .map(|_| {
-            let mut g = Genome::new(sensory, action);
-            g.mutate_connection(rng, &mut inext).unwrap();
-            (g, 0.)
-        })
-        .take(population)
-        .collect::<Vec<_>>();
+pub fn population_init(sensory: usize, action: usize, population: usize) -> (Vec<Specie>, usize) {
+    let (genome, inno_head) = Genome::new(sensory, action);
     (
         vec![Specie {
-            repr: SpecieRepr(members.first().unwrap().0.connections.clone()),
-            members,
+            repr: SpecieRepr(genome.connections.clone()),
+            members: vec![(genome, 0.); population],
         }],
-        inext.head,
+        inno_head,
     )
 }
 
@@ -402,7 +386,7 @@ mod tests {
     #[test]
     fn test_population_init() {
         let count = 40;
-        let (species, inno_head) = population_init(2, 2, count, &mut rng());
+        let (species, inno_head) = population_init(2, 2, count);
         assert_eq!(
             count,
             species
@@ -436,7 +420,7 @@ mod tests {
     fn test_specie_reproduce() {
         let mut rng = rng();
         let count = 40;
-        let (species, inno_head) = population_init(2, 2, count, &mut rng);
+        let (species, inno_head) = population_init(2, 2, count);
 
         for specie in species {
             for i in [0, 1, count, count * 10] {

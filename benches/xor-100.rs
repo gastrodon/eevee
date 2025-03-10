@@ -4,7 +4,6 @@
 use brain::{activate::relu, specie::population_init, EvolutionTarget, Network, Scenario};
 use core::f64;
 use criterion::{BatchSize, Criterion};
-use rand::rng;
 
 const POPULATION: usize = 100;
 
@@ -40,7 +39,7 @@ fn bench(bench: &mut Criterion) {
             |_| {
                 Xor {}.evolve(
                     EvolutionTarget::Generation(100),
-                    |(i, o)| population_init(i, o, POPULATION, &mut rng()),
+                    |(i, o)| population_init(i, o, POPULATION),
                     POPULATION,
                     relu,
                 )
