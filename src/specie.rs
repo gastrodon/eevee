@@ -2,6 +2,7 @@ use crate::{
     crossover::delta,
     genome::{Connection, Genome},
 };
+use core::f64;
 use fxhash::FxHashMap;
 use rand::rngs::ThreadRng;
 use std::{
@@ -283,7 +284,7 @@ pub fn population_init(sensory: usize, action: usize, population: usize) -> (Vec
     (
         vec![Specie {
             repr: SpecieRepr(genome.connections.clone()),
-            members: vec![(genome, 0.); population],
+            members: vec![(genome, f64::MIN); population],
         }],
         inno_head,
     )

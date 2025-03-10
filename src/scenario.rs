@@ -1,3 +1,4 @@
+use core::f64;
 use std::collections::HashMap;
 
 use crate::{
@@ -89,7 +90,7 @@ pub trait Scenario {
             let p_scored = species
                 .into_iter()
                 .map(|s| {
-                    let min_fit = *scores_prev.get(&s.repr).unwrap_or(&0.);
+                    let min_fit = *scores_prev.get(&s.repr).unwrap_or(&f64::MIN);
                     (s, min_fit)
                 })
                 .collect::<Vec<_>>();
