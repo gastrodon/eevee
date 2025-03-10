@@ -2,8 +2,8 @@
 #![allow(confusable_idents)]
 
 use brain::{
-    activate::relu, network::loss::decay_quadratic, specie::population_init, EvolutionTarget,
-    Network, Scenario, Specie,
+    activate::relu, network::loss::decay_quadratic, specie::population_init, Ctrnn,
+    EvolutionTarget, Genome, Network, Scenario, Specie,
 };
 use core::f64;
 
@@ -16,7 +16,8 @@ impl Scenario for Xor {
         (2, 1)
     }
 
-    fn eval<F: Fn(f64) -> f64>(&self, network: &mut impl Network, σ: F) -> f64 {
+    fn eval<F: Fn(f64) -> f64>(&self, genome: &Genome, σ: F) -> f64 {
+        let mut network = Ctrnn::from_genome(genome);
         let mut fit = 0.;
         network.step(2, &[0., 0.], &σ);
         fit += decay_quadratic(1., network.output()[0]);

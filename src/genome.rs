@@ -1,7 +1,6 @@
-use crate::{crossover::crossover, network::Ctrnn, specie::InnoGen};
+use crate::{crossover::crossover, specie::InnoGen};
 use rand::{rngs::ThreadRng, seq::IteratorRandom, Rng};
 use rand_distr::StandardNormal;
-use rulinalg::matrix::Matrix;
 use serde::{Deserialize, Serialize};
 use std::{
     cmp::{max, Ordering},
@@ -233,34 +232,6 @@ impl Genome {
             connections,
         }
     }
-
-    pub fn network(&self) -> Ctrnn {
-        let cols = self.nodes.len();
-        Ctrnn {
-            y: Matrix::zeros(1, cols),
-            θ: Matrix::new(
-                1,
-                cols,
-                self.nodes
-                    .iter()
-                    .map(|n| if let Node::Bias(b) = n { *b } else { 0. })
-                    .collect::<Vec<_>>(),
-            ),
-            τ: Matrix::ones(1, cols),
-            w: {
-                let mut w = vec![0.; cols * cols];
-                for Connection {
-                    from, to, weight, ..
-                } in self.connections.iter().filter(|c| c.enabled)
-                {
-                    w[from * cols + to] = *weight;
-                }
-                Matrix::new(cols, cols, w)
-            },
-            sensory: (0, self.sensory),
-            action: (self.sensory, self.sensory + self.action),
-        }
-    }
 }
 
 /// Given a genome with 0 or more nodes, try to generate a connection between nodes
@@ -295,7 +266,6 @@ fn gen_connection(genome: &Genome, rng: &mut ThreadRng) -> Option<(usize, usize)
 mod test {
     use super::*;
     use crate::specie::InnoGen;
-    use rulinalg::matrix::BaseMatrix;
     use std::vec;
 
     #[test]
@@ -541,83 +511,5 @@ mod test {
         }
         .clone_from_slice(&[1., 2., 3.]);
         assert_eq!(state, vec![1., 2., 3., 0., 0.])
-    }
-
-    macro_rules! assert_f64_approx {
-        ($l:expr, $r:expr) => {
-            assert!(
-                ($l - $r).abs() < f64::EPSILON,
-                "assertion failed: {} !~ {}",
-                $l,
-                $r
-            )
-        };
-        ($l:expr, $r:expr, $msg:expr) => {
-            assert!(
-                ($l - $r).abs() < f64::EPSILON,
-                "assertion failed: {} !~ {}: {}",
-                $l,
-                $r,
-                $msg
-            )
-        };
-    }
-
-    #[test]
-    fn test_network() {
-        let (mut genome, _) = Genome::new(2, 2);
-        genome.connections = vec![
-            Connection {
-                inno: 0,
-                from: 0,
-                to: 3,
-                weight: 0.5,
-                enabled: true,
-            },
-            Connection {
-                inno: 1,
-                from: 0,
-                to: 1,
-                weight: -1.,
-                enabled: true,
-            },
-            Connection {
-                inno: 2,
-                from: 0,
-                to: 1,
-                weight: 1.2,
-                enabled: false,
-            },
-        ];
-
-        let nn = genome.network();
-        unsafe {
-            for Connection {
-                from, to, weight, ..
-            } in genome.connections.iter().filter(|c| c.enabled)
-            {
-                assert_f64_approx!(nn.w.get_unchecked([*from, *to]), weight);
-            }
-
-            for (i, node) in genome.nodes.iter().enumerate() {
-                assert_f64_approx!(
-                    nn.θ.get_unchecked([0, i]),
-                    if let Node::Bias(b) = node { b } else { &0. }
-                )
-            }
-        }
-
-        for i in nn.sensory.0..nn.sensory.1 {
-            assert!(genome
-                .nodes
-                .get(i)
-                .is_some_and(|n| matches!(n, Node::Sensory)))
-        }
-        for i in nn.action.0..nn.action.1 {
-            assert!(genome
-                .nodes
-                .get(i)
-                .is_some_and(|n| matches!(n, Node::Action)))
-        }
     }
 }

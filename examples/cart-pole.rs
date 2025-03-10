@@ -1,4 +1,4 @@
-use brain::{activate::steep_sigmoid, specie::population_init, EvolutionTarget, Scenario};
+use brain::{activate::steep_sigmoid, specie::population_init, EvolutionTarget, Genome, Scenario};
 use gym_rs::{
     core::Env, envs::classical_control::cartpole::CartPoleEnv, utils::renderer::RenderMode,
 };
@@ -20,10 +20,11 @@ impl Scenario for CartPole {
         (4, 2)
     }
 
-    fn eval<T: Fn(f64) -> f64>(&self, network: &mut impl brain::Network, σ: T) -> f64 {
+    fn eval<T: Fn(f64) -> f64>(&self, genome: &Genome, σ: T) -> f64 {
         let mut env = CartPoleEnv::new(self.render);
         let mut fit = 0.;
         let mut act = 0;
+        let mut network = Ctrnn::from_genome(genome);
         for _ in 0..self.evals {
             network.step(3, &Into::<Vec<f64>>::into(env.state), &σ);
 

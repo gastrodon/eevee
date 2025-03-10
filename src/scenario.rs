@@ -2,8 +2,8 @@ use core::f64;
 use std::collections::HashMap;
 
 use crate::{
-    network::Network,
     specie::{population_reproduce, speciate, Specie, SpecieRepr},
+    Genome,
 };
 use rand::rng;
 
@@ -28,7 +28,7 @@ impl EvolutionTarget {
 
 pub trait Scenario {
     fn io(&self) -> (usize, usize);
-    fn eval<F: Fn(f64) -> f64>(&self, network: &mut impl Network, σ: F) -> f64;
+    fn eval<F: Fn(f64) -> f64>(&self, genome: &Genome, σ: F) -> f64;
 
     fn evolve(
         &self,
@@ -57,7 +57,7 @@ pub trait Scenario {
         loop {
             let species = {
                 let genomes = pop_flat.into_iter().map(|genome| {
-                    let fitness = self.eval(&mut genome.network(), &σ);
+                    let fitness = self.eval(&genome, &σ);
                     (genome, fitness)
                 });
                 let reprs = scores.keys().cloned();
