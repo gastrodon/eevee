@@ -1,7 +1,6 @@
 use crate::genome::Connection;
 use core::cmp::Ordering;
 use rand::{rngs::ThreadRng, Rng};
-use std::collections::{HashMap, HashSet};
 
 pub fn disjoint_excess_count(l: &[Connection], r: &[Connection]) -> (f64, f64) {
     let mut l_iter = l.iter();
@@ -141,7 +140,7 @@ const CHANCE_RAND_DISABLED: f64 = 0.01;
 #[inline]
 fn pick_gene(
     base_conn: &Connection,
-    opt_conn: Option<&&Connection>,
+    opt_conn: Option<&Connection>,
     rng: &mut ThreadRng,
 ) -> Connection {
     let mut conn = if let Some(r_conn) = opt_conn {
@@ -155,45 +154,62 @@ fn pick_gene(
         base_conn.to_owned()
     };
 
-    conn.enabled = if ((!base_conn.enabled || opt_conn.is_some_and(|r_conn| !r_conn.enabled))
+    // TODO It seems like it will always check RAND_DISABLED, and sometimes
+    // check KEEP_DISABLED. I wonder if checking RAND_DISABLED first would bypass
+    // RAND_DISABLED% of checks that would then check KEEP_DISABLED?
+    if ((!base_conn.enabled || opt_conn.is_some_and(|r_conn| !r_conn.enabled))
         && rng.random_bool(CHANCE_KEEP_DISABLED))
         || rng.random_bool(CHANCE_RAND_DISABLED)
     {
-        false
-    } else {
-        conn.enabled
-    };
+        conn.enabled = false;
+    }
 
     conn
 }
 
 /// crossover connections where l and r are equally fit
-fn crossover_eq(
-    l: &HashMap<usize, &Connection>,
-    r: &HashMap<usize, &Connection>,
-    rng: &mut ThreadRng,
-) -> Vec<Connection> {
-    let keys: HashSet<_> = HashSet::from_iter(l.keys().chain(r.keys()).cloned());
-
-    keys.iter()
-        .map(|inno| {
-            match (l.get(inno), r.get(inno)) {
-                (None, None) => unreachable!(),
-                (opt_conn, Some(base_conn)) | (Some(base_conn), opt_conn) => {
-                    pick_gene(base_conn, opt_conn, rng)
-                }
+fn crossover_eq(l: &[Connection], r: &[Connection], rng: &mut ThreadRng) -> Vec<Connection> {
+    // TODO I wonder what the actual average case overlap between genomes is?
+    // probably pretty close, could we measure this?
+    let mut cross = Vec::with_capacity(l.len() + r.len());
+    let mut l_idx = 0;
+    let mut r_idx = 0;
+    loop {
+        match (l.get(l_idx), r.get(r_idx)) {
+            (None, None) => break,
+            (None, Some(_)) => {
+                // TODO is it faster to extend, or to loop-push?
+                cross.extend(r[r_idx..].iter().map(|conn| pick_gene(conn, None, rng)));
+                break;
             }
-            .clone()
-        })
-        .collect()
+            (Some(_), None) => {
+                cross.extend(l[l_idx..].iter().map(|conn| pick_gene(conn, None, rng)));
+                break;
+            }
+            (Some(l_conn), Some(r_conn)) => match l_conn.inno.cmp(&r_conn.inno) {
+                Ordering::Equal => {
+                    cross.push(pick_gene(l_conn, Some(r_conn), rng));
+                    l_idx += 1;
+                    r_idx += 1;
+                }
+                Ordering::Less => {
+                    cross.push(pick_gene(l_conn, None, rng));
+                    l_idx += 1;
+                }
+                Ordering::Greater => {
+                    cross.push(pick_gene(r_conn, None, rng));
+                    r_idx += 1;
+                }
+            },
+        }
+    }
+
+    cross.shrink_to_fit(); // TODO what happens if I remove this
+    cross
 }
 
 /// crossover connections where l is more fit than r
-fn crossover_ne(
-    l: &HashMap<usize, &Connection>,
-    r: &HashMap<usize, &Connection>,
-    rng: &mut ThreadRng,
-) -> Vec<Connection> {
+fn crossover_ne(l: &[Connection], r: &[Connection], rng: &mut ThreadRng) -> Vec<Connection> {
     l.iter()
         .map(|(inno, l_conn)| pick_gene(l_conn, r.get(inno), rng))
         .collect()
@@ -207,13 +223,10 @@ pub fn crossover(
     l_fit: Ordering,
     rng: &mut ThreadRng,
 ) -> Vec<Connection> {
-    let lookup_l = l.iter().map(|conn| (conn.inno, conn)).collect();
-    let lookup_r = r.iter().map(|conn| (conn.inno, conn)).collect();
-
     let mut usort = match l_fit {
-        Ordering::Equal => crossover_eq(&lookup_l, &lookup_r, rng),
-        Ordering::Less => crossover_ne(&lookup_r, &lookup_l, rng),
-        Ordering::Greater => crossover_ne(&lookup_l, &lookup_r, rng),
+        Ordering::Equal => crossover_eq(l, r, rng),
+        Ordering::Less => crossover_ne(r, l, rng),
+        Ordering::Greater => crossover_ne(l, r, rng),
     };
 
     usort.sort_by_key(|c| c.inno);
@@ -699,6 +712,43 @@ mod test {
         );
     }
 
+    macro_rules! assert_from_connection {
+        ($have:expr, ($l:expr, $r:expr), $($arg:tt)+) => {{
+            let mut have = $have.to_owned();
+            have.enabled = true;
+            let mut l = $l.to_owned();
+            l.enabled = true;
+            let mut r = $r.to_owned();
+            r.enabled = true;
+            assert!(have == l || have == r, $($arg)*);
+        }};
+        ($have:expr, ($l:expr, $r:expr)) => {{
+            assert_from_connection!(
+                $have, ($l, $r),
+                "{:?} from neither {:?} or {:?}",
+                $have,
+                $l,
+                $r
+            );
+        }};
+        ($have:expr, $f:expr, $($arg:tt)+) => {{
+            let mut have = $have.to_owned();
+            have.enabled = true;
+            let mut f = $f.to_owned();
+            f.enabled = true;
+            assert!(have == f, $($arg)*);
+
+        }};
+        ($have:expr, $f:expr) => {{
+            assert_from_connection!(
+                $have, $f,
+                "{:?} not from {:?}",
+                $have,
+                $f
+            )
+        }};
+    }
+
     #[test]
     fn test_crossover_eq() {
         let l = [
@@ -749,21 +799,128 @@ mod test {
         ];
 
         for _ in 0..1000 {
-            let lr = crossover(&l, &r, Ordering::Equal, &mut rng());
+            let lr = crossover_eq(&l, &r, &mut rng());
 
             assert_eq!(lr.len(), 4);
-            assert!(lr[0] == l[0] || lr[0] == r[0]);
-            assert_eq!(lr[1], l[1]);
-            {
-                let mut lr_2 = lr[2].to_owned();
-                lr_2.enabled = false;
-                let mut l_2 = l[2].to_owned();
-                l_2.enabled = false;
-                let mut r_1 = r[1].to_owned();
-                r_1.enabled = false;
-                assert!(lr_2 == l_2 || lr_2 == r_1)
+            assert_from_connection!(lr[0], (l[0], r[0]));
+            assert_from_connection!(lr[1], l[1]);
+            assert_from_connection!(lr[2], (l[2], r[1]));
+            assert_from_connection!(lr[3], r[2])
+        }
+    }
+
+    macro_rules! connection {
+        ($($k:ident = $v:expr),+ $(,)?) => {{
+            let mut c = Connection{
+                inno: 0,
+                from: 0,
+                to: 0,
+                weight: 0.,
+                enabled: true,
             };
-            assert_eq!(lr[3], r[2])
+            $(c.$k = $v;)+
+            c
+          }}
+    }
+
+    #[test]
+    fn test_crossover_eq_overflow() {
+        let l = [connection!(inno = 0, from = 1_1)];
+        let r = [connection!(inno = 1, from = 2_1)];
+
+        for _ in 0..1000 {
+            for lr in [
+                crossover_eq(&l, &r, &mut rng()),
+                crossover_eq(&r, &l, &mut rng()),
+            ] {
+                assert_eq!(lr.len(), 2);
+                assert_from_connection!(lr[0], l[0]);
+                assert_from_connection!(lr[1], r[0]);
+            }
+        }
+
+        let l = [connection!(inno = 1, from = 1_1)];
+        let r = [connection!(inno = 0, from = 2_1)];
+
+        for _ in 0..1000 {
+            for lr in [
+                crossover_eq(&l, &r, &mut rng()),
+                crossover_eq(&r, &l, &mut rng()),
+            ] {
+                assert_eq!(lr.len(), 2);
+                assert_from_connection!(lr[0], r[0]);
+                assert_from_connection!(lr[1], l[0]);
+            }
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "not from r_0")]
+    fn test_crossover_eq_catchup_l() {
+        let l = [
+            connection!(inno = 0, from = 1_1),
+            connection!(inno = 1, from = 1_2),
+        ];
+        let r = [connection!(inno = 1, from = 2_1)];
+        for _ in 0..1000 {
+            let lr = crossover_eq(&l, &r, &mut rng());
+            assert_eq!(lr.len(), 2);
+            assert_from_connection!(lr[0], l[0]);
+            assert_from_connection!(lr[1], r[0], "not from r_0");
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "not from l_0")]
+    fn test_crossover_eq_catchup_r() {
+        let l = [connection!(inno = 1, from = 2_1)];
+        let r = [
+            connection!(inno = 0, from = 1_1),
+            connection!(inno = 1, from = 1_2),
+        ];
+        for _ in 0..1000 {
+            let lr = crossover_eq(&l, &r, &mut rng());
+            assert_eq!(lr.len(), 2);
+            assert_from_connection!(lr[0], r[0]);
+            assert_from_connection!(lr[1], l[0], "not from l_0");
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "not from l_1")]
+    fn test_crossover_eq_both_step_l() {
+        let l = [
+            connection!(inno = 0, from = 1_1),
+            connection!(inno = 1, from = 1_2),
+        ];
+        let r = [
+            connection!(inno = 0, from = 2_1),
+            connection!(inno = 1, from = 2_2),
+        ];
+        for _ in 0..1000 {
+            let lr = crossover_eq(&l, &r, &mut rng());
+            assert_eq!(lr.len(), 2);
+            assert_from_connection!(lr[0], (l[0], r[0]));
+            assert_from_connection!(lr[1], l[1], "not from l_1");
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "not from r_1")]
+    fn test_crossover_eq_both_step_r() {
+        let l = [
+            connection!(inno = 0, from = 1_1),
+            connection!(inno = 1, from = 1_2),
+        ];
+        let r = [
+            connection!(inno = 0, from = 2_1),
+            connection!(inno = 1, from = 2_2),
+        ];
+        for _ in 0..1000 {
+            let lr = crossover_eq(&l, &r, &mut rng());
+            assert_eq!(lr.len(), 2);
+            assert_from_connection!(lr[0], (l[0], r[0]));
+            assert_from_connection!(lr[1], r[1], "not from r_1");
         }
     }
 
