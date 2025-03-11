@@ -1,12 +1,11 @@
 use crate::{genome::Node, Connection, Genome};
+use core::error::Error;
 use rulinalg::matrix::{BaseMatrix, BaseMatrixMut, Matrix};
 use serde::{Deserialize, Serialize};
-use std::error::Error;
-use std::fs;
-use std::path::Path;
+use std::{fs, path::Path};
 
 pub mod activate {
-    use std::f64::consts::E;
+    use core::f64::consts::E;
 
     pub fn steep_sigmoid(x: f64) -> f64 {
         1. / (1. + E.powf(-4.9 * x))

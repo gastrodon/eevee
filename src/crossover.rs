@@ -1,9 +1,7 @@
 use crate::genome::Connection;
+use core::cmp::Ordering;
 use rand::{rngs::ThreadRng, Rng};
-use std::{
-    cmp::Ordering,
-    collections::{HashMap, HashSet},
-};
+use std::collections::{HashMap, HashSet};
 
 pub fn disjoint_excess_count(l: &[Connection], r: &[Connection]) -> (f64, f64) {
     let mut l_iter = l.iter();
