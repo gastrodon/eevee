@@ -134,6 +134,39 @@ pub fn delta(l: &[Connection], r: &[Connection]) -> f64 {
     }
 }
 
+const CHANCE_PICK_LR: f64 = 0.5;
+const CHANCE_KEEP_DISABLED: f64 = 0.75;
+const CHANCE_RAND_DISABLED: f64 = 0.01;
+
+#[inline]
+fn pick_gene(
+    base_conn: &Connection,
+    opt_conn: Option<&&Connection>,
+    rng: &mut ThreadRng,
+) -> Connection {
+    let mut conn = if let Some(r_conn) = opt_conn {
+        (*if rng.random_bool(CHANCE_PICK_LR) {
+            r_conn
+        } else {
+            base_conn
+        })
+        .to_owned()
+    } else {
+        base_conn.to_owned()
+    };
+
+    conn.enabled = if ((!base_conn.enabled || opt_conn.is_some_and(|r_conn| !r_conn.enabled))
+        && rng.random_bool(CHANCE_KEEP_DISABLED))
+        || rng.random_bool(CHANCE_RAND_DISABLED)
+    {
+        false
+    } else {
+        conn.enabled
+    };
+
+    conn
+}
+
 /// crossover connections where l and r are equally fit
 fn crossover_eq(
     l: &HashMap<usize, &Connection>,
@@ -144,18 +177,12 @@ fn crossover_eq(
 
     keys.iter()
         .map(|inno| {
-            // TODO 75% chance to disable gene if disabled in either parent
-            (*match (l.get(inno), r.get(inno)) {
+            match (l.get(inno), r.get(inno)) {
                 (None, None) => unreachable!(),
-                (None, Some(conn)) | (Some(conn), None) => conn,
-                (Some(l_conn), Some(r_conn)) => {
-                    if rng.random_bool(0.5) {
-                        l_conn
-                    } else {
-                        r_conn
-                    }
+                (opt_conn, Some(base_conn)) | (Some(base_conn), opt_conn) => {
+                    pick_gene(base_conn, opt_conn, rng)
                 }
-            })
+            }
             .clone()
         })
         .collect()
@@ -168,15 +195,7 @@ fn crossover_ne(
     rng: &mut ThreadRng,
 ) -> Vec<Connection> {
     l.iter()
-        .map(|(inno, l_conn)| {
-            // TODO 75% chance to disable gene if disabled in either parent
-            (*if r.contains_key(inno) && rng.random_bool(0.5) {
-                r.get(inno).unwrap()
-            } else {
-                l_conn
-            })
-            .clone()
-        })
+        .map(|(inno, l_conn)| pick_gene(l_conn, r.get(inno), rng))
         .collect()
 }
 
@@ -735,7 +754,15 @@ mod test {
             assert_eq!(lr.len(), 4);
             assert!(lr[0] == l[0] || lr[0] == r[0]);
             assert_eq!(lr[1], l[1]);
-            assert!(lr[2] == l[2] || lr[2] == r[1]);
+            {
+                let mut lr_2 = lr[2].to_owned();
+                lr_2.enabled = false;
+                let mut l_2 = l[2].to_owned();
+                l_2.enabled = false;
+                let mut r_1 = r[1].to_owned();
+                r_1.enabled = false;
+                assert!(lr_2 == l_2 || lr_2 == r_1)
+            };
             assert_eq!(lr[3], r[2])
         }
     }
@@ -802,7 +829,18 @@ mod test {
             assert_eq!(lr.len(), l.len());
             assert!(lr[0] == l[0] || lr[0] == r[0]);
             assert_eq!(lr[1], l[1]);
-            assert!(lr[2] == l[2] || lr[2] == r[1]);
+            {
+                let mut lr_2 = lr[2].to_owned();
+                lr_2.enabled = false;
+                let mut l_2 = l[2].to_owned();
+                l_2.enabled = false;
+                let mut r_1 = r[1].to_owned();
+                r_1.enabled = false;
+                assert!(
+                    lr_2 == l_2 || lr_2 == r_1,
+                    "base:{lr_2:?}\nl   :{l_2:?}\nr   :{r_1:?}"
+                );
+            }
         }
     }
 
@@ -867,7 +905,15 @@ mod test {
 
             assert_eq!(lr.len(), r.len());
             assert!(lr[0] == l[0] || lr[0] == r[0]);
-            assert!(lr[1] == l[2] || lr[1] == r[1]);
+            {
+                let mut lr_1 = lr[1].to_owned();
+                lr_1.enabled = false;
+                let mut l_2 = l[2].to_owned();
+                l_2.enabled = false;
+                let mut r_1 = r[1].to_owned();
+                r_1.enabled = false;
+                assert!(lr_1 == l_2 || lr_1 == r_1);
+            }
             assert_eq!(lr[2], r[2]);
             assert_eq!(lr[3], r[3]);
         }
