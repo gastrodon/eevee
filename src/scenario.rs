@@ -1,11 +1,10 @@
-use core::f64;
-use std::collections::HashMap;
-
 use crate::{
     specie::{population_reproduce, speciate, Specie, SpecieRepr},
     Genome,
 };
+use core::f64;
 use rand::rng;
+use std::collections::HashMap;
 
 const NO_IMPROVEMENT_TRUNCATE: usize = 10;
 

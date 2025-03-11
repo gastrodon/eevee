@@ -2,13 +2,11 @@ use crate::{
     crossover::delta,
     genome::{Connection, Genome},
 };
-use core::f64;
+use core::{error::Error, f64};
 use fxhash::FxHashMap;
 use rand::rngs::ThreadRng;
 use std::{
-    cmp::Ordering,
     collections::HashMap,
-    error::Error,
     hash::{DefaultHasher, Hash, Hasher},
 };
 
