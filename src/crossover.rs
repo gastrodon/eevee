@@ -168,11 +168,26 @@ fn pick_gene(
 }
 
 /// crossover connections where l and r are equally fit
-fn crossover_eq(
-    l: &HashMap<usize, &Connection>,
-    r: &HashMap<usize, &Connection>,
-    rng: &mut ThreadRng,
-) -> Vec<Connection> {
+fn crossover_eq(l: &[Connection], r: &[Connection], rng: &mut ThreadRng) -> Vec<Connection> {
+    if l.is_empty() {
+        return r.iter().map(|conn| pick_gene(conn, None, rng)).collect();
+    } else if r.is_empty() {
+        return l.iter().map(|conn| pick_gene(conn, None, rng)).collect();
+    }
+
+    let cross = Vec::with_capacity(l.len() + r.len());
+    let mut l_idx = 0;
+    let mut r_idx = 0;
+    loop {}
+
+    loop {
+        match l_conn.inno.cmp(&r_conn.inno) {
+            Ordering::Equal => cross.push(pick_gene(l_conn, Some(&r_conn), rng)),
+            Ordering::Less => todo!(),
+            Ordering::Greater => todo!(),
+        }
+    }
+
     let keys: HashSet<_> = HashSet::from_iter(l.keys().chain(r.keys()).cloned());
 
     keys.iter()
@@ -189,11 +204,7 @@ fn crossover_eq(
 }
 
 /// crossover connections where l is more fit than r
-fn crossover_ne(
-    l: &HashMap<usize, &Connection>,
-    r: &HashMap<usize, &Connection>,
-    rng: &mut ThreadRng,
-) -> Vec<Connection> {
+fn crossover_ne(l: &[Connection], r: &[Connection], rng: &mut ThreadRng) -> Vec<Connection> {
     l.iter()
         .map(|(inno, l_conn)| pick_gene(l_conn, r.get(inno), rng))
         .collect()
@@ -207,13 +218,10 @@ pub fn crossover(
     l_fit: Ordering,
     rng: &mut ThreadRng,
 ) -> Vec<Connection> {
-    let lookup_l = l.iter().map(|conn| (conn.inno, conn)).collect();
-    let lookup_r = r.iter().map(|conn| (conn.inno, conn)).collect();
-
     let mut usort = match l_fit {
-        Ordering::Equal => crossover_eq(&lookup_l, &lookup_r, rng),
-        Ordering::Less => crossover_ne(&lookup_r, &lookup_l, rng),
-        Ordering::Greater => crossover_ne(&lookup_l, &lookup_r, rng),
+        Ordering::Equal => crossover_eq(&l, &r, rng),
+        Ordering::Less => crossover_ne(&r, &l, rng),
+        Ordering::Greater => crossover_ne(&l, &r, rng),
     };
 
     usort.sort_by_key(|c| c.inno);
