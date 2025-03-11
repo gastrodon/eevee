@@ -40,7 +40,7 @@ impl Scenario for Xor {
 
 fn main() {
     let res = Xor {}.evolve(
-        EvolutionTarget::Fitness(0.9999),
+        EvolutionTarget::Fitness(0.749999),
         |(i, o)| population_init(i, o, POPULATION),
         POPULATION,
         relu,
