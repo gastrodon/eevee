@@ -21,6 +21,10 @@ pub mod activate {
 }
 
 pub mod loss {
+    pub fn decay_linear(want: f64, x: f64) -> f64 {
+        1. - ((want - x).abs())
+    }
+
     pub fn decay_quadratic(want: f64, x: f64) -> f64 {
         1. - (want - x).abs().powf(2.)
     }
