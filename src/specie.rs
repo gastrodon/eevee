@@ -145,11 +145,12 @@ fn reproduce_crossover(
                 genomes
                     .iter()
                     .enumerate()
-                    .filter_map(move |(r_idx, (r, r_fit))| match l_fit.partial_cmp(r_fit) {
-                        Some(Ordering::Greater) | Some(Ordering::Equal) if l_idx > r_idx => {
+                    .filter_map(move |(r_idx, (r, r_fit))| {
+                        if l_fit > r_fit || (l_fit == r_fit && l_idx > r_idx) {
                             Some(((l, l_fit), (r, r_fit)))
+                        } else {
+                            None
                         }
-                        _ => None,
                     })
             })
             .collect::<Vec<_>>();
