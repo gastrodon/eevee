@@ -7,6 +7,8 @@ use crate::{
 };
 use rand::rng;
 
+const NO_IMPROVEMENT_TRUNCATE: usize = 10;
+
 pub enum EvolutionTarget {
     Fitness(f64),
     Generation(usize),
@@ -80,18 +82,46 @@ pub trait Scenario {
             scores = species
                 .iter()
                 .filter_map(|Specie { repr, members }| {
-                    members
+                    let gen_max = members
                         .iter()
-                        .max_by(|(_, l), (_, r)| l.partial_cmp(r).unwrap())
-                        .map(|(_, max)| (repr.clone(), *max))
+                        .max_by(|(_, l), (_, r)| l.partial_cmp(r).unwrap());
+                    let past_max = scores_prev.get(repr);
+
+                    match (gen_max, past_max) {
+                        (Some((_, gen_max)), Some((past_max, past_idx))) => {
+                            if gen_max > past_max {
+                                Some((repr.clone(), (*gen_max, gen_idx)))
+                            } else {
+                                Some((repr.clone(), (*past_max, *past_idx)))
+                            }
+                        }
+                        (Some((_, gen_max)), None) => Some((repr.clone(), (*gen_max, gen_idx))),
+                        (None, _) => None,
+                    }
                 })
                 .collect();
 
             let p_scored = species
                 .into_iter()
                 .map(|s| {
-                    let min_fit = *scores_prev.get(&s.repr).unwrap_or(&f64::MIN);
-                    (s, min_fit)
+                    let (min_fit, gen_achieved) =
+                        *scores_prev.get(&s.repr).unwrap_or(&(f64::MIN, gen_idx));
+
+                    if gen_achieved + NO_IMPROVEMENT_TRUNCATE <= gen_idx && s.members.len() > 2 {
+                        (
+                            Specie {
+                                repr: s.repr,
+                                members: {
+                                    let mut trunc = s.members;
+                                    trunc.sort_by(|(_, l), (_, r)| r.partial_cmp(l).unwrap());
+                                    trunc[..2].to_vec()
+                                },
+                            },
+                            f64::MIN,
+                        )
+                    } else {
+                        (s, min_fit)
+                    }
                 })
                 .collect::<Vec<_>>();
 
