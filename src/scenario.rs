@@ -128,6 +128,7 @@ pub trait Scenario {
             (pop_flat, inno_head) =
                 population_reproduce(&p_scored, population_lim, inno_head, &mut rng);
 
+            debug_assert!(!pop_flat.is_empty(), "nobody past {gen_idx}");
             gen_idx += 1
         }
     }
