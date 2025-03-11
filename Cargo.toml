@@ -41,6 +41,14 @@ name = "disjoint-excess-count"
 harness = false
 
 [[bench]]
+name = "crossover-eq"
+harness = false
+
+[[bench]]
+name = "crossover-ne"
+harness = false
+
+[[bench]]
 name = "mutate-bisection"
 harness = false
 
