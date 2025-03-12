@@ -257,54 +257,32 @@ mod test {
     use rand::rng;
     use std::collections::{HashMap, HashSet};
 
+    macro_rules! connection {
+        ($($k:ident = $v:expr),+ $(,)?) => {{
+            let mut c = Connection{
+                inno: 0,
+                from: 0,
+                to: 0,
+                weight: 0.,
+                enabled: true,
+            };
+            $(c.$k = $v;)+
+            c
+          }}
+    }
+
     #[test]
     fn test_avg_weight_diff() {
         let diff = avg_weight_diff(
             &[
-                Connection {
-                    inno: 1,
-                    from: 0,
-                    to: 0,
-                    weight: 0.5,
-                    enabled: true,
-                },
-                Connection {
-                    inno: 2,
-                    from: 0,
-                    to: 0,
-                    weight: -0.5,
-                    enabled: true,
-                },
-                Connection {
-                    inno: 3,
-                    from: 0,
-                    to: 0,
-                    weight: 1.0,
-                    enabled: true,
-                },
+                connection!(inno = 1, weight = 0.5,),
+                connection!(inno = 2, weight = -0.5,),
+                connection!(inno = 3, weight = 1.0,),
             ],
             &[
-                Connection {
-                    inno: 1,
-                    from: 0,
-                    to: 0,
-                    weight: 0.0,
-                    enabled: true,
-                },
-                Connection {
-                    inno: 2,
-                    from: 0,
-                    to: 0,
-                    weight: -1.0,
-                    enabled: true,
-                },
-                Connection {
-                    inno: 4,
-                    from: 0,
-                    to: 0,
-                    weight: 2.0,
-                    enabled: true,
-                },
+                connection!(inno = 1, weight = 0.0,),
+                connection!(inno = 2, weight = -1.0,),
+                connection!(inno = 4, weight = 2.0,),
             ],
         );
         assert!((diff - 0.5).abs() < f64::EPSILON, "diff ne: {diff}, 0.5");
@@ -313,27 +291,9 @@ mod test {
     #[test]
     fn test_avg_weight_diff_empty() {
         let full = vec![
-            Connection {
-                inno: 1,
-                from: 0,
-                to: 0,
-                weight: 0.0,
-                enabled: true,
-            },
-            Connection {
-                inno: 2,
-                from: 0,
-                to: 0,
-                weight: -1.0,
-                enabled: true,
-            },
-            Connection {
-                inno: 4,
-                from: 0,
-                to: 0,
-                weight: 2.0,
-                enabled: true,
-            },
+            connection!(inno = 1, weight = 0.0,),
+            connection!(inno = 2, weight = -1.0,),
+            connection!(inno = 4, weight = 2.0,),
         ];
 
         let diff = avg_weight_diff(&full, &[]);
@@ -350,43 +310,13 @@ mod test {
     fn test_avg_weight_diff_no_overlap() {
         let diff = avg_weight_diff(
             &[
-                Connection {
-                    inno: 1,
-                    from: 0,
-                    to: 0,
-                    weight: 0.5,
-                    enabled: true,
-                },
-                Connection {
-                    inno: 2,
-                    from: 0,
-                    to: 0,
-                    weight: -0.5,
-                    enabled: true,
-                },
-                Connection {
-                    inno: 3,
-                    from: 0,
-                    to: 0,
-                    weight: 1.0,
-                    enabled: true,
-                },
+                connection!(inno = 1, weight = 0.5,),
+                connection!(inno = 2, weight = -0.5,),
+                connection!(inno = 3, weight = 1.0,),
             ],
             &[
-                Connection {
-                    inno: 5,
-                    from: 0,
-                    to: 0,
-                    weight: 0.5,
-                    enabled: true,
-                },
-                Connection {
-                    inno: 6,
-                    from: 0,
-                    to: 0,
-                    weight: -0.5,
-                    enabled: true,
-                },
+                connection!(inno = 5, weight = 0.5,),
+                connection!(inno = 6, weight = -0.5,),
             ],
         );
         assert!((diff - 0.0).abs() < f64::EPSILON, "diff ne: {diff}, 0.");
@@ -396,50 +326,14 @@ mod test {
     fn test_avg_weight_diff_no_diff() {
         let diff = avg_weight_diff(
             &[
-                Connection {
-                    inno: 1,
-                    from: 0,
-                    to: 0,
-                    weight: 0.5,
-                    enabled: true,
-                },
-                Connection {
-                    inno: 2,
-                    from: 0,
-                    to: 0,
-                    weight: -0.5,
-                    enabled: true,
-                },
-                Connection {
-                    inno: 3,
-                    from: 0,
-                    to: 0,
-                    weight: 1.0,
-                    enabled: true,
-                },
+                connection!(inno = 1, weight = 0.5,),
+                connection!(inno = 2, weight = -0.5,),
+                connection!(inno = 3, weight = 1.0,),
             ],
             &[
-                Connection {
-                    inno: 1,
-                    from: 0,
-                    to: 0,
-                    weight: 0.5,
-                    enabled: true,
-                },
-                Connection {
-                    inno: 2,
-                    from: 0,
-                    to: 0,
-                    weight: -0.5,
-                    enabled: true,
-                },
-                Connection {
-                    inno: 3,
-                    from: 0,
-                    to: 0,
-                    weight: 1.0,
-                    enabled: true,
-                },
+                connection!(inno = 1, weight = 0.5,),
+                connection!(inno = 2, weight = -0.5,),
+                connection!(inno = 3, weight = 1.0,),
             ],
         );
         assert!((diff - 0.0).abs() < f64::EPSILON, "diff ne: {diff}, 0.");
@@ -451,64 +345,16 @@ mod test {
             (4.0, 2.0),
             disjoint_excess_count(
                 &[
-                    Connection {
-                        inno: 1,
-                        from: 0,
-                        to: 0,
-                        weight: 0.0,
-                        enabled: true,
-                    },
-                    Connection {
-                        inno: 2,
-                        from: 0,
-                        to: 0,
-                        weight: 0.0,
-                        enabled: true,
-                    },
-                    Connection {
-                        inno: 6,
-                        from: 0,
-                        to: 0,
-                        weight: 0.0,
-                        enabled: true,
-                    },
+                    connection!(inno = 1),
+                    connection!(inno = 2),
+                    connection!(inno = 6),
                 ],
                 &[
-                    Connection {
-                        inno: 1,
-                        from: 0,
-                        to: 0,
-                        weight: 0.0,
-                        enabled: true,
-                    },
-                    Connection {
-                        inno: 3,
-                        from: 0,
-                        to: 0,
-                        weight: 0.0,
-                        enabled: true,
-                    },
-                    Connection {
-                        inno: 4,
-                        from: 0,
-                        to: 0,
-                        weight: 0.0,
-                        enabled: true,
-                    },
-                    Connection {
-                        inno: 8,
-                        from: 0,
-                        to: 0,
-                        weight: 0.0,
-                        enabled: true,
-                    },
-                    Connection {
-                        inno: 10,
-                        from: 0,
-                        to: 0,
-                        weight: 0.0,
-                        enabled: true,
-                    },
+                    connection!(inno = 1),
+                    connection!(inno = 3),
+                    connection!(inno = 4),
+                    connection!(inno = 8),
+                    connection!(inno = 10),
                 ]
             )
         );
@@ -517,86 +363,23 @@ mod test {
     #[test]
     fn test_disjoint_excess_count_symmetrical() {
         let l = vec![
-            Connection {
-                inno: 1,
-                from: 0,
-                to: 0,
-                weight: 0.0,
-                enabled: true,
-            },
-            Connection {
-                inno: 2,
-                from: 0,
-                to: 0,
-                weight: 0.0,
-                enabled: true,
-            },
-            Connection {
-                inno: 6,
-                from: 0,
-                to: 0,
-                weight: 0.0,
-                enabled: true,
-            },
+            connection!(inno = 1),
+            connection!(inno = 2),
+            connection!(inno = 6),
         ];
         let r = vec![
-            Connection {
-                inno: 1,
-                from: 0,
-                to: 0,
-                weight: 0.0,
-                enabled: true,
-            },
-            Connection {
-                inno: 3,
-                from: 0,
-                to: 0,
-                weight: 0.0,
-                enabled: true,
-            },
-            Connection {
-                inno: 4,
-                from: 0,
-                to: 0,
-                weight: 0.0,
-                enabled: true,
-            },
-            Connection {
-                inno: 8,
-                from: 0,
-                to: 0,
-                weight: 0.0,
-                enabled: true,
-            },
-            Connection {
-                inno: 10,
-                from: 0,
-                to: 0,
-                weight: 0.0,
-                enabled: true,
-            },
+            connection!(inno = 1),
+            connection!(inno = 3),
+            connection!(inno = 4),
+            connection!(inno = 8),
+            connection!(inno = 10),
         ];
         assert_eq!(disjoint_excess_count(&l, &r), disjoint_excess_count(&r, &l));
     }
 
     #[test]
     fn test_disjoint_excess_count_empty() {
-        let full = vec![
-            Connection {
-                inno: 1,
-                from: 0,
-                to: 0,
-                weight: 0.0,
-                enabled: true,
-            },
-            Connection {
-                inno: 2,
-                from: 0,
-                to: 0,
-                weight: 0.0,
-                enabled: true,
-            },
-        ];
+        let full = vec![connection!(inno = 1), connection!(inno = 2)];
         assert_eq!((0.0, 2.0), disjoint_excess_count(&full, &[]));
         assert_eq!((0.0, 2.0), disjoint_excess_count(&[], &full));
         assert_eq!((0.0, 0.0), disjoint_excess_count(&[], &[]));
@@ -608,44 +391,11 @@ mod test {
             (0.0, 1.0),
             disjoint_excess_count(
                 &[
-                    Connection {
-                        inno: 0,
-                        from: 0,
-                        to: 0,
-                        weight: 0.0,
-                        enabled: true,
-                    },
-                    Connection {
-                        inno: 1,
-                        from: 0,
-                        to: 0,
-                        weight: 0.0,
-                        enabled: true,
-                    },
-                    Connection {
-                        inno: 2,
-                        from: 0,
-                        to: 0,
-                        weight: 0.0,
-                        enabled: true,
-                    },
+                    connection!(inno = 0),
+                    connection!(inno = 1),
+                    connection!(inno = 2),
                 ],
-                &[
-                    Connection {
-                        inno: 0,
-                        from: 0,
-                        to: 0,
-                        weight: 0.0,
-                        enabled: true,
-                    },
-                    Connection {
-                        inno: 1,
-                        from: 0,
-                        to: 0,
-                        weight: 0.0,
-                        enabled: true,
-                    },
-                ]
+                &[connection!(inno = 0), connection!(inno = 1),]
             )
         )
     }
@@ -655,38 +405,8 @@ mod test {
         assert_eq!(
             (2.0, 2.0),
             disjoint_excess_count(
-                &[
-                    Connection {
-                        inno: 1,
-                        from: 0,
-                        to: 0,
-                        weight: 0.0,
-                        enabled: true,
-                    },
-                    Connection {
-                        inno: 2,
-                        from: 0,
-                        to: 0,
-                        weight: 0.0,
-                        enabled: true,
-                    },
-                ],
-                &[
-                    Connection {
-                        inno: 3,
-                        from: 0,
-                        to: 0,
-                        weight: 0.0,
-                        enabled: true,
-                    },
-                    Connection {
-                        inno: 4,
-                        from: 0,
-                        to: 0,
-                        weight: 0.0,
-                        enabled: true,
-                    },
-                ]
+                &[connection!(inno = 1), connection!(inno = 2),],
+                &[connection!(inno = 3), connection!(inno = 4),]
             )
         );
     }
@@ -696,52 +416,14 @@ mod test {
         assert_eq!(
             (3.0, 1.0),
             disjoint_excess_count(
-                &[Connection {
-                    inno: 10,
-                    from: 0,
-                    to: 0,
-                    weight: 0.0,
-                    enabled: true,
-                }],
+                &[connection!(inno = 10)],
                 &[
-                    Connection {
-                        inno: 1,
-                        from: 0,
-                        to: 0,
-                        weight: 0.0,
-                        enabled: true,
-                    },
-                    Connection {
-                        inno: 2,
-                        from: 0,
-                        to: 0,
-                        weight: 0.0,
-                        enabled: true,
-                    },
-                    Connection {
-                        inno: 3,
-                        from: 0,
-                        to: 0,
-                        weight: 0.0,
-                        enabled: true,
-                    },
+                    connection!(inno = 1),
+                    connection!(inno = 2),
+                    connection!(inno = 3),
                 ]
             )
         );
-    }
-
-    macro_rules! connection {
-        ($($k:ident = $v:expr),+ $(,)?) => {{
-            let mut c = Connection{
-                inno: 0,
-                from: 0,
-                to: 0,
-                weight: 0.,
-                enabled: true,
-            };
-            $(c.$k = $v;)+
-            c
-          }}
     }
 
     macro_rules! assert_from_connection {
