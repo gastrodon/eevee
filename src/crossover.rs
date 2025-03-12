@@ -210,9 +210,26 @@ fn crossover_eq(l: &[Connection], r: &[Connection], rng: &mut ThreadRng) -> Vec<
 
 /// crossover connections where l is more fit than r
 fn crossover_ne(l: &[Connection], r: &[Connection], rng: &mut ThreadRng) -> Vec<Connection> {
-    l.iter()
-        .map(|(inno, l_conn)| pick_gene(l_conn, r.get(inno), rng))
-        .collect()
+    // copy l, pick_gene where l.inno == r.inno
+    let mut cross = Vec::with_capacity(l.len());
+    let mut r_idx = 0;
+    for l_conn in l {
+        // TODO is r_idx < r.len() && r[r_idx] or maybe even get_unchecked
+        while r.get(r_idx).is_some_and(|r_conn| r_conn.inno < l_conn.inno) {
+            r_idx += 1;
+        }
+
+        // TODO above applies here
+        cross.push(pick_gene(
+            l_conn,
+            r.get(r_idx)
+                .is_some_and(|r_conn| r_conn.inno == l_conn.inno)
+                .then(|| &r[r_idx]),
+            rng,
+        ))
+    }
+
+    cross
 }
 
 /// crossover connections
@@ -906,155 +923,139 @@ mod test {
         }
     }
 
-    #[test]
-    fn test_crossover_gt() {
-        let l = [
-            Connection {
-                inno: 0,
-                from: 0,
-                to: 1,
-                weight: 0.6,
-                enabled: true,
-            },
-            Connection {
-                inno: 1,
-                from: 1,
-                to: 2,
-                weight: 1.,
-                enabled: true,
-            },
-            Connection {
-                inno: 2,
-                from: 2,
-                to: 1,
-                weight: 1.2,
-                enabled: true,
-            },
-        ];
-        let r = [
-            Connection {
-                inno: 0,
-                from: 0,
-                to: 1,
-                weight: 0.3,
-                enabled: true,
-            },
-            Connection {
-                inno: 2,
-                from: 2,
-                to: 1,
-                weight: 0.2,
-                enabled: false,
-            },
-            Connection {
-                inno: 3,
-                from: 2,
-                to: 3,
-                weight: 1.,
-                enabled: true,
-            },
-            Connection {
-                inno: 4,
-                from: 2,
-                to: 4,
-                weight: 1.,
-                enabled: true,
-            },
-        ];
+    fn assert_crossover_ne(l: &[Connection], r: &[Connection]) {
+        for (l, r) in [(l, r), (r, l)] {
+            let l_map = l.iter().map(|c| (c.inno, c)).collect::<HashMap<_, &_>>();
+            let r_map = r.iter().map(|c| (c.inno, c)).collect::<HashMap<_, &_>>();
+            let l_keys = l_map.keys().cloned().collect::<HashSet<_>>();
+            let inno = l_keys
+                .union(&r_map.keys().cloned().collect::<HashSet<_>>())
+                .cloned()
+                .collect::<HashSet<_>>();
 
-        for _ in 0..1000 {
-            let lr = crossover(&l, &r, Ordering::Greater, &mut rng());
+            for _ in 0..1000 {
+                let lr = crossover_ne(l, r, &mut rng());
+                assert_eq!(lr.len(), l.len());
 
-            assert_eq!(lr.len(), l.len());
-            assert!(lr[0] == l[0] || lr[0] == r[0]);
-            assert_eq!(lr[1], l[1]);
-            {
-                let mut lr_2 = lr[2].to_owned();
-                lr_2.enabled = false;
-                let mut l_2 = l[2].to_owned();
-                l_2.enabled = false;
-                let mut r_1 = r[1].to_owned();
-                r_1.enabled = false;
-                assert!(
-                    lr_2 == l_2 || lr_2 == r_1,
-                    "base:{lr_2:?}\nl   :{l_2:?}\nr   :{r_1:?}"
-                );
+                let lr_inno = lr.iter().map(|c| c.inno).collect::<HashSet<_>>();
+                assert!(l_keys.is_subset(&lr_inno));
+                assert!(l_keys.is_superset(&lr_inno));
+                assert!(inno.is_superset(&lr_inno));
+                assert!(lr.is_sorted_by_key(|c| c.inno));
+                for ref lr_conn in lr {
+                    match (l_map.get(&lr_conn.inno), r_map.get(&lr_conn.inno)) {
+                        (None, None) => panic!("{} is in neither l nor r", lr_conn.inno),
+                        (None, Some(conn)) => panic!("{} is in only r", conn.inno),
+                        (Some(conn), None) => {
+                            assert_from_connection!(lr_conn, *conn)
+                        }
+                        (Some(l_conn), Some(r_conn)) => {
+                            assert_from_connection!(lr_conn, (*l_conn, *r_conn))
+                        }
+                    }
+                }
             }
         }
     }
 
     #[test]
-    fn test_crossover_lt() {
+    fn test_crossover_ne() {
         let l = [
-            Connection {
-                inno: 0,
-                from: 0,
-                to: 1,
-                weight: 0.6,
-                enabled: true,
-            },
-            Connection {
-                inno: 1,
-                from: 1,
-                to: 2,
-                weight: 1.,
-                enabled: true,
-            },
-            Connection {
-                inno: 2,
-                from: 2,
-                to: 1,
-                weight: 1.2,
-                enabled: true,
-            },
+            connection!(inno = 0, from = 1_1),
+            connection!(inno = 1, from = 1_2),
+            connection!(inno = 2, from = 1_3),
+            connection!(inno = 9, from = 1_4),
         ];
         let r = [
-            Connection {
-                inno: 0,
-                from: 0,
-                to: 1,
-                weight: 0.3,
-                enabled: true,
-            },
-            Connection {
-                inno: 2,
-                from: 2,
-                to: 1,
-                weight: 0.2,
-                enabled: false,
-            },
-            Connection {
-                inno: 3,
-                from: 2,
-                to: 3,
-                weight: 1.,
-                enabled: true,
-            },
-            Connection {
-                inno: 4,
-                from: 2,
-                to: 4,
-                weight: 1.,
-                enabled: true,
-            },
+            connection!(inno = 0, from = 2_1),
+            connection!(inno = 2, from = 2_2),
+            connection!(inno = 3, from = 2_3),
+            connection!(inno = 4, from = 2_4),
+            connection!(inno = 7, from = 2_5),
         ];
 
-        for _ in 0..1000 {
-            let lr = crossover(&l, &r, Ordering::Less, &mut rng());
+        assert_crossover_ne(&l, &r);
+    }
 
-            assert_eq!(lr.len(), r.len());
-            assert!(lr[0] == l[0] || lr[0] == r[0]);
-            {
-                let mut lr_1 = lr[1].to_owned();
-                lr_1.enabled = false;
-                let mut l_2 = l[2].to_owned();
-                l_2.enabled = false;
-                let mut r_1 = r[1].to_owned();
-                r_1.enabled = false;
-                assert!(lr_1 == l_2 || lr_1 == r_1);
-            }
-            assert_eq!(lr[2], r[2]);
-            assert_eq!(lr[3], r[3]);
+    #[test]
+    fn test_crossover_ne_empty() {
+        let l = [connection!(inno = 0, from = 1_1)];
+
+        assert_crossover_ne(&l, &[]);
+        assert_crossover_ne(&[], &[]);
+    }
+
+    #[test]
+    fn test_crossover_ne_no_overlap() {
+        let l = [
+            connection!(inno = 1, from = 1_1),
+            connection!(inno = 3, from = 1_2),
+            connection!(inno = 5, from = 1_3),
+        ];
+        let r = [
+            connection!(inno = 0, from = 2_1),
+            connection!(inno = 2, from = 2_2),
+            connection!(inno = 4, from = 2_3),
+        ];
+
+        assert_crossover_ne(&l, &r);
+    }
+
+    #[test]
+    fn test_crossover_ne_full_overlap() {
+        let l = [
+            connection!(inno = 1, from = 1_1),
+            connection!(inno = 2, from = 1_2),
+            connection!(inno = 3, from = 1_3),
+        ];
+        let r = [
+            connection!(inno = 1, from = 2_1),
+            connection!(inno = 2, from = 2_2),
+            connection!(inno = 3, from = 2_3),
+        ];
+
+        assert_crossover_ne(&l, &r);
+    }
+
+    #[test]
+    fn test_crossover_ne_overflow() {
+        let l = [connection!(inno = 10, from = 1_1)];
+        let r = [
+            connection!(inno = 1, from = 2_1),
+            connection!(inno = 2, from = 2_2),
+        ];
+
+        assert_crossover_ne(&l, &r);
+    }
+
+    #[test]
+    fn test_crossover_ne_no_lt() {
+        let l = [connection!(inno = 0, from = 1_1)];
+        let r = [connection!(inno = 10, from = 2_1)];
+
+        assert_crossover_ne(&l, &r);
+    }
+
+    #[test]
+    fn test_crossover_lt() {
+        let l = [
+            connection!(inno = 0, from = 1_1),
+            connection!(inno = 1, from = 1_2),
+            connection!(inno = 2, from = 1_3),
+        ];
+        let r = [
+            connection!(inno = 0, from = 2_1),
+            connection!(inno = 2, from = 2_2),
+            connection!(inno = 3, from = 2_3),
+            connection!(inno = 4, from = 2_4),
+        ];
+
+        assert_crossover_ne(&l, &r);
+        for (le, ge) in crossover(&l, &r, Ordering::Less, &mut rng())
+            .iter()
+            .zip(crossover_ne(&r, &l, &mut rng()))
+        {
+            assert_eq!(le.inno, ge.inno);
         }
     }
 }
