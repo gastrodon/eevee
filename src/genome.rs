@@ -1,16 +1,14 @@
 use crate::{crossover::crossover, specie::InnoGen};
+use core::{
+    cmp::{max, Ordering},
+    error::Error,
+    hash::Hash,
+    iter::once,
+};
 use rand::{rngs::ThreadRng, seq::IteratorRandom, Rng};
 use rand_distr::StandardNormal;
 use serde::{Deserialize, Serialize};
-use std::{
-    cmp::{max, Ordering},
-    collections::HashSet,
-    error::Error,
-    fs,
-    hash::Hash,
-    iter::{self, once},
-    path::Path,
-};
+use std::{collections::HashSet, fs, path::Path};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Node {
@@ -248,7 +246,7 @@ fn gen_connection(genome: &Genome, rng: &mut ThreadRng) -> Option<(usize, usize)
             .connections
             .iter()
             .filter_map(|c| (c.from == from).then_some(c.to))
-            .chain(iter::once(from))
+            .chain(once(from))
             .collect::<HashSet<_>>();
 
         if let Some(to) = (0..genome.nodes.len())

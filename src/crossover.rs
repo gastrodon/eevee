@@ -1,9 +1,6 @@
 use crate::genome::Connection;
+use core::cmp::Ordering;
 use rand::{rngs::ThreadRng, Rng};
-use std::{
-    cmp::Ordering,
-    collections::{HashMap, HashSet},
-};
 
 pub fn disjoint_excess_count(l: &[Connection], r: &[Connection]) -> (f64, f64) {
     let mut l_iter = l.iter();
@@ -136,50 +133,103 @@ pub fn delta(l: &[Connection], r: &[Connection]) -> f64 {
     }
 }
 
-/// crossover connections where l and r are equally fit
-fn crossover_eq(
-    l: &HashMap<usize, &Connection>,
-    r: &HashMap<usize, &Connection>,
-    rng: &mut ThreadRng,
-) -> Vec<Connection> {
-    let keys: HashSet<_> = HashSet::from_iter(l.keys().chain(r.keys()).cloned());
+const CHANCE_PICK_LR: f64 = 0.5;
+const CHANCE_KEEP_DISABLED: f64 = 0.75;
+const CHANCE_RAND_DISABLED: f64 = 0.01;
 
-    keys.iter()
-        .map(|inno| {
-            // TODO 75% chance to disable gene if disabled in either parent
-            (*match (l.get(inno), r.get(inno)) {
-                (None, None) => unreachable!(),
-                (None, Some(conn)) | (Some(conn), None) => conn,
-                (Some(l_conn), Some(r_conn)) => {
-                    if rng.random_bool(0.5) {
-                        l_conn
-                    } else {
-                        r_conn
-                    }
-                }
-            })
-            .clone()
+#[inline]
+fn pick_gene(
+    base_conn: &Connection,
+    opt_conn: Option<&Connection>,
+    rng: &mut ThreadRng,
+) -> Connection {
+    let mut conn = if let Some(r_conn) = opt_conn {
+        (*if rng.random_bool(CHANCE_PICK_LR) {
+            r_conn
+        } else {
+            base_conn
         })
-        .collect()
+        .to_owned()
+    } else {
+        base_conn.to_owned()
+    };
+
+    // TODO It seems like it will always check RAND_DISABLED, and sometimes
+    // check KEEP_DISABLED. I wonder if checking RAND_DISABLED first would bypass
+    // RAND_DISABLED% of checks that would then check KEEP_DISABLED?
+    if ((!base_conn.enabled || opt_conn.is_some_and(|r_conn| !r_conn.enabled))
+        && rng.random_bool(CHANCE_KEEP_DISABLED))
+        || rng.random_bool(CHANCE_RAND_DISABLED)
+    {
+        conn.enabled = false;
+    }
+
+    conn
+}
+
+/// crossover connections where l and r are equally fit
+fn crossover_eq(l: &[Connection], r: &[Connection], rng: &mut ThreadRng) -> Vec<Connection> {
+    // TODO I wonder what the actual average case overlap between genomes is?
+    // probably pretty close, could we measure this?
+    let mut cross = Vec::with_capacity(l.len() + r.len());
+    let mut l_idx = 0;
+    let mut r_idx = 0;
+    loop {
+        match (l.get(l_idx), r.get(r_idx)) {
+            (None, None) => break,
+            (None, Some(_)) => {
+                // TODO is it faster to extend, or to loop-push?
+                cross.extend(r[r_idx..].iter().map(|conn| pick_gene(conn, None, rng)));
+                break;
+            }
+            (Some(_), None) => {
+                cross.extend(l[l_idx..].iter().map(|conn| pick_gene(conn, None, rng)));
+                break;
+            }
+            (Some(l_conn), Some(r_conn)) => match l_conn.inno.cmp(&r_conn.inno) {
+                Ordering::Equal => {
+                    cross.push(pick_gene(l_conn, Some(r_conn), rng));
+                    l_idx += 1;
+                    r_idx += 1;
+                }
+                Ordering::Less => {
+                    cross.push(pick_gene(l_conn, None, rng));
+                    l_idx += 1;
+                }
+                Ordering::Greater => {
+                    cross.push(pick_gene(r_conn, None, rng));
+                    r_idx += 1;
+                }
+            },
+        }
+    }
+
+    cross.shrink_to_fit(); // TODO what happens if I remove this
+    cross
 }
 
 /// crossover connections where l is more fit than r
-fn crossover_ne(
-    l: &HashMap<usize, &Connection>,
-    r: &HashMap<usize, &Connection>,
-    rng: &mut ThreadRng,
-) -> Vec<Connection> {
-    l.iter()
-        .map(|(inno, l_conn)| {
-            // TODO 75% chance to disable gene if disabled in either parent
-            (*if r.contains_key(inno) && rng.random_bool(0.5) {
-                r.get(inno).unwrap()
-            } else {
-                l_conn
-            })
-            .clone()
-        })
-        .collect()
+fn crossover_ne(l: &[Connection], r: &[Connection], rng: &mut ThreadRng) -> Vec<Connection> {
+    // copy l, pick_gene where l.inno == r.inno
+    let mut cross = Vec::with_capacity(l.len());
+    let mut r_idx = 0;
+    for l_conn in l {
+        // TODO is r_idx < r.len() && r[r_idx] or maybe even get_unchecked
+        while r.get(r_idx).is_some_and(|r_conn| r_conn.inno < l_conn.inno) {
+            r_idx += 1;
+        }
+
+        // TODO above applies here
+        cross.push(pick_gene(
+            l_conn,
+            r.get(r_idx)
+                .is_some_and(|r_conn| r_conn.inno == l_conn.inno)
+                .then(|| &r[r_idx]),
+            rng,
+        ))
+    }
+
+    cross
 }
 
 /// crossover connections
@@ -190,13 +240,10 @@ pub fn crossover(
     l_fit: Ordering,
     rng: &mut ThreadRng,
 ) -> Vec<Connection> {
-    let lookup_l = l.iter().map(|conn| (conn.inno, conn)).collect();
-    let lookup_r = r.iter().map(|conn| (conn.inno, conn)).collect();
-
     let mut usort = match l_fit {
-        Ordering::Equal => crossover_eq(&lookup_l, &lookup_r, rng),
-        Ordering::Less => crossover_ne(&lookup_r, &lookup_l, rng),
-        Ordering::Greater => crossover_ne(&lookup_l, &lookup_r, rng),
+        Ordering::Equal => crossover_eq(l, r, rng),
+        Ordering::Less => crossover_ne(r, l, rng),
+        Ordering::Greater => crossover_ne(l, r, rng),
     };
 
     usort.sort_by_key(|c| c.inno);
@@ -208,55 +255,34 @@ mod test {
     use super::*;
     use crate::genome::Connection;
     use rand::rng;
+    use std::collections::{HashMap, HashSet};
+
+    macro_rules! connection {
+        ($($k:ident = $v:expr),+ $(,)?) => {{
+            let mut c = Connection{
+                inno: 0,
+                from: 0,
+                to: 0,
+                weight: 0.,
+                enabled: true,
+            };
+            $(c.$k = $v;)+
+            c
+          }}
+    }
 
     #[test]
     fn test_avg_weight_diff() {
         let diff = avg_weight_diff(
             &[
-                Connection {
-                    inno: 1,
-                    from: 0,
-                    to: 0,
-                    weight: 0.5,
-                    enabled: true,
-                },
-                Connection {
-                    inno: 2,
-                    from: 0,
-                    to: 0,
-                    weight: -0.5,
-                    enabled: true,
-                },
-                Connection {
-                    inno: 3,
-                    from: 0,
-                    to: 0,
-                    weight: 1.0,
-                    enabled: true,
-                },
+                connection!(inno = 1, weight = 0.5,),
+                connection!(inno = 2, weight = -0.5,),
+                connection!(inno = 3, weight = 1.0,),
             ],
             &[
-                Connection {
-                    inno: 1,
-                    from: 0,
-                    to: 0,
-                    weight: 0.0,
-                    enabled: true,
-                },
-                Connection {
-                    inno: 2,
-                    from: 0,
-                    to: 0,
-                    weight: -1.0,
-                    enabled: true,
-                },
-                Connection {
-                    inno: 4,
-                    from: 0,
-                    to: 0,
-                    weight: 2.0,
-                    enabled: true,
-                },
+                connection!(inno = 1, weight = 0.0,),
+                connection!(inno = 2, weight = -1.0,),
+                connection!(inno = 4, weight = 2.0,),
             ],
         );
         assert!((diff - 0.5).abs() < f64::EPSILON, "diff ne: {diff}, 0.5");
@@ -265,27 +291,9 @@ mod test {
     #[test]
     fn test_avg_weight_diff_empty() {
         let full = vec![
-            Connection {
-                inno: 1,
-                from: 0,
-                to: 0,
-                weight: 0.0,
-                enabled: true,
-            },
-            Connection {
-                inno: 2,
-                from: 0,
-                to: 0,
-                weight: -1.0,
-                enabled: true,
-            },
-            Connection {
-                inno: 4,
-                from: 0,
-                to: 0,
-                weight: 2.0,
-                enabled: true,
-            },
+            connection!(inno = 1, weight = 0.0,),
+            connection!(inno = 2, weight = -1.0,),
+            connection!(inno = 4, weight = 2.0,),
         ];
 
         let diff = avg_weight_diff(&full, &[]);
@@ -302,43 +310,13 @@ mod test {
     fn test_avg_weight_diff_no_overlap() {
         let diff = avg_weight_diff(
             &[
-                Connection {
-                    inno: 1,
-                    from: 0,
-                    to: 0,
-                    weight: 0.5,
-                    enabled: true,
-                },
-                Connection {
-                    inno: 2,
-                    from: 0,
-                    to: 0,
-                    weight: -0.5,
-                    enabled: true,
-                },
-                Connection {
-                    inno: 3,
-                    from: 0,
-                    to: 0,
-                    weight: 1.0,
-                    enabled: true,
-                },
+                connection!(inno = 1, weight = 0.5,),
+                connection!(inno = 2, weight = -0.5,),
+                connection!(inno = 3, weight = 1.0,),
             ],
             &[
-                Connection {
-                    inno: 5,
-                    from: 0,
-                    to: 0,
-                    weight: 0.5,
-                    enabled: true,
-                },
-                Connection {
-                    inno: 6,
-                    from: 0,
-                    to: 0,
-                    weight: -0.5,
-                    enabled: true,
-                },
+                connection!(inno = 5, weight = 0.5,),
+                connection!(inno = 6, weight = -0.5,),
             ],
         );
         assert!((diff - 0.0).abs() < f64::EPSILON, "diff ne: {diff}, 0.");
@@ -348,50 +326,14 @@ mod test {
     fn test_avg_weight_diff_no_diff() {
         let diff = avg_weight_diff(
             &[
-                Connection {
-                    inno: 1,
-                    from: 0,
-                    to: 0,
-                    weight: 0.5,
-                    enabled: true,
-                },
-                Connection {
-                    inno: 2,
-                    from: 0,
-                    to: 0,
-                    weight: -0.5,
-                    enabled: true,
-                },
-                Connection {
-                    inno: 3,
-                    from: 0,
-                    to: 0,
-                    weight: 1.0,
-                    enabled: true,
-                },
+                connection!(inno = 1, weight = 0.5,),
+                connection!(inno = 2, weight = -0.5,),
+                connection!(inno = 3, weight = 1.0,),
             ],
             &[
-                Connection {
-                    inno: 1,
-                    from: 0,
-                    to: 0,
-                    weight: 0.5,
-                    enabled: true,
-                },
-                Connection {
-                    inno: 2,
-                    from: 0,
-                    to: 0,
-                    weight: -0.5,
-                    enabled: true,
-                },
-                Connection {
-                    inno: 3,
-                    from: 0,
-                    to: 0,
-                    weight: 1.0,
-                    enabled: true,
-                },
+                connection!(inno = 1, weight = 0.5,),
+                connection!(inno = 2, weight = -0.5,),
+                connection!(inno = 3, weight = 1.0,),
             ],
         );
         assert!((diff - 0.0).abs() < f64::EPSILON, "diff ne: {diff}, 0.");
@@ -403,64 +345,16 @@ mod test {
             (4.0, 2.0),
             disjoint_excess_count(
                 &[
-                    Connection {
-                        inno: 1,
-                        from: 0,
-                        to: 0,
-                        weight: 0.0,
-                        enabled: true,
-                    },
-                    Connection {
-                        inno: 2,
-                        from: 0,
-                        to: 0,
-                        weight: 0.0,
-                        enabled: true,
-                    },
-                    Connection {
-                        inno: 6,
-                        from: 0,
-                        to: 0,
-                        weight: 0.0,
-                        enabled: true,
-                    },
+                    connection!(inno = 1),
+                    connection!(inno = 2),
+                    connection!(inno = 6),
                 ],
                 &[
-                    Connection {
-                        inno: 1,
-                        from: 0,
-                        to: 0,
-                        weight: 0.0,
-                        enabled: true,
-                    },
-                    Connection {
-                        inno: 3,
-                        from: 0,
-                        to: 0,
-                        weight: 0.0,
-                        enabled: true,
-                    },
-                    Connection {
-                        inno: 4,
-                        from: 0,
-                        to: 0,
-                        weight: 0.0,
-                        enabled: true,
-                    },
-                    Connection {
-                        inno: 8,
-                        from: 0,
-                        to: 0,
-                        weight: 0.0,
-                        enabled: true,
-                    },
-                    Connection {
-                        inno: 10,
-                        from: 0,
-                        to: 0,
-                        weight: 0.0,
-                        enabled: true,
-                    },
+                    connection!(inno = 1),
+                    connection!(inno = 3),
+                    connection!(inno = 4),
+                    connection!(inno = 8),
+                    connection!(inno = 10),
                 ]
             )
         );
@@ -469,86 +363,23 @@ mod test {
     #[test]
     fn test_disjoint_excess_count_symmetrical() {
         let l = vec![
-            Connection {
-                inno: 1,
-                from: 0,
-                to: 0,
-                weight: 0.0,
-                enabled: true,
-            },
-            Connection {
-                inno: 2,
-                from: 0,
-                to: 0,
-                weight: 0.0,
-                enabled: true,
-            },
-            Connection {
-                inno: 6,
-                from: 0,
-                to: 0,
-                weight: 0.0,
-                enabled: true,
-            },
+            connection!(inno = 1),
+            connection!(inno = 2),
+            connection!(inno = 6),
         ];
         let r = vec![
-            Connection {
-                inno: 1,
-                from: 0,
-                to: 0,
-                weight: 0.0,
-                enabled: true,
-            },
-            Connection {
-                inno: 3,
-                from: 0,
-                to: 0,
-                weight: 0.0,
-                enabled: true,
-            },
-            Connection {
-                inno: 4,
-                from: 0,
-                to: 0,
-                weight: 0.0,
-                enabled: true,
-            },
-            Connection {
-                inno: 8,
-                from: 0,
-                to: 0,
-                weight: 0.0,
-                enabled: true,
-            },
-            Connection {
-                inno: 10,
-                from: 0,
-                to: 0,
-                weight: 0.0,
-                enabled: true,
-            },
+            connection!(inno = 1),
+            connection!(inno = 3),
+            connection!(inno = 4),
+            connection!(inno = 8),
+            connection!(inno = 10),
         ];
         assert_eq!(disjoint_excess_count(&l, &r), disjoint_excess_count(&r, &l));
     }
 
     #[test]
     fn test_disjoint_excess_count_empty() {
-        let full = vec![
-            Connection {
-                inno: 1,
-                from: 0,
-                to: 0,
-                weight: 0.0,
-                enabled: true,
-            },
-            Connection {
-                inno: 2,
-                from: 0,
-                to: 0,
-                weight: 0.0,
-                enabled: true,
-            },
-        ];
+        let full = vec![connection!(inno = 1), connection!(inno = 2)];
         assert_eq!((0.0, 2.0), disjoint_excess_count(&full, &[]));
         assert_eq!((0.0, 2.0), disjoint_excess_count(&[], &full));
         assert_eq!((0.0, 0.0), disjoint_excess_count(&[], &[]));
@@ -560,44 +391,11 @@ mod test {
             (0.0, 1.0),
             disjoint_excess_count(
                 &[
-                    Connection {
-                        inno: 0,
-                        from: 0,
-                        to: 0,
-                        weight: 0.0,
-                        enabled: true,
-                    },
-                    Connection {
-                        inno: 1,
-                        from: 0,
-                        to: 0,
-                        weight: 0.0,
-                        enabled: true,
-                    },
-                    Connection {
-                        inno: 2,
-                        from: 0,
-                        to: 0,
-                        weight: 0.0,
-                        enabled: true,
-                    },
+                    connection!(inno = 0),
+                    connection!(inno = 1),
+                    connection!(inno = 2),
                 ],
-                &[
-                    Connection {
-                        inno: 0,
-                        from: 0,
-                        to: 0,
-                        weight: 0.0,
-                        enabled: true,
-                    },
-                    Connection {
-                        inno: 1,
-                        from: 0,
-                        to: 0,
-                        weight: 0.0,
-                        enabled: true,
-                    },
-                ]
+                &[connection!(inno = 0), connection!(inno = 1),]
             )
         )
     }
@@ -607,38 +405,8 @@ mod test {
         assert_eq!(
             (2.0, 2.0),
             disjoint_excess_count(
-                &[
-                    Connection {
-                        inno: 1,
-                        from: 0,
-                        to: 0,
-                        weight: 0.0,
-                        enabled: true,
-                    },
-                    Connection {
-                        inno: 2,
-                        from: 0,
-                        to: 0,
-                        weight: 0.0,
-                        enabled: true,
-                    },
-                ],
-                &[
-                    Connection {
-                        inno: 3,
-                        from: 0,
-                        to: 0,
-                        weight: 0.0,
-                        enabled: true,
-                    },
-                    Connection {
-                        inno: 4,
-                        from: 0,
-                        to: 0,
-                        weight: 0.0,
-                        enabled: true,
-                    },
-                ]
+                &[connection!(inno = 1), connection!(inno = 2),],
+                &[connection!(inno = 3), connection!(inno = 4),]
             )
         );
     }
@@ -648,230 +416,328 @@ mod test {
         assert_eq!(
             (3.0, 1.0),
             disjoint_excess_count(
-                &[Connection {
-                    inno: 10,
-                    from: 0,
-                    to: 0,
-                    weight: 0.0,
-                    enabled: true,
-                }],
+                &[connection!(inno = 10)],
                 &[
-                    Connection {
-                        inno: 1,
-                        from: 0,
-                        to: 0,
-                        weight: 0.0,
-                        enabled: true,
-                    },
-                    Connection {
-                        inno: 2,
-                        from: 0,
-                        to: 0,
-                        weight: 0.0,
-                        enabled: true,
-                    },
-                    Connection {
-                        inno: 3,
-                        from: 0,
-                        to: 0,
-                        weight: 0.0,
-                        enabled: true,
-                    },
+                    connection!(inno = 1),
+                    connection!(inno = 2),
+                    connection!(inno = 3),
                 ]
             )
         );
     }
 
-    #[test]
-    fn test_crossover_eq() {
-        let l = [
-            Connection {
-                inno: 0,
-                from: 0,
-                to: 1,
-                weight: 0.6,
-                enabled: true,
-            },
-            Connection {
-                inno: 1,
-                from: 1,
-                to: 2,
-                weight: 1.,
-                enabled: true,
-            },
-            Connection {
-                inno: 2,
-                from: 2,
-                to: 1,
-                weight: 1.2,
-                enabled: true,
-            },
-        ];
-        let r = [
-            Connection {
-                inno: 0,
-                from: 0,
-                to: 1,
-                weight: 0.3,
-                enabled: true,
-            },
-            Connection {
-                inno: 2,
-                from: 2,
-                to: 1,
-                weight: 0.2,
-                enabled: false,
-            },
-            Connection {
-                inno: 3,
-                from: 2,
-                to: 3,
-                weight: 1.,
-                enabled: true,
-            },
-        ];
+    macro_rules! assert_from_connection {
+        ($have:expr, ($l:expr, $r:expr), $($arg:tt)+) => {{
+            let mut have = $have.to_owned();
+            have.enabled = true;
+            let mut l = $l.to_owned();
+            l.enabled = true;
+            let mut r = $r.to_owned();
+            r.enabled = true;
+            assert!(have == l || have == r, $($arg)*);
+        }};
+        ($have:expr, ($l:expr, $r:expr)) => {{
+            assert_from_connection!(
+                $have, ($l, $r),
+                "{:?} from neither {:?} or {:?}",
+                $have,
+                $l,
+                $r
+            );
+        }};
+        ($have:expr, $f:expr, $($arg:tt)+) => {{
+            let mut have = $have.to_owned();
+            have.enabled = true;
+            let mut f = $f.to_owned();
+            f.enabled = true;
+            assert!(have == f, $($arg)*);
 
-        for _ in 0..1000 {
-            let lr = crossover(&l, &r, Ordering::Equal, &mut rng());
+        }};
+        ($have:expr, $f:expr) => {{
+            assert_from_connection!(
+                $have, $f,
+                "{:?} not from {:?}",
+                $have,
+                $f
+            )
+        }};
+    }
 
-            assert_eq!(lr.len(), 4);
-            assert!(lr[0] == l[0] || lr[0] == r[0]);
-            assert_eq!(lr[1], l[1]);
-            assert!(lr[2] == l[2] || lr[2] == r[1]);
-            assert_eq!(lr[3], r[2])
+    fn assert_crossover_eq(l: &[Connection], r: &[Connection]) {
+        for (l, r) in [(l, r), (r, l)] {
+            let l_map = l.iter().map(|c| (c.inno, c)).collect::<HashMap<_, &_>>();
+            let r_map = r.iter().map(|c| (c.inno, c)).collect::<HashMap<_, &_>>();
+            let inno = l_map
+                .keys()
+                .collect::<HashSet<_>>()
+                .union(&r_map.keys().collect::<HashSet<_>>())
+                .cloned()
+                .cloned()
+                .collect::<HashSet<_>>();
+
+            for _ in 0..1000 {
+                let lr = crossover_eq(l, r, &mut rng());
+                assert_eq!(inno.len(), lr.len());
+
+                let lr_inno = lr.iter().map(|c| c.inno).collect::<HashSet<_>>();
+                assert!(inno.is_subset(&lr_inno));
+                assert!(inno.is_superset(&lr_inno));
+                assert!(lr.is_sorted_by_key(|c| c.inno));
+                for ref lr_conn in lr {
+                    match (l_map.get(&lr_conn.inno), r_map.get(&lr_conn.inno)) {
+                        (None, None) => panic!("{} is in neither l nor r", lr_conn.inno),
+                        (None, Some(conn)) | (Some(conn), None) => {
+                            assert_from_connection!(lr_conn, *conn)
+                        }
+                        (Some(l_conn), Some(r_conn)) => {
+                            assert_from_connection!(lr_conn, (*l_conn, *r_conn))
+                        }
+                    }
+                }
+            }
         }
     }
 
     #[test]
-    fn test_crossover_gt() {
+    fn test_crossover_eq() {
         let l = [
-            Connection {
-                inno: 0,
-                from: 0,
-                to: 1,
-                weight: 0.6,
-                enabled: true,
-            },
-            Connection {
-                inno: 1,
-                from: 1,
-                to: 2,
-                weight: 1.,
-                enabled: true,
-            },
-            Connection {
-                inno: 2,
-                from: 2,
-                to: 1,
-                weight: 1.2,
-                enabled: true,
-            },
+            connection!(inno = 0, from = 1_1),
+            connection!(inno = 1, from = 1_2),
+            connection!(inno = 2, from = 1_3),
         ];
         let r = [
-            Connection {
-                inno: 0,
-                from: 0,
-                to: 1,
-                weight: 0.3,
-                enabled: true,
-            },
-            Connection {
-                inno: 2,
-                from: 2,
-                to: 1,
-                weight: 0.2,
-                enabled: false,
-            },
-            Connection {
-                inno: 3,
-                from: 2,
-                to: 3,
-                weight: 1.,
-                enabled: true,
-            },
-            Connection {
-                inno: 4,
-                from: 2,
-                to: 4,
-                weight: 1.,
-                enabled: true,
-            },
+            connection!(inno = 0, from = 2_1),
+            connection!(inno = 2, from = 2_2),
+            connection!(inno = 3, from = 2_3),
         ];
 
-        for _ in 0..1000 {
-            let lr = crossover(&l, &r, Ordering::Greater, &mut rng());
+        assert_crossover_eq(&l, &r);
+    }
 
-            assert_eq!(lr.len(), l.len());
-            assert!(lr[0] == l[0] || lr[0] == r[0]);
-            assert_eq!(lr[1], l[1]);
-            assert!(lr[2] == l[2] || lr[2] == r[1]);
+    #[test]
+    fn test_crossover_eq_empty() {
+        let l = [connection!(inno = 2, from = 1)];
+
+        assert_crossover_eq(&l, &[]);
+        assert_crossover_eq(&[], &[]);
+    }
+
+    #[test]
+    fn test_crossover_eq_overflow() {
+        let l = [connection!(inno = 0, from = 1_1)];
+        let r = [connection!(inno = 1, from = 2_1)];
+
+        assert_crossover_eq(&l, &r);
+
+        let l = [connection!(inno = 1, from = 1_1)];
+        let r = [connection!(inno = 0, from = 2_1)];
+
+        assert_crossover_eq(&l, &r);
+    }
+
+    #[test]
+    #[should_panic(expected = "not from r_0")]
+    fn test_crossover_eq_catchup_l() {
+        let l = [
+            connection!(inno = 0, from = 1_1),
+            connection!(inno = 1, from = 1_2),
+        ];
+        let r = [connection!(inno = 1, from = 2_1)];
+        for _ in 0..1000 {
+            let lr = crossover_eq(&l, &r, &mut rng());
+            assert_eq!(lr.len(), 2);
+            assert_from_connection!(lr[0], l[0]);
+            assert_from_connection!(lr[1], r[0], "not from r_0");
         }
+    }
+
+    #[test]
+    #[should_panic(expected = "not from l_0")]
+    fn test_crossover_eq_catchup_r() {
+        let l = [connection!(inno = 1, from = 2_1)];
+        let r = [
+            connection!(inno = 0, from = 1_1),
+            connection!(inno = 1, from = 1_2),
+        ];
+        for _ in 0..1000 {
+            let lr = crossover_eq(&l, &r, &mut rng());
+            assert_eq!(lr.len(), 2);
+            assert_from_connection!(lr[0], r[0]);
+            assert_from_connection!(lr[1], l[0], "not from l_0");
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "not from l_1")]
+    fn test_crossover_eq_both_step_l() {
+        let l = [
+            connection!(inno = 0, from = 1_1),
+            connection!(inno = 1, from = 1_2),
+        ];
+        let r = [
+            connection!(inno = 0, from = 2_1),
+            connection!(inno = 1, from = 2_2),
+        ];
+        for _ in 0..1000 {
+            let lr = crossover_eq(&l, &r, &mut rng());
+            assert_eq!(lr.len(), 2);
+            assert_from_connection!(lr[0], (l[0], r[0]));
+            assert_from_connection!(lr[1], l[1], "not from l_1");
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "not from r_1")]
+    fn test_crossover_eq_both_step_r() {
+        let l = [
+            connection!(inno = 0, from = 1_1),
+            connection!(inno = 1, from = 1_2),
+        ];
+        let r = [
+            connection!(inno = 0, from = 2_1),
+            connection!(inno = 1, from = 2_2),
+        ];
+        for _ in 0..1000 {
+            let lr = crossover_eq(&l, &r, &mut rng());
+            assert_eq!(lr.len(), 2);
+            assert_from_connection!(lr[0], (l[0], r[0]));
+            assert_from_connection!(lr[1], r[1], "not from r_1");
+        }
+    }
+
+    fn assert_crossover_ne(l: &[Connection], r: &[Connection]) {
+        for (l, r) in [(l, r), (r, l)] {
+            let l_map = l.iter().map(|c| (c.inno, c)).collect::<HashMap<_, &_>>();
+            let r_map = r.iter().map(|c| (c.inno, c)).collect::<HashMap<_, &_>>();
+            let l_keys = l_map.keys().cloned().collect::<HashSet<_>>();
+            let inno = l_keys
+                .union(&r_map.keys().cloned().collect::<HashSet<_>>())
+                .cloned()
+                .collect::<HashSet<_>>();
+
+            for _ in 0..1000 {
+                let lr = crossover_ne(l, r, &mut rng());
+                assert_eq!(lr.len(), l.len());
+
+                let lr_inno = lr.iter().map(|c| c.inno).collect::<HashSet<_>>();
+                assert!(l_keys.is_subset(&lr_inno));
+                assert!(l_keys.is_superset(&lr_inno));
+                assert!(inno.is_superset(&lr_inno));
+                assert!(lr.is_sorted_by_key(|c| c.inno));
+                for ref lr_conn in lr {
+                    match (l_map.get(&lr_conn.inno), r_map.get(&lr_conn.inno)) {
+                        (None, None) => panic!("{} is in neither l nor r", lr_conn.inno),
+                        (None, Some(conn)) => panic!("{} is in only r", conn.inno),
+                        (Some(conn), None) => {
+                            assert_from_connection!(lr_conn, *conn)
+                        }
+                        (Some(l_conn), Some(r_conn)) => {
+                            assert_from_connection!(lr_conn, (*l_conn, *r_conn))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_crossover_ne() {
+        let l = [
+            connection!(inno = 0, from = 1_1),
+            connection!(inno = 1, from = 1_2),
+            connection!(inno = 2, from = 1_3),
+            connection!(inno = 9, from = 1_4),
+        ];
+        let r = [
+            connection!(inno = 0, from = 2_1),
+            connection!(inno = 2, from = 2_2),
+            connection!(inno = 3, from = 2_3),
+            connection!(inno = 4, from = 2_4),
+            connection!(inno = 7, from = 2_5),
+        ];
+
+        assert_crossover_ne(&l, &r);
+    }
+
+    #[test]
+    fn test_crossover_ne_empty() {
+        let l = [connection!(inno = 0, from = 1_1)];
+
+        assert_crossover_ne(&l, &[]);
+        assert_crossover_ne(&[], &[]);
+    }
+
+    #[test]
+    fn test_crossover_ne_no_overlap() {
+        let l = [
+            connection!(inno = 1, from = 1_1),
+            connection!(inno = 3, from = 1_2),
+            connection!(inno = 5, from = 1_3),
+        ];
+        let r = [
+            connection!(inno = 0, from = 2_1),
+            connection!(inno = 2, from = 2_2),
+            connection!(inno = 4, from = 2_3),
+        ];
+
+        assert_crossover_ne(&l, &r);
+    }
+
+    #[test]
+    fn test_crossover_ne_full_overlap() {
+        let l = [
+            connection!(inno = 1, from = 1_1),
+            connection!(inno = 2, from = 1_2),
+            connection!(inno = 3, from = 1_3),
+        ];
+        let r = [
+            connection!(inno = 1, from = 2_1),
+            connection!(inno = 2, from = 2_2),
+            connection!(inno = 3, from = 2_3),
+        ];
+
+        assert_crossover_ne(&l, &r);
+    }
+
+    #[test]
+    fn test_crossover_ne_overflow() {
+        let l = [connection!(inno = 10, from = 1_1)];
+        let r = [
+            connection!(inno = 1, from = 2_1),
+            connection!(inno = 2, from = 2_2),
+        ];
+
+        assert_crossover_ne(&l, &r);
+    }
+
+    #[test]
+    fn test_crossover_ne_no_lt() {
+        let l = [connection!(inno = 0, from = 1_1)];
+        let r = [connection!(inno = 10, from = 2_1)];
+
+        assert_crossover_ne(&l, &r);
     }
 
     #[test]
     fn test_crossover_lt() {
         let l = [
-            Connection {
-                inno: 0,
-                from: 0,
-                to: 1,
-                weight: 0.6,
-                enabled: true,
-            },
-            Connection {
-                inno: 1,
-                from: 1,
-                to: 2,
-                weight: 1.,
-                enabled: true,
-            },
-            Connection {
-                inno: 2,
-                from: 2,
-                to: 1,
-                weight: 1.2,
-                enabled: true,
-            },
+            connection!(inno = 0, from = 1_1),
+            connection!(inno = 1, from = 1_2),
+            connection!(inno = 2, from = 1_3),
         ];
         let r = [
-            Connection {
-                inno: 0,
-                from: 0,
-                to: 1,
-                weight: 0.3,
-                enabled: true,
-            },
-            Connection {
-                inno: 2,
-                from: 2,
-                to: 1,
-                weight: 0.2,
-                enabled: false,
-            },
-            Connection {
-                inno: 3,
-                from: 2,
-                to: 3,
-                weight: 1.,
-                enabled: true,
-            },
-            Connection {
-                inno: 4,
-                from: 2,
-                to: 4,
-                weight: 1.,
-                enabled: true,
-            },
+            connection!(inno = 0, from = 2_1),
+            connection!(inno = 2, from = 2_2),
+            connection!(inno = 3, from = 2_3),
+            connection!(inno = 4, from = 2_4),
         ];
 
-        for _ in 0..1000 {
-            let lr = crossover(&l, &r, Ordering::Less, &mut rng());
-
-            assert_eq!(lr.len(), r.len());
-            assert!(lr[0] == l[0] || lr[0] == r[0]);
-            assert!(lr[1] == l[2] || lr[1] == r[1]);
-            assert_eq!(lr[2], r[2]);
-            assert_eq!(lr[3], r[3]);
+        assert_crossover_ne(&l, &r);
+        for (le, ge) in crossover(&l, &r, Ordering::Less, &mut rng())
+            .iter()
+            .zip(crossover_ne(&r, &l, &mut rng()))
+        {
+            assert_eq!(le.inno, ge.inno);
         }
     }
 }

@@ -1,6 +1,7 @@
 use brain::specie::speciate;
+use core::iter::empty;
 use criterion::Criterion;
-use std::iter::empty;
+
 fn bench(bench: &mut Criterion) {
     let genomes = serde_json::from_str::<Vec<_>>(include_str!("data/genome-xor-100.json")).unwrap();
     bench.bench_function("speciate", |b| {
@@ -15,7 +16,7 @@ pub fn benches() {
         .significance_level(0.1);
     #[cfg(feature = "smol_bench")]
     let mut criterion: criterion::Criterion<_> = {
-        use std::time::Duration;
+        use core::time::Duration;
         Criterion::default()
             .measurement_time(Duration::from_millis(1))
             .sample_size(10)
