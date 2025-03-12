@@ -238,6 +238,7 @@ mod test {
     use super::*;
     use crate::genome::Connection;
     use rand::rng;
+    use std::collections::{HashMap, HashSet};
 
     #[test]
     fn test_avg_weight_diff() {
@@ -712,6 +713,20 @@ mod test {
         );
     }
 
+    macro_rules! connection {
+        ($($k:ident = $v:expr),+ $(,)?) => {{
+            let mut c = Connection{
+                inno: 0,
+                from: 0,
+                to: 0,
+                weight: 0.,
+                enabled: true,
+            };
+            $(c.$k = $v;)+
+            c
+          }}
+    }
+
     macro_rules! assert_from_connection {
         ($have:expr, ($l:expr, $r:expr), $($arg:tt)+) => {{
             let mut have = $have.to_owned();
@@ -749,78 +764,63 @@ mod test {
         }};
     }
 
-    #[test]
-    fn test_crossover_eq() {
-        let l = [
-            Connection {
-                inno: 0,
-                from: 0,
-                to: 1,
-                weight: 0.6,
-                enabled: true,
-            },
-            Connection {
-                inno: 1,
-                from: 1,
-                to: 2,
-                weight: 1.,
-                enabled: true,
-            },
-            Connection {
-                inno: 2,
-                from: 2,
-                to: 1,
-                weight: 1.2,
-                enabled: true,
-            },
-        ];
-        let r = [
-            Connection {
-                inno: 0,
-                from: 0,
-                to: 1,
-                weight: 0.3,
-                enabled: true,
-            },
-            Connection {
-                inno: 2,
-                from: 2,
-                to: 1,
-                weight: 0.2,
-                enabled: false,
-            },
-            Connection {
-                inno: 3,
-                from: 2,
-                to: 3,
-                weight: 1.,
-                enabled: true,
-            },
-        ];
+    fn assert_crossover_eq(l: &[Connection], r: &[Connection]) {
+        for (l, r) in [(l, r), (r, l)] {
+            let l_map = l.iter().map(|c| (c.inno, c)).collect::<HashMap<_, &_>>();
+            let r_map = r.iter().map(|c| (c.inno, c)).collect::<HashMap<_, &_>>();
+            let inno = l_map
+                .keys()
+                .collect::<HashSet<_>>()
+                .union(&r_map.keys().collect::<HashSet<_>>())
+                .cloned()
+                .cloned()
+                .collect::<HashSet<_>>();
 
-        for _ in 0..1000 {
-            let lr = crossover_eq(&l, &r, &mut rng());
+            for _ in 0..1000 {
+                let lr = crossover_eq(l, r, &mut rng());
+                assert_eq!(inno.len(), lr.len());
 
-            assert_eq!(lr.len(), 4);
-            assert_from_connection!(lr[0], (l[0], r[0]));
-            assert_from_connection!(lr[1], l[1]);
-            assert_from_connection!(lr[2], (l[2], r[1]));
-            assert_from_connection!(lr[3], r[2])
+                let lr_inno = lr.iter().map(|c| c.inno).collect::<HashSet<_>>();
+                assert!(inno.is_subset(&lr_inno));
+                assert!(inno.is_superset(&lr_inno));
+                assert!(lr.is_sorted_by_key(|c| c.inno));
+                for ref lr_conn in lr {
+                    match (l_map.get(&lr_conn.inno), r_map.get(&lr_conn.inno)) {
+                        (None, None) => panic!("{} is in neither l nor r", lr_conn.inno),
+                        (None, Some(conn)) | (Some(conn), None) => {
+                            assert_from_connection!(lr_conn, *conn)
+                        }
+                        (Some(l_conn), Some(r_conn)) => {
+                            assert_from_connection!(lr_conn, (*l_conn, *r_conn))
+                        }
+                    }
+                }
+            }
         }
     }
 
-    macro_rules! connection {
-        ($($k:ident = $v:expr),+ $(,)?) => {{
-            let mut c = Connection{
-                inno: 0,
-                from: 0,
-                to: 0,
-                weight: 0.,
-                enabled: true,
-            };
-            $(c.$k = $v;)+
-            c
-          }}
+    #[test]
+    fn test_crossover_eq() {
+        let l = [
+            connection!(inno = 0, from = 1_1),
+            connection!(inno = 1, from = 1_2),
+            connection!(inno = 2, from = 1_3),
+        ];
+        let r = [
+            connection!(inno = 0, from = 2_1),
+            connection!(inno = 2, from = 2_2),
+            connection!(inno = 3, from = 2_3),
+        ];
+
+        assert_crossover_eq(&l, &r);
+    }
+
+    #[test]
+    fn test_crossover_eq_empty() {
+        let l = [connection!(inno = 2, from = 1)];
+
+        assert_crossover_eq(&l, &[]);
+        assert_crossover_eq(&[], &[]);
     }
 
     #[test]
@@ -828,30 +828,12 @@ mod test {
         let l = [connection!(inno = 0, from = 1_1)];
         let r = [connection!(inno = 1, from = 2_1)];
 
-        for _ in 0..1000 {
-            for lr in [
-                crossover_eq(&l, &r, &mut rng()),
-                crossover_eq(&r, &l, &mut rng()),
-            ] {
-                assert_eq!(lr.len(), 2);
-                assert_from_connection!(lr[0], l[0]);
-                assert_from_connection!(lr[1], r[0]);
-            }
-        }
+        assert_crossover_eq(&l, &r);
 
         let l = [connection!(inno = 1, from = 1_1)];
         let r = [connection!(inno = 0, from = 2_1)];
 
-        for _ in 0..1000 {
-            for lr in [
-                crossover_eq(&l, &r, &mut rng()),
-                crossover_eq(&r, &l, &mut rng()),
-            ] {
-                assert_eq!(lr.len(), 2);
-                assert_from_connection!(lr[0], r[0]);
-                assert_from_connection!(lr[1], l[0]);
-            }
-        }
+        assert_crossover_eq(&l, &r);
     }
 
     #[test]
