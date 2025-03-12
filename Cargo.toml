@@ -28,6 +28,7 @@ required-features = ["gym"]
 [dev-dependencies]
 criterion = "0.5.1"
 flamegraph = "0.6.7"
+toml-cli = "0.2.3"
 
 [[bench]]
 name = "ctrnn"
@@ -55,6 +56,10 @@ harness = false
 
 [[bench]]
 name = "mutate-connection"
+harness = false
+
+[[bench]]
+name = "reproduce"
 harness = false
 
 [[bench]]
