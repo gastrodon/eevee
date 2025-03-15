@@ -16,7 +16,7 @@ impl Scenario for Xor {
         (2, 1)
     }
 
-    fn eval<F: Fn(f64) -> f64>(&self, genome: &Genome, σ: F) -> f64 {
+    fn eval<F: Fn(f64) -> f64>(&mut self, genome: &Genome, σ: F) -> f64 {
         let mut fit = 0.;
         let mut network = Ctrnn::from_genome(genome);
         network.step(2, &[0., 0.], &σ);

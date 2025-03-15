@@ -20,7 +20,7 @@ impl Scenario for CartPole {
         (4, 2)
     }
 
-    fn eval<T: Fn(f64) -> f64>(&self, genome: &Genome, σ: T) -> f64 {
+    fn eval<T: Fn(f64) -> f64>(&mut self, genome: &Genome, σ: T) -> f64 {
         let mut env = CartPoleEnv::new(self.render);
         let mut fit = 0.;
         let mut act = 0;
