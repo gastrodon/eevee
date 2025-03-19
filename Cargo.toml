@@ -57,3 +57,7 @@ harness = false
 [[bench]]
 name = "innogen"
 harness = false
+
+[[bench]]
+name = "random"
+harness = false
