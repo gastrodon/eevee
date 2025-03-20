@@ -18,7 +18,7 @@ CARGO_PROFILE_RELEASE_DEBUG=true cargo flamegraph \
         -- --bench
 
 git checkout -
-cargo bench --bench $target -- --save-baseline $target
+cargo bench --bench $target -- --baseline $target
 CARGO_PROFILE_RELEASE_DEBUG=true cargo flamegraph \
         --features smol_bench -o "flamegraph-$target-after.svg" \
         --bench $target \
