@@ -1,6 +1,6 @@
 use crate::{
     crossover::crossover,
-    random::{CHANCE_MUTATE_BISECTION, CHANCE_MUTATE_CONNECTION, CHANCE_MUTATE_WEIGHT},
+    random::{EvolutionEvent, Happens},
     specie::InnoGen,
 };
 use core::{
@@ -166,29 +166,29 @@ impl Genome {
         Ok(())
     }
 
-    pub fn maybe_mutate(
+    pub fn maybe_mutate<H: RngCore + Happens>(
         &mut self,
-        rng: &mut impl RngCore,
+        rng: &mut H,
         innogen: &mut InnoGen,
     ) -> Result<(), Box<dyn Error>> {
-        if rng.random_bool(CHANCE_MUTATE_WEIGHT) {
+        if rng.happens(EvolutionEvent::MutateWeight) {
             self.mutate_weights(rng);
         }
-        if rng.random_bool(CHANCE_MUTATE_CONNECTION) {
+        if rng.happens(EvolutionEvent::MutateConnection) {
             self.mutate_connection(rng, innogen)?;
         }
-        if rng.random_bool(CHANCE_MUTATE_BISECTION) && !self.connections.is_empty() {
+        if rng.happens(EvolutionEvent::MutateBisection) && !self.connections.is_empty() {
             self.mutate_bisection(rng, innogen)?;
         }
 
         Ok(())
     }
 
-    pub fn reproduce_with(
+    pub fn reproduce_with<H: RngCore + Happens>(
         &self,
         other: &Genome,
         self_fit: Ordering,
-        rng: &mut impl RngCore,
+        rng: &mut H,
     ) -> Self {
         let connections = crossover(&self.connections, &other.connections, self_fit, rng);
         let nodes_size = connections

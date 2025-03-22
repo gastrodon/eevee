@@ -2,8 +2,11 @@
 #![allow(confusable_idents)]
 
 use brain::{
-    activate::relu, network::loss::decay_quadratic, specie::population_init, Ctrnn,
-    EvolutionTarget, Genome, Network, Scenario, Specie,
+    activate::relu,
+    network::loss::decay_quadratic,
+    random::{default_rng, ProbBinding, ProbStatic},
+    specie::population_init,
+    Ctrnn, EvolutionTarget, Genome, Network, Scenario, Specie,
 };
 use core::f64;
 
@@ -44,6 +47,7 @@ fn main() {
         |(i, o)| population_init(i, o, POPULATION),
         POPULATION,
         relu,
+        &mut ProbBinding::new(ProbStatic::default(), default_rng()),
     );
 
     println!(

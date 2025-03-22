@@ -1,5 +1,7 @@
+use rand::RngCore;
+
 use crate::{
-    random::default_rng,
+    random::Happens,
     specie::{population_reproduce, speciate, Specie, SpecieRepr},
     Genome,
 };
@@ -31,12 +33,13 @@ pub trait Scenario {
     fn io(&self) -> (usize, usize);
     fn eval<A: Fn(f64) -> f64>(&mut self, genome: &Genome, σ: A) -> f64;
 
-    fn evolve<A: Fn(f64) -> f64>(
+    fn evolve<A: Fn(f64) -> f64, H: RngCore + Happens>(
         &mut self,
         target: EvolutionTarget,
         init: impl FnOnce((usize, usize)) -> (Vec<Specie>, usize),
         population_lim: usize,
         σ: A,
+        rng: &mut H,
     ) -> (Vec<Specie>, usize) {
         let (mut pop_flat, mut inno_head) = {
             let (species, inno_head) = init(self.io());
@@ -52,8 +55,6 @@ pub trait Scenario {
         };
 
         let mut scores: HashMap<SpecieRepr, _> = HashMap::new();
-
-        let mut rng = default_rng();
         let mut gen_idx = 0;
         loop {
             let species = {
@@ -124,9 +125,7 @@ pub trait Scenario {
                 })
                 .collect::<Vec<_>>();
 
-            (pop_flat, inno_head) =
-                population_reproduce(&p_scored, population_lim, inno_head, &mut rng);
-
+            (pop_flat, inno_head) = population_reproduce(&p_scored, population_lim, inno_head, rng);
             debug_assert!(!pop_flat.is_empty(), "nobody past {gen_idx}");
             gen_idx += 1
         }
