@@ -5,16 +5,6 @@ use std::{
     io::{self, Read},
 };
 
-pub const CHANCE_MUTATE_CONNECTION: f64 = 0.03;
-pub const CHANCE_MUTATE_BISECTION: f64 = 0.05;
-pub const CHANCE_MUTATE_WEIGHT: f64 = 0.8;
-pub const CHANCE_PERTURB_WEIGHT: f64 = 0.9;
-pub const CHANCE_NEW_WEIGHT: f64 = 0.1;
-pub const CHANCE_NEW_DISABLED: f64 = 0.01;
-pub const CHANCE_KEEP_DISABLED: f64 = 0.75;
-pub const CHANCE_PICK_L_EQ: f64 = 0.5;
-pub const CHANCE_PICK_L_NE: f64 = 0.5;
-
 #[derive(Debug, Clone, Copy)]
 pub enum EvolutionEvent {
     MutateConnection,
@@ -198,6 +188,16 @@ mod test {
     use super::*;
     use core::iter::once;
     use rand::rngs::ThreadRng;
+
+    const CHANCE_MUTATE_CONNECTION: f64 = 0.03;
+    const CHANCE_MUTATE_BISECTION: f64 = 0.05;
+    const CHANCE_MUTATE_WEIGHT: f64 = 0.8;
+    const CHANCE_PERTURB_WEIGHT: f64 = 0.9;
+    const CHANCE_NEW_WEIGHT: f64 = 0.1;
+    const CHANCE_NEW_DISABLED: f64 = 0.01;
+    const CHANCE_KEEP_DISABLED: f64 = 0.75;
+    const CHANCE_PICK_L_EQ: f64 = 0.5;
+    const CHANCE_PICK_L_NE: f64 = 0.5;
 
     fn assert_within_deviation(
         evt: EvolutionEvent,

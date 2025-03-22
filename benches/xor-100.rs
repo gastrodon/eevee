@@ -2,7 +2,10 @@
 #![allow(confusable_idents)]
 
 use brain::{
-    activate::relu, specie::population_init, Ctrnn, EvolutionTarget, Genome, Network, Scenario,
+    activate::relu,
+    random::{default_rng, ProbBinding, ProbStatic},
+    specie::population_init,
+    Ctrnn, EvolutionTarget, Genome, Network, Scenario,
 };
 use core::f64;
 use criterion::{BatchSize, Criterion};
@@ -45,6 +48,7 @@ fn bench(bench: &mut Criterion) {
                     |(i, o)| population_init(i, o, POPULATION),
                     POPULATION,
                     relu,
+                    &mut ProbBinding::new(ProbStatic::default(), default_rng()),
                 )
             },
             BatchSize::NumIterations(1),
