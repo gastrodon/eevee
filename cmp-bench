@@ -11,15 +11,7 @@ if [ -z "$cmp_branch" ]; then
 fi
 
 git checkout $cmp_branch
-cargo bench --bench $target -- --save-baseline $target
-CARGO_PROFILE_RELEASE_DEBUG=true cargo flamegraph \
-        --features smol_bench -o "flamegraph-$target-before.svg" \
-        --bench $target \
-        -- --bench
+cargo bench --bench $target
 
 git checkout -
-cargo bench --bench $target -- --baseline $target
-CARGO_PROFILE_RELEASE_DEBUG=true cargo flamegraph \
-        --features smol_bench -o "flamegraph-$target-after.svg" \
-        --bench $target \
-        -- --bench
+cargo bench --bench $target
