@@ -29,14 +29,14 @@ impl EvolutionTarget {
 
 pub trait Scenario {
     fn io(&self) -> (usize, usize);
-    fn eval<F: Fn(f64) -> f64>(&mut self, genome: &Genome, σ: F) -> f64;
+    fn eval<A: Fn(f64) -> f64>(&mut self, genome: &Genome, σ: A) -> f64;
 
-    fn evolve(
+    fn evolve<A: Fn(f64) -> f64>(
         &mut self,
         target: EvolutionTarget,
         init: impl FnOnce((usize, usize)) -> (Vec<Specie>, usize),
         population_lim: usize,
-        σ: impl Fn(f64) -> f64,
+        σ: A,
     ) -> (Vec<Specie>, usize) {
         let (mut pop_flat, mut inno_head) = {
             let (species, inno_head) = init(self.io());
