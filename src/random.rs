@@ -1,4 +1,4 @@
-use rand::{rngs::SmallRng, RngCore, SeedableRng};
+use rand::RngCore;
 use std::{
     cmp::min,
     fs::File,
@@ -180,7 +180,7 @@ pub fn rng_rngcore(rng: impl RngCore) -> impl FnMut() -> u64 {
 }
 
 pub fn default_rng() -> impl RngCore {
-    SmallRng::seed_from_u64(seed_urandom().unwrap())
+    WyRng::seeded(seed_urandom().unwrap())
 }
 
 #[cfg(test)]
