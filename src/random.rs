@@ -23,7 +23,9 @@ const fn percent(x: u64) -> u64 {
 }
 
 pub trait Probabilities {
+    type Update;
     fn probability(&self, evt: EvolutionEvent) -> u64;
+    fn update(&mut self, stats: Self::Update);
 }
 
 pub trait Happens {
@@ -65,6 +67,7 @@ impl Default for ProbStatic {
 }
 
 impl Probabilities for ProbStatic {
+    type Update = (EvolutionEvent, u64);
     fn probability(&self, evt: EvolutionEvent) -> u64 {
         match evt {
             EvolutionEvent::MutateConnection => self.mutate_connection,
@@ -76,6 +79,20 @@ impl Probabilities for ProbStatic {
             EvolutionEvent::KeepDisabled => self.keep_disabled,
             EvolutionEvent::PickLEQ => self.pick_leq,
             EvolutionEvent::PickLNE => self.pick_lne,
+        }
+    }
+
+    fn update(&mut self, (evt, v): Self::Update) {
+        match evt {
+            EvolutionEvent::MutateConnection => self.mutate_connection = v,
+            EvolutionEvent::MutateBisection => self.mutate_bisection = v,
+            EvolutionEvent::MutateWeight => self.mutate_weight = v,
+            EvolutionEvent::PerturbWeight => self.perturb_weight = v,
+            EvolutionEvent::NewWeight => self.new_weight = v,
+            EvolutionEvent::NewDisabled => self.new_disabled = v,
+            EvolutionEvent::KeepDisabled => self.keep_disabled = v,
+            EvolutionEvent::PickLEQ => self.pick_leq = v,
+            EvolutionEvent::PickLNE => self.pick_lne = v,
         }
     }
 }
@@ -138,8 +155,13 @@ impl<P: Probabilities, R: RngCore> ProbBinding<P, R> {
 }
 
 impl<P: Probabilities, R: RngCore> Probabilities for ProbBinding<P, R> {
+    type Update = P::Update;
     fn probability(&self, evt: EvolutionEvent) -> u64 {
         self.p.probability(evt)
+    }
+
+    fn update(&mut self, stats: Self::Update) {
+        self.p.update(stats);
     }
 }
 
