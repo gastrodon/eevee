@@ -145,7 +145,7 @@ impl Scenario for NesTetris {
         (200, 8)
     }
 
-    fn eval<F: Fn(f64) -> f64>(&self, genome: &Genome, σ: F) -> f64 {
+    fn eval<F: Fn(f64) -> f64>(&mut self, genome: &Genome, σ: F) -> f64 {
         let mut nes = Nes::new(
             Box::new(DefaultInput::new()),
             Box::new(DefaultDisplay::new()),
