@@ -91,12 +91,10 @@ fn sense_board(ram: &[u8], sense: &mut [f64; INPUT_SIZE]) {
 
 fn score(ram: &[u8]) -> f64 {
     // real score | piece count
-    // (((ram[SCORE_1] as usize) << 8)
-    //     | ((ram[SCORE_2] as usize) << 16)
-    //     | ((ram[SCORE_3] as usize) << 24)
-    //     | (ram[PIECE_COUNT] as usize)) as f64
-
-    ram[PIECE_COUNT] as f64
+    (((ram[SCORE_1] as usize) << 8)
+        | ((ram[SCORE_2] as usize) << 16)
+        | ((ram[SCORE_3] as usize) << 24)
+        | (ram[PIECE_COUNT] as usize)) as f64
 }
 
 #[cfg(feature = "watch_game")]
