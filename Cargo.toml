@@ -8,21 +8,15 @@ rand = "0.9.0"
 rand_distr = "0.5.0"
 rulinalg = "0.4.2"
 
-gym-rs = { version = "0.3.0", optional = true }
 serde = { version = "1.0.218", features = ["derive"] }
 serde_json = { version = "1.0.139", features = ["preserve_order"] }
 fxhash = "0.2.1"
 
 [features]
-gym = ["gym-rs"]
 smol_bench = []
 
 [[example]]
 name = "xor"
-
-[[example]]
-name = "cart-pole"
-required-features = ["gym"]
 
 [dev-dependencies]
 criterion = "0.5.1"
@@ -62,8 +56,4 @@ harness = false
 
 [[bench]]
 name = "innogen"
-harness = false
-
-[[bench]]
-name = "xor-100"
 harness = false
