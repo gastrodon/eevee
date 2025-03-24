@@ -4,37 +4,38 @@
 use brain::{
     activate::relu,
     network::loss::decay_quadratic,
-    random::{default_rng, ProbBinding, ProbStatic},
+    random::{default_rng, Happens, ProbBinding, ProbStatic, Probabilities},
     specie::population_init,
     Ctrnn, EvolutionTarget, Genome, Network, Scenario, Specie,
 };
 use core::f64;
+use rand::RngCore;
 
 const POPULATION: usize = 100;
 
 struct Xor;
 
-impl Scenario for Xor {
+impl<H: RngCore + Probabilities + Happens, A: Fn(f64) -> f64> Scenario<H, A> for Xor {
     fn io(&self) -> (usize, usize) {
         (2, 1)
     }
 
-    fn eval<F: Fn(f64) -> f64>(&mut self, genome: &Genome, σ: F) -> f64 {
+    fn eval(&mut self, genome: &Genome, σ: &A) -> f64 {
         let mut network = Ctrnn::from_genome(genome);
         let mut fit = 0.;
-        network.step(2, &[0., 0.], &σ);
+        network.step(2, &[0., 0.], σ);
         fit += decay_quadratic(1., network.output()[0]);
         network.flush();
 
-        network.step(2, &[1., 1.], &σ);
+        network.step(2, &[1., 1.], σ);
         fit += decay_quadratic(1., network.output()[0]);
         network.flush();
 
-        network.step(2, &[0., 1.], &σ);
+        network.step(2, &[0., 1.], σ);
         fit += decay_quadratic(0., network.output()[0]);
         network.flush();
 
-        network.step(2, &[1., 0.], &σ);
+        network.step(2, &[1., 0.], σ);
         fit += decay_quadratic(0., network.output()[0]);
 
         fit / 4.
@@ -46,7 +47,7 @@ fn main() {
         EvolutionTarget::Fitness(0.749999),
         |(i, o)| population_init(i, o, POPULATION),
         POPULATION,
-        relu,
+        &relu,
         &mut ProbBinding::new(ProbStatic::default(), default_rng()),
     );
 

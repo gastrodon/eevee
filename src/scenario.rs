@@ -1,7 +1,7 @@
 use rand::RngCore;
 
 use crate::{
-    random::Happens,
+    random::{Happens, Probabilities},
     specie::{population_reproduce, speciate, Specie, SpecieRepr},
     Genome,
 };
@@ -29,16 +29,16 @@ impl EvolutionTarget {
     }
 }
 
-pub trait Scenario {
+pub trait Scenario<H: RngCore + Probabilities + Happens, A: Fn(f64) -> f64> {
     fn io(&self) -> (usize, usize);
-    fn eval<A: Fn(f64) -> f64>(&mut self, genome: &Genome, σ: A) -> f64;
+    fn eval(&mut self, genome: &Genome, σ: &A) -> f64;
 
-    fn evolve<A: Fn(f64) -> f64, H: RngCore + Happens>(
+    fn evolve(
         &mut self,
         target: EvolutionTarget,
         init: impl FnOnce((usize, usize)) -> (Vec<Specie>, usize),
         population_lim: usize,
-        σ: A,
+        σ: &A,
         rng: &mut H,
     ) -> (Vec<Specie>, usize) {
         let (mut pop_flat, mut inno_head) = {
@@ -59,7 +59,7 @@ pub trait Scenario {
         loop {
             let species = {
                 let genomes = pop_flat.into_iter().map(|genome| {
-                    let fitness = self.eval(&genome, &σ);
+                    let fitness = self.eval(&genome, σ);
                     (genome, fitness)
                 });
                 let reprs = scores.keys().cloned();
