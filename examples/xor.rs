@@ -54,17 +54,13 @@ fn main() {
         EvolutionHooks::new(vec![
             Box::new(|stats| {
                 if stats.any_fitter_than(0.749999) {
-                    println!("gen: {}", stats.generation);
-                    println!(
-                        "top score: {:?}",
-                        stats
-                            .species
-                            .iter()
-                            .flat_map(|Specie { members, .. }| members)
-                            .max_by(|(_, l), (_, r)| l.partial_cmp(r).unwrap())
-                            .unwrap()
-                            .1
-                    );
+                    let fittest = stats.fittest().unwrap();
+                    println!("gen {} fittest: {:?}", stats.generation, fittest.1);
+                    fittest
+                        .0
+                        .to_file(format!("output/xor-{}.json", stats.generation))
+                        .unwrap();
+
                     ControlFlow::Break(())
                 } else {
                     ControlFlow::Continue(())

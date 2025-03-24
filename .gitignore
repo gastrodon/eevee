@@ -3,3 +3,4 @@
 .deps/*
 flamegraph*.svg
 perf.data*
+output/*

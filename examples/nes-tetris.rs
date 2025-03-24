@@ -212,7 +212,8 @@ fn main() {
                 if stats.generation % 100 == 0 {
                     fittest
                         .0
-                        .to_file(format!("nes-tetris-{}.json", stats.generation));
+                        .to_file(format!("output/nes-tetris-{}.json", stats.generation))
+                        .unwrap();
                 }
 
                 if stats.generation == 400 {

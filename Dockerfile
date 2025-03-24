@@ -19,5 +19,5 @@ WORKDIR /opt/brain-rs
 ARG TARGET
 COPY --from=builder /opt/brain-rs/target/release/examples/${TARGET} /opt/brain-rs/run
 
-RUN mkdir -p genome
+VOLUME /opt/brain-rs/output
 ENTRYPOINT /opt/brain-rs/run
