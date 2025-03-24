@@ -18,7 +18,7 @@ pub enum EvolutionEvent {
     PickLNE,
 }
 
-const fn percent(x: u64) -> u64 {
+pub const fn percent(x: u64) -> u64 {
     x * (u64::MAX / 100)
 }
 

@@ -21,9 +21,16 @@ impl<H: RngCore + Probabilities + Happens> Stats<'_, H> {
             .iter()
             .any(|Specie { members, .. }| members.iter().any(|(_, fitness)| *fitness > target))
     }
+
+    pub fn fittest(&self) -> Option<&(Genome, f64)> {
+        self.species
+            .iter()
+            .flat_map(|Specie { members, .. }| members.iter())
+            .max_by(|(_, l), (_, r)| l.partial_cmp(r).unwrap())
+    }
 }
 
-pub type Hook<H> = Box<dyn Fn(&Stats<'_, H>) -> ControlFlow<()>>;
+pub type Hook<H> = Box<dyn Fn(&mut Stats<'_, H>) -> ControlFlow<()>>;
 
 pub struct EvolutionHooks<H: RngCore + Probabilities + Happens> {
     hooks: Vec<Hook<H>>,
@@ -34,9 +41,9 @@ impl<H: RngCore + Probabilities + Happens> EvolutionHooks<H> {
         Self { hooks }
     }
 
-    fn fire<'a>(&self, stats: Stats<'a, H>) -> ControlFlow<()> {
+    fn fire<'a>(&self, mut stats: Stats<'a, H>) -> ControlFlow<()> {
         for hook in self.hooks.iter() {
-            if hook(&stats).is_break() {
+            if hook(&mut stats).is_break() {
                 return ControlFlow::Break(());
             }
         }

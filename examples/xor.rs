@@ -4,7 +4,9 @@
 use brain::{
     activate::relu,
     network::loss::decay_quadratic,
-    random::{default_rng, Happens, ProbBinding, ProbStatic, Probabilities},
+    random::{
+        default_rng, percent, EvolutionEvent, Happens, ProbBinding, ProbStatic, Probabilities,
+    },
     scenario::EvolutionHooks,
     specie::population_init,
     Ctrnn, Genome, Network, Scenario, Specie,
@@ -49,23 +51,45 @@ fn main() {
         POPULATION,
         &relu,
         &mut ProbBinding::new(ProbStatic::default(), default_rng()),
-        EvolutionHooks::new(vec![Box::new(|stats| {
-            if stats.any_fitter_than(0.749999) {
-                println!("gen: {}", stats.generation);
-                println!(
-                    "top score: {:?}",
+        EvolutionHooks::new(vec![
+            Box::new(|stats| {
+                if stats.any_fitter_than(0.749999) {
+                    println!("gen: {}", stats.generation);
+                    println!(
+                        "top score: {:?}",
+                        stats
+                            .species
+                            .iter()
+                            .flat_map(|Specie { members, .. }| members)
+                            .max_by(|(_, l), (_, r)| l.partial_cmp(r).unwrap())
+                            .unwrap()
+                            .1
+                    );
+                    ControlFlow::Break(())
+                } else {
+                    ControlFlow::Continue(())
+                }
+            }),
+            Box::new(|stats| {
+                if stats.generation == 100 {
                     stats
-                        .species
-                        .iter()
-                        .flat_map(|Specie { members, .. }| members)
-                        .max_by(|(_, l), (_, r)| l.partial_cmp(r).unwrap())
-                        .unwrap()
-                        .1
-                );
-                ControlFlow::Break(())
-            } else {
+                        .rng
+                        .update((EvolutionEvent::MutateConnection, percent(35)));
+                    stats
+                        .rng
+                        .update((EvolutionEvent::MutateBisection, percent(35)));
+                }
+
                 ControlFlow::Continue(())
-            }
-        })]),
+            }),
+            Box::new(|stats| {
+                if stats.generation % 10 == 1 {
+                    let (_, f) = stats.fittest().unwrap();
+                    println!("fittest of gen {}: {:.4}", stats.generation, f);
+                }
+
+                ControlFlow::Continue(())
+            }),
+        ]),
     );
 }
