@@ -1,9 +1,14 @@
 #![allow(mixed_script_confusables)]
 #![allow(confusable_idents)]
 
+use std::ops::ControlFlow;
+
 use brain::{
-    activate::relu, specie::population_init, Ctrnn, EvolutionTarget, Genome, Network, Scenario,
-    Specie,
+    activate::relu,
+    random::{default_rng, percent, EvolutionEvent, ProbBinding, ProbStatic},
+    scenario::EvolutionHooks,
+    specie::population_init,
+    Ctrnn, Genome, Happens, Network, Probabilities, Scenario, Specie,
 };
 use nes_rust::{
     button::Button, default_audio::DefaultAudio, default_display::DefaultDisplay,
@@ -55,6 +60,7 @@ pub const PIECE_SHAPE: [[(u8, u8); 4]; 19] = [
 ];
 }
 
+use rand::RngCore;
 use v::*;
 fn sense_board(ram: &[u8], sense: &mut [f64; INPUT_SIZE]) {
     *sense = [0.; INPUT_SIZE];
@@ -140,12 +146,12 @@ fn enter_game(nes: &mut Nes) {
 
 struct NesTetris;
 
-impl Scenario for NesTetris {
+impl<H: RngCore + Probabilities + Happens, A: Fn(f64) -> f64> Scenario<H, A> for NesTetris {
     fn io(&self) -> (usize, usize) {
         (200, 8)
     }
 
-    fn eval<F: Fn(f64) -> f64>(&mut self, genome: &Genome, σ: F) -> f64 {
+    fn eval(&mut self, genome: &Genome, σ: &A) -> f64 {
         let mut nes = Nes::new(
             Box::new(DefaultInput::new()),
             Box::new(DefaultDisplay::new()),
@@ -159,7 +165,7 @@ impl Scenario for NesTetris {
         let mut sense = [0.; 200];
         while nes.get_cpu().get_ram().data[GAME_OVER] == 0 {
             sense_board(&nes.get_cpu().get_ram().data, &mut sense);
-            network.step(1, &sense, &σ);
+            network.step(1, &sense, σ);
 
             for (idx, x) in network.output().iter().enumerate() {
                 if idx == 2 || idx == 3 {
@@ -188,10 +194,36 @@ const POPULATION: usize = 100;
 
 fn main() {
     let res = NesTetris {}.evolve(
-        EvolutionTarget::Fitness(60.),
         |(i, o)| population_init(i, o, POPULATION),
         POPULATION,
-        relu,
+        &relu,
+        &mut ProbBinding::new(
+            ProbStatic::default().with_overrides(&[
+                (EvolutionEvent::MutateConnection, percent(20)),
+                (EvolutionEvent::MutateBisection, percent(25)),
+                (EvolutionEvent::MutateWeight, percent(65)),
+            ]),
+            default_rng(),
+        ),
+        EvolutionHooks::new(vec![Box::new(|stats| {
+            if stats.generation % 10 != 0 {
+                ControlFlow::Continue(())
+            } else {
+                let fittest = stats.fittest().unwrap();
+                println!("gen {} best: {:.3}", stats.generation, fittest.1);
+                if stats.generation % 100 == 0 {
+                    fittest
+                        .0
+                        .to_file(format!("nes-tetris-{}.json", stats.generation));
+                }
+
+                if stats.generation == 400 {
+                    ControlFlow::Break(())
+                } else {
+                    ControlFlow::Continue(())
+                }
+            }
+        })]),
     );
 
     println!(

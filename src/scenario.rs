@@ -1,42 +1,68 @@
 use crate::{
+    random::{Happens, Probabilities},
     specie::{population_reproduce, speciate, Specie, SpecieRepr},
     Genome,
 };
-use core::f64;
-use rand::rng;
+use core::{f64, ops::ControlFlow};
+use rand::RngCore;
 use std::collections::HashMap;
 
 const NO_IMPROVEMENT_TRUNCATE: usize = 10;
 
-pub enum EvolutionTarget {
-    Fitness(f64),
-    Generation(usize),
+pub struct Stats<'a, H: RngCore + Probabilities + Happens> {
+    pub generation: usize,
+    pub species: &'a [Specie],
+    pub rng: &'a mut H,
 }
 
-impl EvolutionTarget {
-    fn satisfied(&self, species: &[Specie], generation: usize) -> bool {
-        if let Self::Fitness(t) = self {
-            species
-                .iter()
-                .any(|f| f.members.first().is_some_and(|(_, f)| f >= t))
-        } else if let Self::Generation(t) = self {
-            t <= &generation
-        } else {
-            false
-        }
+impl<H: RngCore + Probabilities + Happens> Stats<'_, H> {
+    pub fn any_fitter_than(&self, target: f64) -> bool {
+        self.species
+            .iter()
+            .any(|Specie { members, .. }| members.iter().any(|(_, fitness)| *fitness > target))
+    }
+
+    pub fn fittest(&self) -> Option<&(Genome, f64)> {
+        self.species
+            .iter()
+            .flat_map(|Specie { members, .. }| members.iter())
+            .max_by(|(_, l), (_, r)| l.partial_cmp(r).unwrap())
     }
 }
 
-pub trait Scenario {
-    fn io(&self) -> (usize, usize);
-    fn eval<A: Fn(f64) -> f64>(&mut self, genome: &Genome, σ: A) -> f64;
+pub type Hook<H> = Box<dyn Fn(&mut Stats<'_, H>) -> ControlFlow<()>>;
 
-    fn evolve<A: Fn(f64) -> f64>(
+pub struct EvolutionHooks<H: RngCore + Probabilities + Happens> {
+    hooks: Vec<Hook<H>>,
+}
+
+impl<H: RngCore + Probabilities + Happens> EvolutionHooks<H> {
+    pub fn new(hooks: Vec<Hook<H>>) -> Self {
+        Self { hooks }
+    }
+
+    fn fire<'a>(&self, mut stats: Stats<'a, H>) -> ControlFlow<()> {
+        for hook in self.hooks.iter() {
+            if hook(&mut stats).is_break() {
+                return ControlFlow::Break(());
+            }
+        }
+
+        ControlFlow::Continue(())
+    }
+}
+
+pub trait Scenario<H: RngCore + Probabilities + Happens, A: Fn(f64) -> f64> {
+    fn io(&self) -> (usize, usize);
+    fn eval(&mut self, genome: &Genome, σ: &A) -> f64;
+
+    fn evolve(
         &mut self,
-        target: EvolutionTarget,
         init: impl FnOnce((usize, usize)) -> (Vec<Specie>, usize),
         population_lim: usize,
-        σ: A,
+        σ: &A,
+        rng: &mut H,
+        hooks: EvolutionHooks<H>,
     ) -> (Vec<Specie>, usize) {
         let (mut pop_flat, mut inno_head) = {
             let (species, inno_head) = init(self.io());
@@ -52,13 +78,11 @@ pub trait Scenario {
         };
 
         let mut scores: HashMap<SpecieRepr, _> = HashMap::new();
-
-        let mut rng = rng();
         let mut gen_idx = 0;
         loop {
             let species = {
                 let genomes = pop_flat.into_iter().map(|genome| {
-                    let fitness = self.eval(&genome, &σ);
+                    let fitness = self.eval(&genome, σ);
                     (genome, fitness)
                 });
                 let reprs = scores.keys().cloned();
@@ -73,9 +97,16 @@ pub trait Scenario {
                 species
             };
 
-            if target.satisfied(&species, gen_idx) {
+            if hooks
+                .fire(Stats {
+                    generation: gen_idx,
+                    species: &species,
+                    rng,
+                })
+                .is_break()
+            {
                 break (species, inno_head);
-            };
+            }
 
             let scores_prev = scores;
             scores = species
@@ -124,9 +155,7 @@ pub trait Scenario {
                 })
                 .collect::<Vec<_>>();
 
-            (pop_flat, inno_head) =
-                population_reproduce(&p_scored, population_lim, inno_head, &mut rng);
-
+            (pop_flat, inno_head) = population_reproduce(&p_scored, population_lim, inno_head, rng);
             debug_assert!(!pop_flat.is_empty(), "nobody past {gen_idx}");
             gen_idx += 1
         }

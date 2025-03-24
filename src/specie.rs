@@ -1,10 +1,11 @@
 use crate::{
     crossover::delta,
     genome::{Connection, Genome},
+    random::Happens,
 };
 use core::{error::Error, f64};
 use fxhash::FxHashMap;
-use rand::rngs::ThreadRng;
+use rand::RngCore;
 use std::{
     collections::HashMap,
     hash::{DefaultHasher, Hash, Hasher},
@@ -117,10 +118,10 @@ impl Specie {
     }
 }
 
-fn reproduce_crossover(
+fn reproduce_crossover<H: RngCore + Happens>(
     genomes: &[(Genome, f64)],
     size: usize,
-    rng: &mut ThreadRng,
+    rng: &mut H,
     innogen: &mut InnoGen,
 ) -> Result<Vec<Genome>, Box<dyn Error>> {
     if size == 0 {
@@ -168,10 +169,10 @@ fn reproduce_crossover(
         .collect()
 }
 
-fn reproduce_copy(
+fn reproduce_copy<H: RngCore + Happens>(
     genomes: &[(Genome, f64)],
     size: usize,
-    rng: &mut ThreadRng,
+    rng: &mut H,
     innogen: &mut InnoGen,
 ) -> Result<Vec<Genome>, Box<dyn Error>> {
     if size == 0 {
@@ -199,11 +200,11 @@ fn reproduce_copy(
         .collect()
 }
 
-pub fn reproduce(
+pub fn reproduce<H: RngCore + Happens>(
     genomes: Vec<(Genome, f64)>,
     size: usize,
     innogen: &mut InnoGen,
-    rng: &mut ThreadRng,
+    rng: &mut H,
 ) -> Result<Vec<Genome>, Box<dyn Error>> {
     if size == 0 {
         return Ok(vec![]);
@@ -318,11 +319,11 @@ fn population_allocated<'a, T: Iterator<Item = &'a (Specie, f64)>>(
 }
 
 // reproduce a whole speciated population into a non-speciated population
-pub fn population_reproduce(
+pub fn population_reproduce<H: RngCore + Happens>(
     species: &[(Specie, f64)],
     population: usize,
     inno_head: usize,
-    rng: &mut ThreadRng,
+    rng: &mut H,
 ) -> (Vec<Genome>, usize) {
     // let species = population_viable(species.into_iter());
     // let species_pop = population_alloc(species, population);
@@ -367,7 +368,7 @@ pub fn speciate(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand::rng;
+    use crate::random::{default_rng, ProbBinding, ProbStatic};
 
     #[test]
     fn test_inno_gen() {
@@ -407,7 +408,7 @@ mod tests {
 
     #[test]
     fn test_specie_reproduce() {
-        let mut rng = rng();
+        let mut rng = ProbBinding::new(ProbStatic::default(), default_rng());
         let count = 40;
         let (species, inno_head) = population_init(2, 2, count);
 

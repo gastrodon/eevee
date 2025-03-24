@@ -1,14 +1,14 @@
-use brain::{specie::InnoGen, Genome};
+use brain::{random::default_rng, specie::InnoGen, Genome};
 use criterion::Criterion;
-use rand::rng;
 
 fn bench(bench: &mut Criterion) {
     let genome = Genome::from_str(include_str!("data/genome-rand-100.json")).unwrap();
+    let mut rng = default_rng();
     bench.bench_function("mutate-bisection", |b| {
         b.iter(|| {
             genome
                 .clone()
-                .mutate_bisection(&mut rng(), &mut InnoGen::new(300))
+                .mutate_bisection(&mut rng, &mut InnoGen::new(300))
                 .unwrap()
         })
     });
