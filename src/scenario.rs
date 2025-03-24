@@ -9,13 +9,13 @@ use std::collections::HashMap;
 
 const NO_IMPROVEMENT_TRUNCATE: usize = 10;
 
-pub struct EvolutionStats<'a, H: RngCore + Probabilities + Happens> {
+pub struct Stats<'a, H: RngCore + Probabilities + Happens> {
     pub generation: usize,
     pub species: &'a [Specie],
     pub rng: &'a mut H,
 }
 
-impl<H: RngCore + Probabilities + Happens> EvolutionStats<'_, H> {
+impl<H: RngCore + Probabilities + Happens> Stats<'_, H> {
     pub fn any_fitter_than(&self, target: f64) -> bool {
         self.species
             .iter()
@@ -23,7 +23,7 @@ impl<H: RngCore + Probabilities + Happens> EvolutionStats<'_, H> {
     }
 }
 
-pub type Hook<H> = Box<dyn Fn(&EvolutionStats<'_, H>) -> ControlFlow<(), ()>>;
+pub type Hook<H> = Box<dyn Fn(&Stats<'_, H>) -> ControlFlow<(), ()>>;
 
 pub struct EvolutionHooks<H: RngCore + Probabilities + Happens> {
     hooks: Vec<Hook<H>>,
@@ -34,7 +34,7 @@ impl<H: RngCore + Probabilities + Happens> EvolutionHooks<H> {
         Self { hooks }
     }
 
-    fn fire<'a>(&self, stats: EvolutionStats<'a, H>) -> ControlFlow<(), ()> {
+    fn fire<'a>(&self, stats: Stats<'a, H>) -> ControlFlow<(), ()> {
         for hook in self.hooks.iter() {
             if hook(&stats).is_break() {
                 return ControlFlow::Break(());
@@ -91,7 +91,7 @@ pub trait Scenario<H: RngCore + Probabilities + Happens, A: Fn(f64) -> f64> {
             };
 
             if hooks
-                .fire(EvolutionStats {
+                .fire(Stats {
                     generation: gen_idx,
                     species: &species,
                     rng,
