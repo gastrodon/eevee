@@ -1,6 +1,6 @@
+use core::cmp::min;
 use rand::RngCore;
 use std::{
-    cmp::min,
     fs::File,
     io::{self, Read},
 };
