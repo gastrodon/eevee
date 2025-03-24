@@ -1,31 +1,47 @@
-use rand::RngCore;
-
 use crate::{
     random::{Happens, Probabilities},
     specie::{population_reproduce, speciate, Specie, SpecieRepr},
     Genome,
 };
-use core::f64;
+use core::{f64, ops::ControlFlow};
+use rand::RngCore;
 use std::collections::HashMap;
 
 const NO_IMPROVEMENT_TRUNCATE: usize = 10;
 
-pub enum EvolutionTarget {
-    Fitness(f64),
-    Generation(usize),
+pub struct EvolutionStats<'a, H: RngCore + Probabilities + Happens> {
+    pub generation: usize,
+    pub species: &'a [Specie],
+    pub rng: &'a mut H,
 }
 
-impl EvolutionTarget {
-    fn satisfied(&self, species: &[Specie], generation: usize) -> bool {
-        if let Self::Fitness(t) = self {
-            species
-                .iter()
-                .any(|f| f.members.first().is_some_and(|(_, f)| f >= t))
-        } else if let Self::Generation(t) = self {
-            t <= &generation
-        } else {
-            false
+impl<H: RngCore + Probabilities + Happens> EvolutionStats<'_, H> {
+    pub fn any_fitter_than(&self, target: f64) -> bool {
+        self.species
+            .iter()
+            .any(|Specie { members, .. }| members.iter().any(|(_, fitness)| *fitness > target))
+    }
+}
+
+pub type Hook<H> = Box<dyn Fn(&EvolutionStats<'_, H>) -> ControlFlow<(), ()>>;
+
+pub struct EvolutionHooks<H: RngCore + Probabilities + Happens> {
+    hooks: Vec<Hook<H>>,
+}
+
+impl<H: RngCore + Probabilities + Happens> EvolutionHooks<H> {
+    pub fn new(hooks: Vec<Hook<H>>) -> Self {
+        Self { hooks }
+    }
+
+    fn fire<'a>(&self, stats: EvolutionStats<'a, H>) -> ControlFlow<(), ()> {
+        for hook in self.hooks.iter() {
+            if hook(&stats).is_break() {
+                return ControlFlow::Break(());
+            }
         }
+
+        ControlFlow::Continue(())
     }
 }
 
@@ -35,11 +51,11 @@ pub trait Scenario<H: RngCore + Probabilities + Happens, A: Fn(f64) -> f64> {
 
     fn evolve(
         &mut self,
-        target: EvolutionTarget,
         init: impl FnOnce((usize, usize)) -> (Vec<Specie>, usize),
         population_lim: usize,
         σ: &A,
         rng: &mut H,
+        hooks: EvolutionHooks<H>,
     ) -> (Vec<Specie>, usize) {
         let (mut pop_flat, mut inno_head) = {
             let (species, inno_head) = init(self.io());
@@ -74,9 +90,16 @@ pub trait Scenario<H: RngCore + Probabilities + Happens, A: Fn(f64) -> f64> {
                 species
             };
 
-            if target.satisfied(&species, gen_idx) {
+            if hooks
+                .fire(EvolutionStats {
+                    generation: gen_idx,
+                    species: &species,
+                    rng,
+                })
+                .is_break()
+            {
                 break (species, inno_head);
-            };
+            }
 
             let scores_prev = scores;
             scores = species

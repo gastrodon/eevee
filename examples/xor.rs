@@ -5,10 +5,11 @@ use brain::{
     activate::relu,
     network::loss::decay_quadratic,
     random::{default_rng, Happens, ProbBinding, ProbStatic, Probabilities},
+    scenario::EvolutionHooks,
     specie::population_init,
-    Ctrnn, EvolutionTarget, Genome, Network, Scenario, Specie,
+    Ctrnn, Genome, Network, Scenario, Specie,
 };
-use core::f64;
+use core::{f64, ops::ControlFlow};
 use rand::RngCore;
 
 const POPULATION: usize = 100;
@@ -43,21 +44,28 @@ impl<H: RngCore + Probabilities + Happens, A: Fn(f64) -> f64> Scenario<H, A> for
 }
 
 fn main() {
-    let res = Xor {}.evolve(
-        EvolutionTarget::Fitness(0.749999),
+    Xor {}.evolve(
         |(i, o)| population_init(i, o, POPULATION),
         POPULATION,
         &relu,
         &mut ProbBinding::new(ProbStatic::default(), default_rng()),
-    );
-
-    println!(
-        "top score: {:?}",
-        res.0
-            .into_iter()
-            .flat_map(|Specie { members, .. }| members)
-            .max_by(|(_, l), (_, r)| l.partial_cmp(r).unwrap())
-            .unwrap()
-            .1
+        EvolutionHooks::new(vec![Box::new(|stats| {
+            if stats.any_fitter_than(0.749999) {
+                println!("gen: {}", stats.generation);
+                println!(
+                    "top score: {:?}",
+                    stats
+                        .species
+                        .iter()
+                        .flat_map(|Specie { members, .. }| members)
+                        .max_by(|(_, l), (_, r)| l.partial_cmp(r).unwrap())
+                        .unwrap()
+                        .1
+                );
+                ControlFlow::Break(())
+            } else {
+                ControlFlow::Continue(())
+            }
+        })]),
     );
 }
