@@ -10,5 +10,6 @@ pub mod specie;
 
 pub use genome::{Connection, Genome};
 pub use network::{activate, Ctrnn, Network};
-pub use scenario::Scenario;
+pub use random::{Happens, Probabilities};
+pub use scenario::{Hook, Scenario, Stats};
 pub use specie::Specie;
