@@ -50,6 +50,15 @@ pub struct ProbStatic {
     pick_lne: u64,
 }
 
+impl ProbStatic {
+    pub fn with_overrides(mut self, updates: &[(EvolutionEvent, u64)]) -> Self {
+        for update in updates {
+            self.update(*update);
+        }
+        self
+    }
+}
+
 impl Default for ProbStatic {
     fn default() -> Self {
         Self {
