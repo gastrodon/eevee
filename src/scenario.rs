@@ -23,7 +23,7 @@ impl<H: RngCore + Probabilities + Happens> Stats<'_, H> {
     }
 }
 
-pub type Hook<H> = Box<dyn Fn(&Stats<'_, H>) -> ControlFlow<(), ()>>;
+pub type Hook<H> = Box<dyn Fn(&Stats<'_, H>) -> ControlFlow<()>>;
 
 pub struct EvolutionHooks<H: RngCore + Probabilities + Happens> {
     hooks: Vec<Hook<H>>,
@@ -34,7 +34,7 @@ impl<H: RngCore + Probabilities + Happens> EvolutionHooks<H> {
         Self { hooks }
     }
 
-    fn fire<'a>(&self, stats: Stats<'a, H>) -> ControlFlow<(), ()> {
+    fn fire<'a>(&self, stats: Stats<'a, H>) -> ControlFlow<()> {
         for hook in self.hooks.iter() {
             if hook(&stats).is_break() {
                 return ControlFlow::Break(());
