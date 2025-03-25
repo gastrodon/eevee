@@ -20,4 +20,4 @@ ARG TARGET
 COPY --from=builder /opt/brain-rs/target/release/examples/${TARGET} /opt/brain-rs/run
 
 VOLUME /opt/brain-rs/output
-ENTRYPOINT /opt/brain-rs/run
+ENTRYPOINT ["/opt/brain-rs/run"]
