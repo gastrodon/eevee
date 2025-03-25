@@ -9,7 +9,7 @@ use brain::{
     },
     scenario::EvolutionHooks,
     specie::population_init,
-    Ctrnn, Genome, Network, Scenario, Specie,
+    Ctrnn, Genome, Network, Scenario,
 };
 use core::{f64, ops::ControlFlow};
 use rand::RngCore;
