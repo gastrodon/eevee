@@ -41,7 +41,7 @@ impl<H: RngCore + Probabilities + Happens> EvolutionHooks<H> {
         Self { hooks }
     }
 
-    fn fire<'a>(&self, mut stats: Stats<'a, H>) -> ControlFlow<()> {
+    fn fire(&self, mut stats: Stats<H>) -> ControlFlow<()> {
         for hook in self.hooks.iter() {
             if hook(&mut stats).is_break() {
                 return ControlFlow::Break(());
