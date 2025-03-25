@@ -7,7 +7,6 @@ use core::{
     cmp::{max, Ordering},
     error::Error,
     hash::Hash,
-    iter::once,
 };
 use rand::{seq::IteratorRandom, Rng, RngCore};
 use rand_distr::StandardNormal;
@@ -239,7 +238,6 @@ fn gen_connection(genome: &Genome, rng: &mut impl RngCore) -> Option<(usize, usi
             .connections
             .iter()
             .filter_map(|c| (c.from == from).then_some(c.to))
-            .chain(once(from))
             .collect::<HashSet<_>>();
 
         if let Some(to) = (0..genome.nodes.len())
