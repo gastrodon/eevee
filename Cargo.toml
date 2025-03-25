@@ -28,31 +28,23 @@ flamegraph = "0.6.7"
 toml-cli = "0.2.3"
 
 [[bench]]
-name = "ctrnn"
+name = "crossover"
 harness = false
 
 [[bench]]
-name = "avg-weight-diff"
+name = "innogen"
 harness = false
 
 [[bench]]
-name = "disjoint-excess-count"
+name = "mutate"
 harness = false
 
 [[bench]]
-name = "crossover-eq"
+name = "nn"
 harness = false
 
 [[bench]]
-name = "crossover-ne"
-harness = false
-
-[[bench]]
-name = "mutate-bisection"
-harness = false
-
-[[bench]]
-name = "mutate-connection"
+name = "random"
 harness = false
 
 [[bench]]
@@ -61,12 +53,4 @@ harness = false
 
 [[bench]]
 name = "speciate"
-harness = false
-
-[[bench]]
-name = "innogen"
-harness = false
-
-[[bench]]
-name = "random"
 harness = false

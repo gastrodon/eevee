@@ -1,7 +1,7 @@
 use brain::{random::default_rng, specie::InnoGen, Genome};
 use criterion::Criterion;
 
-fn bench(bench: &mut Criterion) {
+fn bench_mutate(bench: &mut Criterion) {
     let genome = Genome::from_str(include_str!("data/genome-rand-100.json")).unwrap();
     let mut rng = default_rng();
     bench.bench_function("mutate-connection", |b| {
@@ -9,6 +9,15 @@ fn bench(bench: &mut Criterion) {
             genome
                 .clone()
                 .mutate_connection(&mut rng, &mut InnoGen::new(300))
+                .unwrap()
+        })
+    });
+
+    bench.bench_function("mutate-bisection", |b| {
+        b.iter(|| {
+            genome
+                .clone()
+                .mutate_bisection(&mut rng, &mut InnoGen::new(300))
                 .unwrap()
         })
     });
@@ -29,7 +38,7 @@ pub fn benches() {
             .without_plots()
             .configure_from_args()
     };
-    bench(&mut criterion);
+    bench_mutate(&mut criterion);
 }
 
 fn main() {

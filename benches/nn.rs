@@ -1,20 +1,14 @@
-use brain::{
-    crossover::crossover,
-    random::{default_rng, ProbBinding, ProbStatic},
-};
-use core::cmp::Ordering;
+#![allow(mixed_script_confusables)]
+#![allow(confusable_idents)]
+
+use brain::{activate::relu, Ctrnn, Network};
 use criterion::Criterion;
 
-fn bench(bench: &mut Criterion) {
-    let l_conn =
-        serde_json::from_str::<Vec<_>>(include_str!("data/connection-rand-l.json")).unwrap();
-    let r_conn =
-        serde_json::from_str::<Vec<_>>(include_str!("data/connection-rand-r.json")).unwrap();
+fn bench_nn(bench: &mut Criterion) {
+    let net = &mut Ctrnn::from_str(include_str!("data/ctrnn-rand-100.json")).unwrap();
+    let i = vec![0.7, 0.3];
 
-    let mut rng = ProbBinding::new(ProbStatic::default(), default_rng());
-    bench.bench_function("crossover-ne", |b| {
-        b.iter(|| crossover(&l_conn, &r_conn, Ordering::Greater, &mut rng))
-    });
+    bench.bench_function("ctrnn-step", |b| b.iter(|| net.step(100, &i, relu)));
 }
 
 pub fn benches() {
@@ -32,7 +26,7 @@ pub fn benches() {
             .without_plots()
             .configure_from_args()
     };
-    bench(&mut criterion);
+    bench_nn(&mut criterion);
 }
 
 fn main() {

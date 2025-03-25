@@ -5,7 +5,7 @@ use brain::{
 };
 use criterion::Criterion;
 
-fn bench(bench: &mut Criterion) {
+fn bench_reproduce(bench: &mut Criterion) {
     let genomes = serde_json::from_str::<Vec<_>>(include_str!("data/genome-xor-100.json")).unwrap();
     let inno_head = *genomes
         .iter()
@@ -40,7 +40,7 @@ pub fn benches() {
             .without_plots()
             .configure_from_args()
     };
-    bench(&mut criterion);
+    bench_reproduce(&mut criterion);
 }
 
 fn main() {

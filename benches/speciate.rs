@@ -1,8 +1,26 @@
-use brain::specie::speciate;
+use brain::{
+    crossover::{avg_weight_diff, disjoint_excess_count},
+    specie::speciate,
+};
 use core::iter::empty;
 use criterion::Criterion;
 
-fn bench(bench: &mut Criterion) {
+fn bench_distance(bench: &mut Criterion) {
+    let l_conn =
+        serde_json::from_str::<Vec<_>>(include_str!("data/connection-rand-l.json")).unwrap();
+    let r_conn =
+        serde_json::from_str::<Vec<_>>(include_str!("data/connection-rand-r.json")).unwrap();
+
+    bench.bench_function("disjoint-excess-count", |b| {
+        b.iter(|| disjoint_excess_count(&l_conn, &r_conn))
+    });
+
+    bench.bench_function("avg-weight-diff", |b| {
+        b.iter(|| avg_weight_diff(&l_conn, &r_conn))
+    });
+}
+
+fn bench_speciate(bench: &mut Criterion) {
     let genomes = serde_json::from_str::<Vec<_>>(include_str!("data/genome-xor-100.json")).unwrap();
     bench.bench_function("speciate", |b| {
         b.iter(|| speciate(genomes.iter().cloned(), empty()))
@@ -24,7 +42,8 @@ pub fn benches() {
             .without_plots()
             .configure_from_args()
     };
-    bench(&mut criterion);
+    bench_distance(&mut criterion);
+    bench_speciate(&mut criterion);
 }
 
 fn main() {

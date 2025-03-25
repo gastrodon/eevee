@@ -2,7 +2,7 @@ use brain::{random::default_rng, specie::InnoGen};
 use criterion::Criterion;
 use rand::Rng;
 
-fn bench(bench: &mut Criterion) {
+fn bench_innogen(bench: &mut Criterion) {
     let mut rng = default_rng();
     let mut inno = InnoGen::new(0);
     bench.bench_function("innogen", |b| {
@@ -25,7 +25,7 @@ pub fn benches() {
             .without_plots()
             .configure_from_args()
     };
-    bench(&mut criterion);
+    bench_innogen(&mut criterion);
 }
 
 fn main() {
