@@ -1,9 +1,9 @@
 use brain::{
+    random::{default_rng, ProbBinding, ProbStatic},
     specie::{reproduce, InnoGen},
     Connection, Genome,
 };
 use criterion::Criterion;
-use rand::rng;
 
 fn bench(bench: &mut Criterion) {
     let genomes = serde_json::from_str::<Vec<_>>(include_str!("data/genome-xor-100.json")).unwrap();
@@ -19,15 +19,9 @@ fn bench(bench: &mut Criterion) {
         .max()
         .unwrap();
 
+    let mut rng = ProbBinding::new(ProbStatic::default(), default_rng());
     bench.bench_function("reproduce", |b| {
-        b.iter(|| {
-            reproduce(
-                genomes.clone(),
-                100,
-                &mut InnoGen::new(inno_head),
-                &mut rng(),
-            )
-        })
+        b.iter(|| reproduce(genomes.clone(), 100, &mut InnoGen::new(inno_head), &mut rng))
     });
 }
 
