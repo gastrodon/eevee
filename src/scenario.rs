@@ -5,6 +5,8 @@ use crate::{
 };
 use core::{f64, ops::ControlFlow};
 use rand::RngCore;
+#[cfg(feature = "parallel")]
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::collections::HashMap;
 
 const NO_IMPROVEMENT_TRUNCATE: usize = 10;
@@ -60,8 +62,10 @@ pub trait Scenario<H: RngCore + Probabilities + Happens, A: Fn(f64) -> f64> {
 pub fn evolve<
     H: RngCore + Probabilities + Happens,
     I: FnOnce((usize, usize)) -> (Vec<Specie>, usize),
-    A: Fn(f64) -> f64,
-    S: Scenario<H, A>,
+    #[cfg(not(feature = "parallel"))] A: Fn(f64) -> f64,
+    #[cfg(feature = "parallel")] A: Fn(f64) -> f64 + Sync,
+    #[cfg(not(feature = "parallel"))] S: Scenario<H, A>,
+    #[cfg(feature = "parallel")] S: Scenario<H, A> + Sync,
 >(
     scenario: S,
     init: I,
@@ -86,10 +90,20 @@ pub fn evolve<
     let mut gen_idx = 0;
     loop {
         let species = {
+            #[cfg(not(feature = "parallel"))]
             let genomes = pop_flat.into_iter().map(|genome| {
                 let fitness = scenario.eval(&genome, &σ);
                 (genome, fitness)
             });
+            #[cfg(feature = "parallel")]
+            let genomes = pop_flat
+                .into_par_iter()
+                .map(|genome| {
+                    let fitness = scenario.eval(&genome, &σ);
+                    (genome, fitness)
+                })
+                .collect::<Vec<_>>()
+                .into_iter();
             let reprs = scores.keys().cloned();
 
             #[cfg(not(feature = "smol_bench"))]

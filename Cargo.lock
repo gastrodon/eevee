@@ -225,6 +225,7 @@ dependencies = [
  "nes_rust",
  "rand",
  "rand_distr",
+ "rayon",
  "rulinalg",
  "serde",
  "serde_json",
