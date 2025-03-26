@@ -7,7 +7,7 @@ use brain::{
     random::{
         default_rng, percent, EvolutionEvent, Happens, ProbBinding, ProbStatic, Probabilities,
     },
-    scenario::EvolutionHooks,
+    scenario::{evolve, EvolutionHooks},
     specie::population_init,
     Ctrnn, Genome, Network, Scenario,
 };
@@ -46,7 +46,8 @@ impl<H: RngCore + Probabilities + Happens, A: Fn(f64) -> f64> Scenario<H, A> for
 }
 
 fn main() {
-    Xor {}.evolve(
+    evolve(
+        &mut Xor {},
         |(i, o)| population_init(i, o, POPULATION),
         POPULATION,
         &relu,

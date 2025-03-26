@@ -6,7 +6,7 @@ use std::ops::ControlFlow;
 use brain::{
     activate::relu,
     random::{default_rng, percent, EvolutionEvent, ProbBinding, ProbStatic},
-    scenario::EvolutionHooks,
+    scenario::{evolve, EvolutionHooks},
     specie::population_init,
     Ctrnn, Genome, Happens, Network, Probabilities, Scenario, Specie,
 };
@@ -191,7 +191,8 @@ impl<H: RngCore + Probabilities + Happens, A: Fn(f64) -> f64> Scenario<H, A> for
 const POPULATION: usize = 100;
 
 fn main() {
-    let res = NesTetris {}.evolve(
+    let res = evolve(
+        &mut NesTetris {},
         |(i, o)| population_init(i, o, POPULATION),
         POPULATION,
         &relu,
