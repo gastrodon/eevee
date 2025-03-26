@@ -54,7 +54,7 @@ impl<H: RngCore + Probabilities + Happens> EvolutionHooks<H> {
 
 pub trait Scenario<H: RngCore + Probabilities + Happens, A: Fn(f64) -> f64> {
     fn io(&self) -> (usize, usize);
-    fn eval(&mut self, genome: &Genome, σ: &A) -> f64;
+    fn eval(&self, genome: &Genome, σ: &A) -> f64;
 }
 
 pub fn evolve<
@@ -63,7 +63,7 @@ pub fn evolve<
     A: Fn(f64) -> f64,
     S: Scenario<H, A>,
 >(
-    mut scenario: S,
+    scenario: S,
     init: I,
     σ: A,
     mut rng: H,

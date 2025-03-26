@@ -148,7 +148,7 @@ impl<H: RngCore + Probabilities + Happens, A: Fn(f64) -> f64> Scenario<H, A> for
         (200, 8)
     }
 
-    fn eval(&mut self, genome: &Genome, σ: &A) -> f64 {
+    fn eval(&self, genome: &Genome, σ: &A) -> f64 {
         let mut nes = Nes::new(
             Box::new(DefaultInput::new()),
             Box::new(DefaultDisplay::new()),
