@@ -1,8 +1,6 @@
 #![allow(mixed_script_confusables)]
 #![allow(confusable_idents)]
 
-use std::ops::ControlFlow;
-
 use brain::{
     activate::relu,
     random::{default_rng, percent, EvolutionEvent, ProbBinding, ProbStatic},
@@ -10,6 +8,7 @@ use brain::{
     specie::population_init,
     Ctrnn, Genome, Happens, Network, Probabilities, Scenario, Specie,
 };
+use core::ops::ControlFlow;
 use nes_rust::{
     button::Button, default_audio::DefaultAudio, default_display::DefaultDisplay,
     default_input::DefaultInput, rom::Rom, Nes,
