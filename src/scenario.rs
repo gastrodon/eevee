@@ -6,7 +6,10 @@ use crate::{
 use core::{f64, ops::ControlFlow};
 use rand::RngCore;
 #[cfg(feature = "parallel")]
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use rayon::{
+    iter::{IntoParallelIterator, ParallelIterator},
+    ThreadPoolBuilder,
+};
 use std::collections::HashMap;
 
 const NO_IMPROVEMENT_TRUNCATE: usize = 10;
@@ -84,6 +87,8 @@ pub fn evolve<
         )
     };
 
+    #[cfg(feature = "parallel")]
+    let thread_pool = ThreadPoolBuilder::new().build().unwrap();
     let population_lim = pop_flat.len();
 
     let mut scores: HashMap<SpecieRepr, _> = HashMap::new();
@@ -96,14 +101,16 @@ pub fn evolve<
                 (genome, fitness)
             });
             #[cfg(feature = "parallel")]
-            let genomes = pop_flat
-                .into_par_iter()
-                .map(|genome| {
-                    let fitness = scenario.eval(&genome, &σ);
-                    (genome, fitness)
-                })
-                .collect::<Vec<_>>()
-                .into_iter();
+            let genomes = thread_pool.install(|| {
+                pop_flat
+                    .into_par_iter()
+                    .map(|genome| {
+                        let fitness = scenario.eval(&genome, &σ);
+                        (genome, fitness)
+                    })
+                    .collect::<Vec<_>>()
+                    .into_iter()
+            });
             let reprs = scores.keys().cloned();
 
             #[cfg(not(feature = "smol_bench"))]
