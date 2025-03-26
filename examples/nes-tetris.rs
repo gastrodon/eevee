@@ -6,7 +6,7 @@ use brain::{
     random::{default_rng, percent, EvolutionEvent, ProbBinding, ProbStatic},
     scenario::{evolve, EvolutionHooks},
     specie::population_init,
-    Ctrnn, Genome, Happens, Network, Probabilities, Scenario, Specie,
+    Ctrnn, Genome, Happens, Network, Probabilities, Scenario, Stats,
 };
 use core::ops::ControlFlow;
 use nes_rust::{
@@ -189,8 +189,29 @@ impl<H: RngCore + Probabilities + Happens, A: Fn(f64) -> f64> Scenario<H, A> for
 
 const POPULATION: usize = 100;
 
+fn hook<H: RngCore + Probabilities + Happens>(stats: &mut Stats<'_, H>) -> ControlFlow<()> {
+    if stats.generation % 10 != 0 {
+        ControlFlow::Continue(())
+    } else {
+        let fittest = stats.fittest().unwrap();
+        println!("gen {} best: {:.3}", stats.generation, fittest.1);
+        if stats.generation % 100 == 0 {
+            fittest
+                .0
+                .to_file(format!("output/nes-tetris-{}.json", stats.generation))
+                .unwrap();
+        }
+
+        if stats.generation == 400 {
+            ControlFlow::Break(())
+        } else {
+            ControlFlow::Continue(())
+        }
+    }
+}
+
 fn main() {
-    let res = evolve(
+    evolve(
         NesTetris {},
         |(i, o)| population_init(i, o, POPULATION),
         relu,
@@ -202,43 +223,6 @@ fn main() {
             ]),
             default_rng(),
         ),
-        EvolutionHooks::new(vec![Box::new(|stats| {
-            if stats.generation % 10 != 0 {
-                ControlFlow::Continue(())
-            } else {
-                let fittest = stats.fittest().unwrap();
-                println!("gen {} best: {:.3}", stats.generation, fittest.1);
-                if stats.generation % 100 == 0 {
-                    fittest
-                        .0
-                        .to_file(format!("output/nes-tetris-{}.json", stats.generation))
-                        .unwrap();
-                }
-
-                if stats.generation == 400 {
-                    ControlFlow::Break(())
-                } else {
-                    ControlFlow::Continue(())
-                }
-            }
-        })]),
+        EvolutionHooks::new(vec![Box::new(hook)]),
     );
-
-    println!(
-        "top score: {:?}",
-        res.0
-            .iter()
-            .flat_map(|Specie { members, .. }| members)
-            .max_by(|(_, l), (_, r)| l.partial_cmp(r).unwrap())
-            .unwrap()
-            .1
-    );
-
-    for (idx, specie) in res.0.iter().enumerate() {
-        for (g_idx, (genome, fitness)) in specie.members.iter().enumerate() {
-            genome
-                .to_file(format!("genome/{idx}-{g_idx}-fit-{}", *fitness as usize))
-                .unwrap();
-        }
-    }
 }
