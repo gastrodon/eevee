@@ -63,11 +63,10 @@ pub fn evolve<
     A: Fn(f64) -> f64,
     S: Scenario<H, A>,
 >(
-    scenario: &mut S,
+    mut scenario: S,
     init: I,
-    population_lim: usize,
-    σ: &A,
-    rng: &mut H,
+    σ: A,
+    mut rng: H,
     hooks: EvolutionHooks<H>,
 ) -> (Vec<Specie>, usize) {
     let (mut pop_flat, mut inno_head) = {
@@ -81,12 +80,14 @@ pub fn evolve<
         )
     };
 
+    let population_lim = pop_flat.len();
+
     let mut scores: HashMap<SpecieRepr, _> = HashMap::new();
     let mut gen_idx = 0;
     loop {
         let species = {
             let genomes = pop_flat.into_iter().map(|genome| {
-                let fitness = scenario.eval(&genome, σ);
+                let fitness = scenario.eval(&genome, &σ);
                 (genome, fitness)
             });
             let reprs = scores.keys().cloned();
@@ -105,7 +106,7 @@ pub fn evolve<
             .fire(Stats {
                 generation: gen_idx,
                 species: &species,
-                rng,
+                rng: &mut rng,
             })
             .is_break()
         {
@@ -159,7 +160,8 @@ pub fn evolve<
             })
             .collect::<Vec<_>>();
 
-        (pop_flat, inno_head) = population_reproduce(&p_scored, population_lim, inno_head, rng);
+        (pop_flat, inno_head) =
+            population_reproduce(&p_scored, population_lim, inno_head, &mut rng);
         debug_assert!(!pop_flat.is_empty(), "nobody past {gen_idx}");
         gen_idx += 1
     }

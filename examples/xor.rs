@@ -47,11 +47,10 @@ impl<H: RngCore + Probabilities + Happens, A: Fn(f64) -> f64> Scenario<H, A> for
 
 fn main() {
     evolve(
-        &mut Xor {},
+        Xor {},
         |(i, o)| population_init(i, o, POPULATION),
-        POPULATION,
-        &relu,
-        &mut ProbBinding::new(ProbStatic::default(), default_rng()),
+        relu,
+        ProbBinding::new(ProbStatic::default(), default_rng()),
         EvolutionHooks::new(vec![
             Box::new(|stats| {
                 if stats.any_fitter_than(0.749999) {

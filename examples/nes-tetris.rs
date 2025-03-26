@@ -191,11 +191,10 @@ const POPULATION: usize = 100;
 
 fn main() {
     let res = evolve(
-        &mut NesTetris {},
+        NesTetris {},
         |(i, o)| population_init(i, o, POPULATION),
-        POPULATION,
-        &relu,
-        &mut ProbBinding::new(
+        relu,
+        ProbBinding::new(
             ProbStatic::default().with_overrides(&[
                 (EvolutionEvent::MutateConnection, percent(20)),
                 (EvolutionEvent::MutateBisection, percent(25)),
