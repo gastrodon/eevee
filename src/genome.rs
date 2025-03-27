@@ -2,6 +2,7 @@ use crate::{
     crossover::crossover,
     random::{EvolutionEvent, Happens},
     specie::InnoGen,
+    Ctrnn, Network,
 };
 use core::{
     cmp::{max, Ordering},
@@ -10,11 +11,77 @@ use core::{
 };
 use rand::{seq::IteratorRandom, Rng, RngCore};
 use rand_distr::StandardNormal;
+use rulinalg::matrix::Matrix;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, fs, path::Path};
 
+pub trait Connection: Serialize + for<'de> Deserialize<'de> + Clone + Hash + PartialEq {
+    /// gene innovation id
+    fn inno(&self) -> usize;
+
+    /// view and toggle whether or not the gene is enabled
+    fn enabled(&self) -> bool;
+    fn enable(&mut self);
+    fn disable(&mut self);
+
+    /// difference of connection parameters ( for example, weight )
+    /// between this and another connection with the same innovation id
+    fn param_diff(&self, other: &Self) -> f64;
+}
+
+pub trait Genome: Serialize + for<'de> Deserialize<'de> + Clone {
+    type Connection: Connection;
+    type Network: Network;
+
+    /// A new genome of this type, with a known input and output size
+    fn new(sensory: usize, action: usize) -> (Self, usize);
+
+    /// A collection to the connections comprising this genome
+    fn connections(&self) -> &[Self::Connection];
+
+    /// Perform a ( possible? TODO ) mutation across every weight
+    fn mutate_weights(&mut self, rng: &mut (impl RngCore + Happens));
+
+    /// Generate a new connection
+    fn mutate_connection(&mut self, rng: &mut (impl RngCore + Happens), inno: &mut InnoGen);
+
+    /// Bisect an existing connection. Should panic if there are no connections to bisect
+    fn mutate_bisection(&mut self, rng: &mut (impl RngCore + Happens), inno: &mut InnoGen);
+
+    /// Perform 0 or more mutations on this genome ( should this be the only mutator exposed? TODO )
+    fn maybe_mutate(&mut self, rng: &mut (impl RngCore + Happens), inno: &mut InnoGen);
+
+    /// Perform crossover reproduction with other, where our fitness is `fitness_cmp` compared to other
+    fn reproduce_with(
+        &self,
+        other: &Self,
+        fitness_cmp: Ordering,
+        rng: &mut (impl RngCore + Happens),
+    ) -> Self;
+
+    fn network(&self) -> Self::Network;
+
+    fn to_string(&self) -> Result<String, Box<dyn Error>> {
+        Ok(serde_json::to_string(self)?)
+    }
+
+    #[allow(clippy::should_implement_trait)]
+    fn from_str(s: &str) -> Result<Self, Box<dyn Error>> {
+        serde_json::from_str(s).map_err(|op| op.into())
+    }
+
+    fn to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), Box<dyn Error>> {
+        fs::write(path, self.to_string()?)?;
+        Ok(())
+    }
+
+    fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, Box<dyn Error>> {
+        Self::from_str(&fs::read_to_string(path)?)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum Node {
+pub enum CTRNode {
     Sensory,
     Action,
     Bias(f64),
@@ -22,15 +89,39 @@ pub enum Node {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Connection {
-    pub inno: usize,
-    pub from: usize,
-    pub to: usize,
-    pub weight: f64,
-    pub enabled: bool,
+pub struct CTRConnection {
+    inno: usize,
+    from: usize,
+    to: usize,
+    weight: f64,
+    enabled: bool,
 }
 
-impl Hash for Connection {
+impl Connection for CTRConnection {
+    fn inno(&self) -> usize {
+        self.inno
+    }
+
+    fn enable(&mut self) {
+        self.enabled = true;
+    }
+
+    fn disable(&mut self) {
+        self.enabled = true;
+    }
+
+    fn enabled(&self) -> bool {
+        self.enabled
+    }
+
+    fn param_diff(&self, other: &Self) -> f64 {
+        // TODO add other ctrnn specific diffs when we have those fields available
+        // theta, bias, weight
+        (self.weight - other.weight).abs()
+    }
+}
+
+impl Hash for CTRConnection {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.inno.hash(state);
         self.from.hash(state);
@@ -40,45 +131,30 @@ impl Hash for Connection {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Genome {
-    pub sensory: usize,
-    pub action: usize,
-    pub nodes: Vec<Node>,
-    pub connections: Vec<Connection>,
+pub struct CTRGenome {
+    sensory: usize,
+    action: usize,
+    nodes: Vec<CTRNode>,
+    connections: Vec<CTRConnection>,
 }
 
-impl Genome {
-    pub fn to_string(&self) -> Result<String, Box<dyn Error>> {
-        Ok(serde_json::to_string(self)?)
-    }
-
-    #[allow(clippy::should_implement_trait)]
-    pub fn from_str(s: &str) -> Result<Self, Box<dyn Error>> {
-        serde_json::from_str(s).map_err(|op| op.into())
-    }
-
-    pub fn to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), Box<dyn Error>> {
-        fs::write(path, self.to_string()?)?;
-        Ok(())
-    }
-
-    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, Box<dyn Error>> {
-        Self::from_str(&fs::read_to_string(path)?)
-    }
-}
-
-impl Genome {
+impl CTRGenome {
     const MUTATE_WEIGHT_FAC: f64 = 0.05;
+}
 
-    pub fn new(sensory: usize, action: usize) -> (Self, usize) {
+impl Genome for CTRGenome {
+    type Connection = CTRConnection;
+    type Network = Ctrnn;
+
+    fn new(sensory: usize, action: usize) -> (Self, usize) {
         let mut nodes = Vec::with_capacity(sensory + action + 1);
         for _ in 0..sensory {
-            nodes.push(Node::Sensory);
+            nodes.push(CTRNode::Sensory);
         }
         for _ in sensory..sensory + action {
-            nodes.push(Node::Action);
+            nodes.push(CTRNode::Action);
         }
-        nodes.push(Node::Bias(1.));
+        nodes.push(CTRNode::Bias(1.));
 
         (
             Self {
@@ -91,7 +167,11 @@ impl Genome {
         )
     }
 
-    pub fn mutate_weights(&mut self, rng: &mut impl RngCore) {
+    fn connections(&self) -> &[Self::Connection] {
+        &self.connections
+    }
+
+    fn mutate_weights(&mut self, rng: &mut (impl RngCore + Happens)) {
         for conn in self.connections.iter_mut() {
             if rng.random_ratio(1, 10) {
                 conn.weight = rng.sample(StandardNormal);
@@ -103,34 +183,25 @@ impl Genome {
 
     // picks an unconnected pair, generates a connection between them, and applies it
     // fails if no pair can be picked
-    pub fn mutate_connection(
-        &mut self,
-        rng: &mut impl RngCore,
-        inext: &mut InnoGen,
-    ) -> Result<(), Box<dyn Error>> {
+    fn mutate_connection(&mut self, rng: &mut (impl RngCore + Happens), inext: &mut InnoGen) {
         if let Some((from, to)) = gen_connection(self, rng) {
-            self.connections.push(Connection {
+            self.connections.push(CTRConnection {
                 inno: inext.path((from, to)),
                 from,
                 to,
                 weight: 1.,
                 enabled: true,
             });
-            Ok(())
         } else {
-            Err("connections on genome are fully saturated".into())
+            panic!("connections on genome are fully saturated")
         }
     }
 
     // Picks a source connection, bisects it, and applies it
     // picked source connection is marked as disabled
-    pub fn mutate_bisection(
-        &mut self,
-        rng: &mut impl RngCore,
-        inext: &mut InnoGen,
-    ) -> Result<(), Box<dyn Error>> {
+    fn mutate_bisection(&mut self, rng: &mut (impl RngCore + Happens), inext: &mut InnoGen) {
         if self.connections.is_empty() {
-            return Err("no connections available to bisect".into());
+            panic!("no connections available to bisect");
         }
 
         let pick_idx = rng.random_range(0..self.connections.len());
@@ -141,7 +212,7 @@ impl Genome {
             pick.enabled = false;
             (
                 // from -{1.}> bisect-node
-                Connection {
+                CTRConnection {
                     inno: inext.path((pick.from, new_node_idx)),
                     from: pick.from,
                     to: new_node_idx,
@@ -149,7 +220,7 @@ impl Genome {
                     enabled: true,
                 },
                 // bisect-node -{w}> to
-                Connection {
+                CTRConnection {
                     inno: inext.path((new_node_idx, pick.to)),
                     from: new_node_idx,
                     to: pick.to,
@@ -159,53 +230,46 @@ impl Genome {
             )
         };
 
-        self.nodes.push(Node::Internal);
+        self.nodes.push(CTRNode::Internal);
         self.connections.push(lower);
         self.connections.push(upper);
-        Ok(())
     }
 
-    pub fn maybe_mutate<H: RngCore + Happens>(
-        &mut self,
-        rng: &mut H,
-        innogen: &mut InnoGen,
-    ) -> Result<(), Box<dyn Error>> {
+    fn maybe_mutate(&mut self, rng: &mut (impl RngCore + Happens), innogen: &mut InnoGen) {
         if rng.happens(EvolutionEvent::MutateWeight) {
             self.mutate_weights(rng);
         }
         if rng.happens(EvolutionEvent::MutateConnection) {
-            self.mutate_connection(rng, innogen)?;
+            self.mutate_connection(rng, innogen);
         }
         if rng.happens(EvolutionEvent::MutateBisection) && !self.connections.is_empty() {
-            self.mutate_bisection(rng, innogen)?;
+            self.mutate_bisection(rng, innogen);
         }
-
-        Ok(())
     }
 
-    pub fn reproduce_with<H: RngCore + Happens>(
+    fn reproduce_with(
         &self,
-        other: &Genome,
+        other: &CTRGenome,
         self_fit: Ordering,
-        rng: &mut H,
+        rng: &mut (impl RngCore + Happens),
     ) -> Self {
         let connections = crossover(&self.connections, &other.connections, self_fit, rng);
         let nodes_size = connections
             .iter()
-            .fold(0, |prev, Connection { from, to, .. }| {
+            .fold(0, |prev, CTRConnection { from, to, .. }| {
                 max(prev, max(*from, *to))
             });
 
         let mut nodes = Vec::with_capacity(self.sensory + self.action + 1);
         for _ in 0..self.sensory {
-            nodes.push(Node::Sensory);
+            nodes.push(CTRNode::Sensory);
         }
         for _ in self.sensory..self.sensory + self.action {
-            nodes.push(Node::Action);
+            nodes.push(CTRNode::Action);
         }
-        nodes.push(Node::Bias(1.));
+        nodes.push(CTRNode::Bias(1.));
         for _ in self.sensory + self.action..nodes_size {
-            nodes.push(Node::Internal);
+            nodes.push(CTRNode::Internal);
         }
 
         debug_assert!(
@@ -222,12 +286,40 @@ impl Genome {
             connections,
         }
     }
+
+    fn network(&self) -> Self::Network {
+        let cols = self.nodes.len();
+        Ctrnn {
+            y: Matrix::zeros(1, cols),
+            θ: Matrix::new(
+                1,
+                cols,
+                self.nodes
+                    .iter()
+                    .map(|n| if let CTRNode::Bias(b) = n { *b } else { 0. })
+                    .collect::<Vec<_>>(),
+            ),
+            τ: Matrix::ones(1, cols),
+            w: {
+                let mut w = vec![0.; cols * cols];
+                for CTRConnection {
+                    from, to, weight, ..
+                } in self.connections.iter().filter(|c| c.enabled)
+                {
+                    w[from * cols + to] = *weight;
+                }
+                Matrix::new(cols, cols, w)
+            },
+            sensory: (0, self.sensory),
+            action: (self.sensory, self.sensory + self.action),
+        }
+    }
 }
 
 /// Given a genome with 0 or more nodes, try to generate a connection between nodes
 /// a connection should have a unique (from, to) from any other connection on genome,
 /// and the connection should not describe a node that points to itself
-fn gen_connection(genome: &Genome, rng: &mut impl RngCore) -> Option<(usize, usize)> {
+fn gen_connection(genome: &CTRGenome, rng: &mut impl RngCore) -> Option<(usize, usize)> {
     let mut saturated = HashSet::new();
     loop {
         let from = (0..genome.nodes.len())
@@ -254,61 +346,64 @@ fn gen_connection(genome: &Genome, rng: &mut impl RngCore) -> Option<(usize, usi
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{random::default_rng, specie::InnoGen};
-    use std::vec;
+    use crate::{
+        random::{default_rng, ProbBinding, ProbStatic},
+        specie::InnoGen,
+    };
+    use rulinalg::matrix::BaseMatrix;
 
     #[test]
     fn test_genome_creation() {
-        let (genome, inno_head) = Genome::new(3, 2);
+        let (genome, inno_head) = CTRGenome::new(3, 2);
         assert_eq!(inno_head, 8);
         assert_eq!(genome.sensory, 3);
         assert_eq!(genome.action, 2);
         assert_eq!(genome.nodes.len(), 6);
-        assert!(matches!(genome.nodes[0], Node::Sensory));
-        assert!(matches!(genome.nodes[3], Node::Action));
-        assert!(matches!(genome.nodes[5], Node::Bias(_)));
+        assert!(matches!(genome.nodes[0], CTRNode::Sensory));
+        assert!(matches!(genome.nodes[3], CTRNode::Action));
+        assert!(matches!(genome.nodes[5], CTRNode::Bias(_)));
 
-        let (genome_empty, inno_head) = Genome::new(0, 0);
+        let (genome_empty, inno_head) = CTRGenome::new(0, 0);
         assert_eq!(inno_head, 0);
         assert_eq!(genome_empty.sensory, 0);
         assert_eq!(genome_empty.action, 0);
         assert_eq!(genome_empty.nodes.len(), 1);
-        assert!(matches!(genome_empty.nodes[0], Node::Bias(_)));
+        assert!(matches!(genome_empty.nodes[0], CTRNode::Bias(_)));
 
-        let (genome_only_sensory, inno_head) = Genome::new(3, 0);
+        let (genome_only_sensory, inno_head) = CTRGenome::new(3, 0);
         assert_eq!(inno_head, 0);
         assert_eq!(genome_only_sensory.sensory, 3);
         assert_eq!(genome_only_sensory.action, 0);
         assert_eq!(genome_only_sensory.nodes.len(), 4);
-        assert!(matches!(genome_only_sensory.nodes[0], Node::Sensory));
-        assert!(matches!(genome_only_sensory.nodes[2], Node::Sensory));
-        assert!(matches!(genome_only_sensory.nodes[3], Node::Bias(_)));
+        assert!(matches!(genome_only_sensory.nodes[0], CTRNode::Sensory));
+        assert!(matches!(genome_only_sensory.nodes[2], CTRNode::Sensory));
+        assert!(matches!(genome_only_sensory.nodes[3], CTRNode::Bias(_)));
 
-        let (genome_only_action, inno_head) = Genome::new(0, 3);
+        let (genome_only_action, inno_head) = CTRGenome::new(0, 3);
         assert_eq!(inno_head, 3);
         assert_eq!(genome_only_action.sensory, 0);
         assert_eq!(genome_only_action.action, 3);
         assert_eq!(genome_only_action.nodes.len(), 4);
-        assert!(matches!(genome_only_action.nodes[0], Node::Action));
-        assert!(matches!(genome_only_action.nodes[2], Node::Action));
-        assert!(matches!(genome_only_action.nodes[3], Node::Bias(_)));
+        assert!(matches!(genome_only_action.nodes[0], CTRNode::Action));
+        assert!(matches!(genome_only_action.nodes[2], CTRNode::Action));
+        assert!(matches!(genome_only_action.nodes[3], CTRNode::Bias(_)));
     }
 
     #[test]
     fn test_gen_connection() {
-        let genome = Genome {
+        let genome = CTRGenome {
             sensory: 1,
             action: 1,
-            nodes: vec![Node::Sensory, Node::Action],
+            nodes: vec![CTRNode::Sensory, CTRNode::Action],
             connections: vec![
-                Connection {
+                CTRConnection {
                     inno: 0,
                     from: 0,
                     to: 0,
                     weight: 0.,
                     enabled: true,
                 },
-                Connection {
+                CTRConnection {
                     inno: 1,
                     from: 1,
                     to: 1,
@@ -328,26 +423,26 @@ mod test {
 
     #[test]
     fn test_gen_connection_no_dupe() {
-        let genome = Genome {
+        let genome = CTRGenome {
             sensory: 1,
             action: 1,
-            nodes: vec![Node::Sensory, Node::Action],
+            nodes: vec![CTRNode::Sensory, CTRNode::Action],
             connections: vec![
-                Connection {
+                CTRConnection {
                     inno: 0,
                     from: 0,
                     to: 0,
                     weight: 1.,
                     enabled: true,
                 },
-                Connection {
+                CTRConnection {
                     inno: 1,
                     from: 0,
                     to: 1,
                     weight: 1.,
                     enabled: true,
                 },
-                Connection {
+                CTRConnection {
                     inno: 2,
                     from: 1,
                     to: 1,
@@ -365,11 +460,11 @@ mod test {
     fn test_gen_connection_none_possble() {
         assert_eq!(
             gen_connection(
-                &Genome {
+                &CTRGenome {
                     sensory: 0,
                     action: 0,
                     nodes: vec![],
-                    connections: vec![Connection {
+                    connections: vec![CTRConnection {
                         inno: 0,
                         from: 0,
                         to: 1,
@@ -387,19 +482,19 @@ mod test {
     fn test_gen_connection_saturated() {
         assert_eq!(
             gen_connection(
-                &Genome {
+                &CTRGenome {
                     sensory: 2,
                     action: 2,
                     nodes: vec![
-                        Node::Action,
-                        Node::Action,
-                        Node::Sensory,
-                        Node::Sensory,
-                        Node::Bias(1.),
+                        CTRNode::Action,
+                        CTRNode::Action,
+                        CTRNode::Sensory,
+                        CTRNode::Sensory,
+                        CTRNode::Bias(1.),
                     ],
                     connections: (0..5)
                         .flat_map(|from| {
-                            (0..5).map(move |to| Connection {
+                            (0..5).map(move |to| CTRConnection {
                                 inno: 0,
                                 from,
                                 to,
@@ -417,17 +512,17 @@ mod test {
 
     #[test]
     fn test_mutate_connection() {
-        let (mut genome, _) = Genome::new(4, 4);
+        let (mut genome, _) = CTRGenome::new(4, 4);
         let mut inext = InnoGen::new(0);
         genome.connections = vec![
-            Connection {
+            CTRConnection {
                 inno: inext.path((0, 1)),
                 from: 0,
                 to: 1,
                 weight: 0.5,
                 enabled: true,
             },
-            Connection {
+            CTRConnection {
                 inno: inext.path((1, 2)),
                 from: 1,
                 to: 2,
@@ -437,9 +532,10 @@ mod test {
         ];
 
         let before = genome.clone();
-        genome
-            .mutate_connection(&mut default_rng(), &mut inext)
-            .unwrap();
+        genome.mutate_connection(
+            &mut ProbBinding::new(ProbStatic::default(), default_rng()),
+            &mut inext,
+        );
 
         assert_eq!(genome.connections.len(), before.connections.len() + 1);
 
@@ -454,8 +550,8 @@ mod test {
 
     #[test]
     fn test_mutate_bisection() {
-        let (mut genome, _) = Genome::new(0, 1);
-        genome.connections = vec![Connection {
+        let (mut genome, _) = CTRGenome::new(0, 1);
+        genome.connections = vec![CTRConnection {
             inno: 0,
             from: 0,
             to: 1,
@@ -463,9 +559,10 @@ mod test {
             enabled: true,
         }];
         let innogen = &mut InnoGen::new(1);
-        genome
-            .mutate_bisection(&mut default_rng(), innogen)
-            .unwrap();
+        genome.mutate_bisection(
+            &mut ProbBinding::new(ProbStatic::default(), default_rng()),
+            innogen,
+        );
 
         assert!(!genome.connections[0].enabled);
 
@@ -493,18 +590,24 @@ mod test {
     }
 
     #[test]
+    #[should_panic]
     fn test_mutate_bisection_empty_genome() {
-        let (mut genome, _) = Genome::new(0, 0);
-        let result = genome.mutate_bisection(&mut default_rng(), &mut InnoGen::new(0));
-        assert!(result.is_err());
+        let (mut genome, _) = CTRGenome::new(0, 0);
+        genome.mutate_bisection(
+            &mut ProbBinding::new(ProbStatic::default(), default_rng()),
+            &mut InnoGen::new(0),
+        );
     }
 
     #[test]
+    #[should_panic]
     fn test_mutate_bisection_no_connections() {
-        let (mut genome, _) = Genome::new(2, 2);
+        let (mut genome, _) = CTRGenome::new(2, 2);
         genome.connections = vec![];
-        let result = genome.mutate_bisection(&mut default_rng(), &mut InnoGen::new(0));
-        assert!(result.is_err());
+        genome.mutate_bisection(
+            &mut ProbBinding::new(ProbStatic::default(), default_rng()),
+            &mut InnoGen::new(0),
+        );
     }
 
     #[test]
@@ -518,5 +621,83 @@ mod test {
         }
         .clone_from_slice(&[1., 2., 3.]);
         assert_eq!(state, vec![1., 2., 3., 0., 0.])
+    }
+
+    macro_rules! assert_f64_approx {
+        ($l:expr, $r:expr) => {
+            assert!(
+                ($l - $r).abs() < f64::EPSILON,
+                "assertion failed: {} !~ {}",
+                $l,
+                $r
+            )
+        };
+        ($l:expr, $r:expr, $msg:expr) => {
+            assert!(
+                ($l - $r).abs() < f64::EPSILON,
+                "assertion failed: {} !~ {}: {}",
+                $l,
+                $r,
+                $msg
+            )
+        };
+    }
+
+    #[test]
+    fn test_ctrgenome_network() {
+        let (mut genome, _) = CTRGenome::new(2, 2);
+        genome.connections = vec![
+            CTRConnection {
+                inno: 0,
+                from: 0,
+                to: 3,
+                weight: 0.5,
+                enabled: true,
+            },
+            CTRConnection {
+                inno: 1,
+                from: 0,
+                to: 1,
+                weight: -1.,
+                enabled: true,
+            },
+            CTRConnection {
+                inno: 2,
+                from: 0,
+                to: 1,
+                weight: 1.2,
+                enabled: false,
+            },
+        ];
+
+        let nn = genome.network();
+        unsafe {
+            for CTRConnection {
+                from, to, weight, ..
+            } in genome.connections.iter().filter(|c| c.enabled)
+            {
+                assert_f64_approx!(nn.w.get_unchecked([*from, *to]), weight);
+            }
+
+            for (i, node) in genome.nodes.iter().enumerate() {
+                assert_f64_approx!(
+                    nn.θ.get_unchecked([0, i]),
+                    if let CTRNode::Bias(b) = node { b } else { &0. }
+                )
+            }
+        }
+
+        for i in nn.sensory.0..nn.sensory.1 {
+            assert!(genome
+                .nodes
+                .get(i)
+                .is_some_and(|n| matches!(n, CTRNode::Sensory)))
+        }
+        for i in nn.action.0..nn.action.1 {
+            assert!(genome
+                .nodes
+                .get(i)
+                .is_some_and(|n| matches!(n, CTRNode::Action)))
+        }
     }
 }

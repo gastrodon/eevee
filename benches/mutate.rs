@@ -1,15 +1,19 @@
-use brain::{random::default_rng, specie::InnoGen, Genome};
+use brain::{
+    genome::Genome,
+    random::{default_rng, ProbBinding, ProbStatic},
+    specie::InnoGen,
+    CTRGenome,
+};
 use criterion::Criterion;
 
 fn bench_mutate(bench: &mut Criterion) {
-    let genome = Genome::from_str(include_str!("data/genome-rand-100.json")).unwrap();
-    let mut rng = default_rng();
+    let genome = CTRGenome::from_str(include_str!("data/ctr-genome-rand-100.json")).unwrap();
+    let mut rng = ProbBinding::new(ProbStatic::default(), default_rng());
     bench.bench_function("mutate-connection", |b| {
         b.iter(|| {
             genome
                 .clone()
                 .mutate_connection(&mut rng, &mut InnoGen::new(300))
-                .unwrap()
         })
     });
 
@@ -18,7 +22,6 @@ fn bench_mutate(bench: &mut Criterion) {
             genome
                 .clone()
                 .mutate_bisection(&mut rng, &mut InnoGen::new(300))
-                .unwrap()
         })
     });
 }

@@ -5,7 +5,7 @@ use crate::{
 use core::cmp::Ordering;
 use rand::RngCore;
 
-pub fn disjoint_excess_count(l: &[Connection], r: &[Connection]) -> (f64, f64) {
+pub fn disjoint_excess_count<C: Connection>(l: &[C], r: &[C]) -> (f64, f64) {
     let mut l_iter = l.iter();
     let mut r_iter = r.iter();
 
@@ -21,7 +21,7 @@ pub fn disjoint_excess_count(l: &[Connection], r: &[Connection]) -> (f64, f64) {
 
     let mut disjoint = 0.;
     let excess_passed = loop {
-        match l_conn.inno.cmp(&r_conn.inno) {
+        match l_conn.inno().cmp(&r_conn.inno()) {
             Ordering::Equal => {
                 l_conn = match l_iter.next() {
                     Some(c) => c,
@@ -57,7 +57,7 @@ pub fn disjoint_excess_count(l: &[Connection], r: &[Connection]) -> (f64, f64) {
 }
 
 /// if genomes share no overlapping weights, their average diff should be 0
-pub fn avg_weight_diff(l: &[Connection], r: &[Connection]) -> f64 {
+pub fn avg_weight_diff<C: Connection>(l: &[C], r: &[C]) -> f64 {
     let mut diff = 0.;
     let mut count = 0.;
     let mut l_iter = l.iter();
@@ -74,9 +74,9 @@ pub fn avg_weight_diff(l: &[Connection], r: &[Connection]) -> f64 {
     };
 
     loop {
-        match l_conn.inno.cmp(&r_conn.inno) {
+        match l_conn.inno().cmp(&r_conn.inno()) {
             Ordering::Equal => {
-                diff += (l_conn.weight - r_conn.weight).abs();
+                diff += l_conn.param_diff(r_conn);
                 count += 1.;
 
                 l_conn = match l_iter.next() {
@@ -115,7 +115,7 @@ const EXCESS_COEFFICIENT: f64 = 1.0;
 const DISJOINT_COEFFICIENT: f64 = 1.0;
 const WEIGHT_COEFFICIENT: f64 = 0.4;
 
-pub fn delta(l: &[Connection], r: &[Connection]) -> f64 {
+pub fn delta<C: Connection>(l: &[C], r: &[C]) -> f64 {
     let l_size = l.len() as f64;
     let r_size = r.len() as f64;
     let fac = {
@@ -137,18 +137,18 @@ pub fn delta(l: &[Connection], r: &[Connection]) -> f64 {
 }
 
 #[inline]
-fn pick_gene<H: RngCore + Happens>(
-    base_conn: &Connection,
-    opt_conn: Option<&Connection>,
+fn pick_gene<C: Connection, H: RngCore + Happens>(
+    base_conn: &C,
+    opt_conn: Option<&C>,
     rng: &mut H,
-) -> Connection {
+) -> C {
     let mut conn = if let Some(r_conn) = opt_conn {
         // TODO be able to differentiate PickLEQ and PickLNE
-        (*if rng.happens(EvolutionEvent::PickLEQ) {
+        if rng.happens(EvolutionEvent::PickLEQ) {
             r_conn
         } else {
             base_conn
-        })
+        }
         .to_owned()
     } else {
         base_conn.to_owned()
@@ -157,22 +157,18 @@ fn pick_gene<H: RngCore + Happens>(
     // TODO It seems like it will always check RAND_DISABLED, and sometimes
     // check KEEP_DISABLED. I wonder if checking RAND_DISABLED first would bypass
     // RAND_DISABLED% of checks that would then check KEEP_DISABLED?
-    if ((!base_conn.enabled || opt_conn.is_some_and(|r_conn| !r_conn.enabled))
+    if ((!base_conn.enabled() || opt_conn.is_some_and(|r_conn| !r_conn.enabled()))
         && rng.happens(EvolutionEvent::KeepDisabled))
         || rng.happens(EvolutionEvent::NewDisabled)
     {
-        conn.enabled = false;
+        conn.disable();
     }
 
     conn
 }
 
 /// crossover connections where l and r are equally fit
-fn crossover_eq<H: RngCore + Happens>(
-    l: &[Connection],
-    r: &[Connection],
-    rng: &mut H,
-) -> Vec<Connection> {
+fn crossover_eq<C: Connection, H: RngCore + Happens>(l: &[C], r: &[C], rng: &mut H) -> Vec<C> {
     // TODO I wonder what the actual average case overlap between genomes is?
     // probably pretty close, could we measure this?
     let mut cross = Vec::with_capacity(l.len() + r.len());
@@ -190,7 +186,7 @@ fn crossover_eq<H: RngCore + Happens>(
                 cross.extend(l[l_idx..].iter().map(|conn| pick_gene(conn, None, rng)));
                 break;
             }
-            (Some(l_conn), Some(r_conn)) => match l_conn.inno.cmp(&r_conn.inno) {
+            (Some(l_conn), Some(r_conn)) => match l_conn.inno().cmp(&r_conn.inno()) {
                 Ordering::Equal => {
                     cross.push(pick_gene(l_conn, Some(r_conn), rng));
                     l_idx += 1;
@@ -213,17 +209,16 @@ fn crossover_eq<H: RngCore + Happens>(
 }
 
 /// crossover connections where l is more fit than r
-fn crossover_ne<H: RngCore + Happens>(
-    l: &[Connection],
-    r: &[Connection],
-    rng: &mut H,
-) -> Vec<Connection> {
-    // copy l, pick_gene where l.inno == r.inno
+fn crossover_ne<C: Connection, H: RngCore + Happens>(l: &[C], r: &[C], rng: &mut H) -> Vec<C> {
+    // copy l, pick_gene where l.inno() == r.inno()
     let mut cross = Vec::with_capacity(l.len());
     let mut r_idx = 0;
     for l_conn in l {
         // TODO is r_idx < r.len() && r[r_idx] or maybe even get_unchecked
-        while r.get(r_idx).is_some_and(|r_conn| r_conn.inno < l_conn.inno) {
+        while r
+            .get(r_idx)
+            .is_some_and(|r_conn| r_conn.inno() < l_conn.inno())
+        {
             r_idx += 1;
         }
 
@@ -231,7 +226,7 @@ fn crossover_ne<H: RngCore + Happens>(
         cross.push(pick_gene(
             l_conn,
             r.get(r_idx)
-                .is_some_and(|r_conn| r_conn.inno == l_conn.inno)
+                .is_some_and(|r_conn| r_conn.inno() == l_conn.inno())
                 .then(|| &r[r_idx]),
             rng,
         ))
@@ -242,19 +237,19 @@ fn crossover_ne<H: RngCore + Happens>(
 
 /// crossover connections
 /// l_fit describes how fit l is compared to r,
-pub fn crossover<H: RngCore + Happens>(
-    l: &[Connection],
-    r: &[Connection],
+pub fn crossover<C: Connection, H: RngCore + Happens>(
+    l: &[C],
+    r: &[C],
     l_fit: Ordering,
     rng: &mut H,
-) -> Vec<Connection> {
+) -> Vec<C> {
     let mut usort = match l_fit {
         Ordering::Equal => crossover_eq(l, r, rng),
         Ordering::Less => crossover_ne(r, l, rng),
         Ordering::Greater => crossover_ne(l, r, rng),
     };
 
-    usort.sort_by_key(|c| c.inno);
+    usort.sort_by_key(|c| c.inno());
     usort
 }
 
@@ -265,11 +260,53 @@ mod test {
         genome::Connection,
         random::{default_rng, ProbBinding, ProbStatic},
     };
+    use core::hash::Hash;
+    use serde::{Deserialize, Serialize};
     use std::collections::{HashMap, HashSet};
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    struct TestConnection {
+        inno: usize,
+        from: usize,
+        to: usize,
+        weight: f64,
+        enabled: bool,
+    }
+
+    impl Hash for TestConnection {
+        fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+            self.inno.hash(state);
+            self.from.hash(state);
+            self.to.hash(state);
+            ((1000. * self.weight) as usize).hash(state);
+        }
+    }
+
+    impl Connection for TestConnection {
+        fn inno(&self) -> usize {
+            self.inno
+        }
+
+        fn enabled(&self) -> bool {
+            self.enabled
+        }
+
+        fn enable(&mut self) {
+            self.enabled = true
+        }
+
+        fn disable(&mut self) {
+            self.enabled = false
+        }
+
+        fn param_diff(&self, other: &Self) -> f64 {
+            (self.weight - other.weight).abs()
+        }
+    }
 
     macro_rules! connection {
         ($($k:ident = $v:expr),+ $(,)?) => {{
-            let mut c = Connection{
+            let mut c = TestConnection{
                 inno: 0,
                 from: 0,
                 to: 0,
@@ -312,7 +349,7 @@ mod test {
         let diff = avg_weight_diff(&[], &full);
         assert!((diff - 0.0).abs() < f64::EPSILON, "diff ne: {diff}, 0.");
 
-        let diff = avg_weight_diff(&[], &[]);
+        let diff = avg_weight_diff::<TestConnection>(&[], &[]);
         assert!((diff - 0.0).abs() < f64::EPSILON, "diff ne: {diff}, 0.");
     }
 
@@ -392,7 +429,10 @@ mod test {
         let full = vec![connection!(inno = 1), connection!(inno = 2)];
         assert_eq!((0.0, 2.0), disjoint_excess_count(&full, &[]));
         assert_eq!((0.0, 2.0), disjoint_excess_count(&[], &full));
-        assert_eq!((0.0, 0.0), disjoint_excess_count(&[], &[]));
+        assert_eq!(
+            (0.0, 0.0),
+            disjoint_excess_count::<TestConnection>(&[], &[])
+        );
     }
 
     #[test]
@@ -473,10 +513,10 @@ mod test {
         }};
     }
 
-    fn assert_crossover_eq(l: &[Connection], r: &[Connection]) {
+    fn assert_crossover_eq(l: &[TestConnection], r: &[TestConnection]) {
         for (l, r) in [(l, r), (r, l)] {
-            let l_map = l.iter().map(|c| (c.inno, c)).collect::<HashMap<_, &_>>();
-            let r_map = r.iter().map(|c| (c.inno, c)).collect::<HashMap<_, &_>>();
+            let l_map = l.iter().map(|c| (c.inno(), c)).collect::<HashMap<_, &_>>();
+            let r_map = r.iter().map(|c| (c.inno(), c)).collect::<HashMap<_, &_>>();
             let inno = l_map
                 .keys()
                 .collect::<HashSet<_>>()
@@ -490,13 +530,13 @@ mod test {
                 let lr = crossover_eq(l, r, &mut rng);
                 assert_eq!(inno.len(), lr.len());
 
-                let lr_inno = lr.iter().map(|c| c.inno).collect::<HashSet<_>>();
+                let lr_inno = lr.iter().map(|c| c.inno()).collect::<HashSet<_>>();
                 assert!(inno.is_subset(&lr_inno));
                 assert!(inno.is_superset(&lr_inno));
-                assert!(lr.is_sorted_by_key(|c| c.inno));
+                assert!(lr.is_sorted_by_key(|c| c.inno()));
                 for ref lr_conn in lr {
-                    match (l_map.get(&lr_conn.inno), r_map.get(&lr_conn.inno)) {
-                        (None, None) => panic!("{} is in neither l nor r", lr_conn.inno),
+                    match (l_map.get(&lr_conn.inno()), r_map.get(&lr_conn.inno())) {
+                        (None, None) => panic!("{} is in neither l nor r", lr_conn.inno()),
                         (None, Some(conn)) | (Some(conn), None) => {
                             assert_from_connection!(lr_conn, *conn)
                         }
@@ -620,10 +660,10 @@ mod test {
         }
     }
 
-    fn assert_crossover_ne(l: &[Connection], r: &[Connection]) {
+    fn assert_crossover_ne(l: &[TestConnection], r: &[TestConnection]) {
         for (l, r) in [(l, r), (r, l)] {
-            let l_map = l.iter().map(|c| (c.inno, c)).collect::<HashMap<_, &_>>();
-            let r_map = r.iter().map(|c| (c.inno, c)).collect::<HashMap<_, &_>>();
+            let l_map = l.iter().map(|c| (c.inno(), c)).collect::<HashMap<_, &_>>();
+            let r_map = r.iter().map(|c| (c.inno(), c)).collect::<HashMap<_, &_>>();
             let l_keys = l_map.keys().cloned().collect::<HashSet<_>>();
             let inno = l_keys
                 .union(&r_map.keys().cloned().collect::<HashSet<_>>())
@@ -635,15 +675,15 @@ mod test {
                 let lr = crossover_ne(l, r, &mut rng);
                 assert_eq!(lr.len(), l.len());
 
-                let lr_inno = lr.iter().map(|c| c.inno).collect::<HashSet<_>>();
+                let lr_inno = lr.iter().map(|c| c.inno()).collect::<HashSet<_>>();
                 assert!(l_keys.is_subset(&lr_inno));
                 assert!(l_keys.is_superset(&lr_inno));
                 assert!(inno.is_superset(&lr_inno));
-                assert!(lr.is_sorted_by_key(|c| c.inno));
+                assert!(lr.is_sorted_by_key(|c| c.inno()));
                 for ref lr_conn in lr {
-                    match (l_map.get(&lr_conn.inno), r_map.get(&lr_conn.inno)) {
-                        (None, None) => panic!("{} is in neither l nor r", lr_conn.inno),
-                        (None, Some(conn)) => panic!("{} is in only r", conn.inno),
+                    match (l_map.get(&lr_conn.inno()), r_map.get(&lr_conn.inno())) {
+                        (None, None) => panic!("{} is in neither l nor r", lr_conn.inno()),
+                        (None, Some(conn)) => panic!("{} is in only r", conn.inno()),
                         (Some(conn), None) => {
                             assert_from_connection!(lr_conn, *conn)
                         }
@@ -754,7 +794,7 @@ mod test {
             .iter()
             .zip(crossover_ne(&r, &l, &mut rng))
         {
-            assert_eq!(le.inno, ge.inno);
+            assert_eq!(le.inno(), ge.inno());
         }
     }
 }

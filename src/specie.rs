@@ -38,20 +38,20 @@ impl InnoGen {
 }
 
 #[derive(Debug, Clone)]
-pub struct SpecieRepr(pub Vec<Connection>);
+pub struct SpecieRepr<C: Connection>(pub Vec<C>);
 
-impl SpecieRepr {
-    fn delta(&self, other: &[Connection]) -> f64 {
+impl<C: Connection> SpecieRepr<C> {
+    fn delta(&self, other: &[C]) -> f64 {
         delta(&self.0, other)
     }
 
     #[inline]
-    fn cloned(&self) -> Vec<Connection> {
+    fn cloned(&self) -> Vec<C> {
         self.0.to_vec()
     }
 }
 
-impl SpecieRepr {
+impl<C: Connection> SpecieRepr<C> {
     fn id(&self) -> u64 {
         let mut h = DefaultHasher::new();
         self.hash(&mut h);
@@ -59,33 +59,33 @@ impl SpecieRepr {
     }
 }
 
-impl Hash for SpecieRepr {
+impl<C: Connection> Hash for SpecieRepr<C> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.0.hash(state);
     }
 }
 
-impl PartialEq for SpecieRepr {
+impl<C: Connection> PartialEq for SpecieRepr<C> {
     fn eq(&self, other: &Self) -> bool {
         self.id() == other.id()
     }
 }
 
-impl Eq for SpecieRepr {}
+impl<C: Connection> Eq for SpecieRepr<C> {}
 
-impl AsRef<[Connection]> for SpecieRepr {
-    fn as_ref(&self) -> &[Connection] {
+impl<C: Connection> AsRef<[C]> for SpecieRepr<C> {
+    fn as_ref(&self) -> &[C] {
         &self.0
     }
 }
 
 #[derive(Debug)]
-pub struct Specie {
-    pub repr: SpecieRepr,
-    pub members: Vec<(Genome, f64)>,
+pub struct Specie<G: Genome> {
+    pub repr: SpecieRepr<G::Connection>,
+    pub members: Vec<(G, f64)>,
 }
 
-impl Specie {
+impl<G: Genome> Specie<G> {
     #[inline]
     pub fn len(&self) -> usize {
         self.members.len()
@@ -97,18 +97,15 @@ impl Specie {
     }
 
     #[inline]
-    pub fn last(&self) -> Option<&(Genome, f64)> {
+    pub fn last(&self) -> Option<&(G, f64)> {
         self.members.last()
     }
 
     #[inline]
-    pub fn cloned(&self) -> (Vec<Connection>, Vec<(Genome, f64)>) {
+    pub fn cloned(&self) -> (Vec<G::Connection>, Vec<(G, f64)>) {
         (
             self.repr.cloned(),
-            self.members
-                .iter()
-                .map(|(g, s)| ((*g).clone(), *s))
-                .collect(),
+            self.members.iter().map(|(g, s)| (g.clone(), *s)).collect(),
         )
     }
 
@@ -118,12 +115,12 @@ impl Specie {
     }
 }
 
-fn reproduce_crossover<H: RngCore + Happens>(
-    genomes: &[(Genome, f64)],
+fn reproduce_crossover<G: Genome, H: RngCore + Happens>(
+    genomes: &[(G, f64)],
     size: usize,
     rng: &mut H,
     innogen: &mut InnoGen,
-) -> Result<Vec<Genome>, Box<dyn Error>> {
+) -> Result<Vec<G>, Box<dyn Error>> {
     if size == 0 {
         return Ok(vec![]);
     }
@@ -163,18 +160,18 @@ fn reproduce_crossover<H: RngCore + Happens>(
         .take(size)
         .map(|((l, _), (r, _))| {
             let mut child = l.reproduce_with(r, std::cmp::Ordering::Greater, rng);
-            child.maybe_mutate(rng, innogen)?;
+            child.maybe_mutate(rng, innogen);
             Ok(child)
         })
         .collect()
 }
 
-fn reproduce_copy<H: RngCore + Happens>(
-    genomes: &[(Genome, f64)],
+fn reproduce_copy<G: Genome, H: RngCore + Happens>(
+    genomes: &[(G, f64)],
     size: usize,
     rng: &mut H,
     innogen: &mut InnoGen,
-) -> Result<Vec<Genome>, Box<dyn Error>> {
+) -> Result<Vec<G>, Box<dyn Error>> {
     if size == 0 {
         return Ok(vec![]);
     }
@@ -194,18 +191,18 @@ fn reproduce_copy<H: RngCore + Happens>(
         .take(size)
         .map(|(genome, _)| {
             let mut child = genome.clone();
-            child.maybe_mutate(rng, innogen)?;
+            child.maybe_mutate(rng, innogen);
             Ok(child)
         })
         .collect()
 }
 
-pub fn reproduce<H: RngCore + Happens>(
-    genomes: Vec<(Genome, f64)>,
+pub fn reproduce<G: Genome, H: RngCore + Happens>(
+    genomes: Vec<(G, f64)>,
     size: usize,
     innogen: &mut InnoGen,
     rng: &mut H,
-) -> Result<Vec<Genome>, Box<dyn Error>> {
+) -> Result<Vec<G>, Box<dyn Error>> {
     if size == 0 {
         return Ok(vec![]);
     }
@@ -218,7 +215,7 @@ pub fn reproduce<H: RngCore + Happens>(
         .into());
     }
 
-    let mut pop: Vec<Genome> = Vec::with_capacity(size);
+    let mut pop: Vec<G> = Vec::with_capacity(size);
     pop.push(
         genomes
             .iter()
@@ -255,10 +252,10 @@ pub fn reproduce<H: RngCore + Happens>(
 }
 
 /// allocate a target population for every specie in an existing population
-fn population_alloc<'a>(
-    species: impl Iterator<Item = &'a Specie>,
+fn population_alloc<'a, G: Genome + 'a>(
+    species: impl Iterator<Item = &'a Specie<G>>,
     population: usize,
-) -> HashMap<SpecieRepr, usize> {
+) -> HashMap<SpecieRepr<G::Connection>, usize> {
     let species_fitted = species
         .map(|s| (s.repr.clone(), s.fit_adjusted()))
         .collect::<Vec<_>>();
@@ -279,21 +276,25 @@ fn population_alloc<'a>(
 /// initial population of a single specie consisting of single connection genomes
 /// while it's not necessarily recommended to do an initual mutation, it allows us to mutate a
 /// bisection on any genome without the need to check for existing connections beforehand
-pub fn population_init(sensory: usize, action: usize, population: usize) -> (Vec<Specie>, usize) {
-    let (genome, inno_head) = Genome::new(sensory, action);
+pub fn population_init<G: Genome>(
+    sensory: usize,
+    action: usize,
+    population: usize,
+) -> (Vec<Specie<G>>, usize) {
+    let (genome, inno_head) = G::new(sensory, action);
     (
         vec![Specie {
-            repr: SpecieRepr(genome.connections.clone()),
+            repr: SpecieRepr(genome.connections().to_vec()),
             members: vec![(genome, f64::MIN); population],
         }],
         inno_head,
     )
 }
 
-fn population_allocated<'a, T: Iterator<Item = &'a (Specie, f64)>>(
+fn population_allocated<'a, G: Genome + 'a, T: Iterator<Item = &'a (Specie<G>, f64)>>(
     species: T,
     population: usize,
-) -> impl Iterator<Item = (Vec<(Genome, f64)>, usize)> + use<'a, T> {
+) -> impl Iterator<Item = (Vec<(G, f64)>, usize)> {
     let viable = species
         .filter_map(|(specie, min_fitness)| {
             let viable = specie
@@ -319,12 +320,12 @@ fn population_allocated<'a, T: Iterator<Item = &'a (Specie, f64)>>(
 }
 
 // reproduce a whole speciated population into a non-speciated population
-pub fn population_reproduce<H: RngCore + Happens>(
-    species: &[(Specie, f64)],
+pub fn population_reproduce<G: Genome, H: RngCore + Happens>(
+    species: &[(Specie<G>, f64)],
     population: usize,
     inno_head: usize,
     rng: &mut H,
-) -> (Vec<Genome>, usize) {
+) -> (Vec<G>, usize) {
     // let species = population_viable(species.into_iter());
     // let species_pop = population_alloc(species, population);
     let mut innogen = InnoGen::new(inno_head);
@@ -338,10 +339,10 @@ pub fn population_reproduce<H: RngCore + Happens>(
 
 const SPECIE_THRESHOLD: f64 = 4.;
 
-pub fn speciate(
-    genomes: impl Iterator<Item = (Genome, f64)>,
-    reprs: impl Iterator<Item = SpecieRepr>,
-) -> Vec<Specie> {
+pub fn speciate<G: Genome>(
+    genomes: impl Iterator<Item = (G, f64)>,
+    reprs: impl Iterator<Item = SpecieRepr<G::Connection>>,
+) -> Vec<Specie<G>> {
     let mut sp = Vec::from_iter(reprs.map(|repr| Specie {
         repr,
         members: Vec::new(),
@@ -350,12 +351,12 @@ pub fn speciate(
     for (genome, fitness) in genomes {
         match sp
             .iter_mut()
-            .find(|Specie { repr, .. }| repr.delta(&genome.connections) < SPECIE_THRESHOLD)
+            .find(|Specie { repr, .. }| repr.delta(genome.connections()) < SPECIE_THRESHOLD)
         {
             Some(Specie { members, .. }) => members.push((genome, fitness)),
             None => {
                 sp.push(Specie {
-                    repr: SpecieRepr(genome.connections.clone()),
+                    repr: SpecieRepr(genome.connections().to_vec()),
                     members: vec![(genome, fitness)],
                 });
             }
@@ -368,7 +369,10 @@ pub fn speciate(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::random::{default_rng, ProbBinding, ProbStatic};
+    use crate::{
+        random::{default_rng, ProbBinding, ProbStatic},
+        CTRGenome,
+    };
 
     #[test]
     fn test_inno_gen() {
@@ -387,7 +391,7 @@ mod tests {
     #[test]
     fn test_population_init() {
         let count = 40;
-        let (species, inno_head) = population_init(2, 2, count);
+        let (species, inno_head) = population_init::<CTRGenome>(2, 2, count);
         assert_eq!(
             count,
             species
@@ -398,10 +402,8 @@ mod tests {
         for specie in species.iter() {
             assert_ne!(0, specie.len());
         }
-        for (Genome { connections, .. }, fit) in
-            species.iter().flat_map(|Specie { members, .. }| members)
-        {
-            assert_eq!(0, connections.len());
+        for (genome, fit) in species.iter().flat_map(|Specie { members, .. }| members) {
+            assert_eq!(0, genome.connections().len());
             assert_eq!(f64::MIN, *fit);
         }
     }
@@ -410,7 +412,7 @@ mod tests {
     fn test_specie_reproduce() {
         let mut rng = ProbBinding::new(ProbStatic::default(), default_rng());
         let count = 40;
-        let (species, inno_head) = population_init(2, 2, count);
+        let (species, inno_head) = population_init::<CTRGenome>(2, 2, count);
 
         for specie in species {
             for i in [0, 1, count, count * 10] {

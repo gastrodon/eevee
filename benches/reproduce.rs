@@ -1,18 +1,22 @@
 use brain::{
+    genome::{Connection, Genome},
     random::{default_rng, ProbBinding, ProbStatic},
     specie::{reproduce, InnoGen},
-    Connection, Genome,
+    CTRGenome,
 };
 use criterion::Criterion;
 
 fn bench_reproduce(bench: &mut Criterion) {
-    let genomes = serde_json::from_str::<Vec<_>>(include_str!("data/genome-xor-100.json")).unwrap();
-    let inno_head = *genomes
+    let genomes =
+        serde_json::from_str::<Vec<(CTRGenome, _)>>(include_str!("data/ctr-genome-xor-100.json"))
+            .unwrap();
+    let inno_head = genomes
         .iter()
-        .map(|(Genome { connections, .. }, _)| {
-            connections
+        .map(|(genome, _)| {
+            genome
+                .connections()
                 .iter()
-                .map(|Connection { inno, .. }| inno)
+                .map(|connection| connection.inno())
                 .max()
                 .unwrap()
         })

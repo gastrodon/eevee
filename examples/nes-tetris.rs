@@ -3,10 +3,11 @@
 
 use brain::{
     activate::relu,
+    genome::Genome,
     random::{default_rng, percent, EvolutionEvent, ProbBinding, ProbStatic},
     scenario::{evolve, EvolutionHooks},
     specie::population_init,
-    Ctrnn, Genome, Happens, Network, Probabilities, Scenario, Stats,
+    CTRGenome, Happens, Network, Probabilities, Scenario, Stats,
 };
 use core::ops::ControlFlow;
 use nes_rust::{
@@ -143,12 +144,14 @@ fn enter_game(nes: &mut Nes) {
 
 struct NesTetris;
 
-impl<H: RngCore + Probabilities + Happens, A: Fn(f64) -> f64> Scenario<H, A> for NesTetris {
+impl<G: Genome, H: RngCore + Probabilities + Happens, A: Fn(f64) -> f64> Scenario<G, H, A>
+    for NesTetris
+{
     fn io(&self) -> (usize, usize) {
         (200, 8)
     }
 
-    fn eval(&self, genome: &Genome, σ: &A) -> f64 {
+    fn eval(&self, genome: &G, σ: &A) -> f64 {
         let mut nes = Nes::new(
             Box::new(DefaultInput::new()),
             Box::new(DefaultDisplay::new()),
@@ -158,7 +161,7 @@ impl<H: RngCore + Probabilities + Happens, A: Fn(f64) -> f64> Scenario<H, A> for
         nes.bootup();
         enter_game(&mut nes);
 
-        let mut network = Ctrnn::from_genome(genome);
+        let mut network = genome.network();
         let mut sense = [0.; 200];
         while nes.get_cpu().get_ram().data[GAME_OVER] == 0 {
             sense_board(&nes.get_cpu().get_ram().data, &mut sense);
@@ -189,7 +192,9 @@ impl<H: RngCore + Probabilities + Happens, A: Fn(f64) -> f64> Scenario<H, A> for
 
 const POPULATION: usize = 100;
 
-fn hook<H: RngCore + Probabilities + Happens>(stats: &mut Stats<'_, H>) -> ControlFlow<()> {
+fn hook<G: Genome, H: RngCore + Probabilities + Happens>(
+    stats: &mut Stats<'_, G, H>,
+) -> ControlFlow<()> {
     if stats.generation % 10 != 0 {
         ControlFlow::Continue(())
     } else {
@@ -213,7 +218,7 @@ fn hook<H: RngCore + Probabilities + Happens>(stats: &mut Stats<'_, H>) -> Contr
 fn main() {
     evolve(
         NesTetris {},
-        |(i, o)| population_init(i, o, POPULATION),
+        |(i, o)| population_init::<CTRGenome>(i, o, POPULATION),
         relu,
         ProbBinding::new(
             ProbStatic::default().with_overrides(&[
