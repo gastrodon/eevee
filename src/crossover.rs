@@ -1,11 +1,11 @@
 use crate::{
-    genome::Connection,
+    genome::CTRConnection,
     random::{EvolutionEvent, Happens},
 };
 use core::cmp::Ordering;
 use rand::RngCore;
 
-pub fn disjoint_excess_count(l: &[Connection], r: &[Connection]) -> (f64, f64) {
+pub fn disjoint_excess_count(l: &[CTRConnection], r: &[CTRConnection]) -> (f64, f64) {
     let mut l_iter = l.iter();
     let mut r_iter = r.iter();
 
@@ -57,7 +57,7 @@ pub fn disjoint_excess_count(l: &[Connection], r: &[Connection]) -> (f64, f64) {
 }
 
 /// if genomes share no overlapping weights, their average diff should be 0
-pub fn avg_weight_diff(l: &[Connection], r: &[Connection]) -> f64 {
+pub fn avg_weight_diff(l: &[CTRConnection], r: &[CTRConnection]) -> f64 {
     let mut diff = 0.;
     let mut count = 0.;
     let mut l_iter = l.iter();
@@ -115,7 +115,7 @@ const EXCESS_COEFFICIENT: f64 = 1.0;
 const DISJOINT_COEFFICIENT: f64 = 1.0;
 const WEIGHT_COEFFICIENT: f64 = 0.4;
 
-pub fn delta(l: &[Connection], r: &[Connection]) -> f64 {
+pub fn delta(l: &[CTRConnection], r: &[CTRConnection]) -> f64 {
     let l_size = l.len() as f64;
     let r_size = r.len() as f64;
     let fac = {
@@ -138,10 +138,10 @@ pub fn delta(l: &[Connection], r: &[Connection]) -> f64 {
 
 #[inline]
 fn pick_gene<H: RngCore + Happens>(
-    base_conn: &Connection,
-    opt_conn: Option<&Connection>,
+    base_conn: &CTRConnection,
+    opt_conn: Option<&CTRConnection>,
     rng: &mut H,
-) -> Connection {
+) -> CTRConnection {
     let mut conn = if let Some(r_conn) = opt_conn {
         // TODO be able to differentiate PickLEQ and PickLNE
         (*if rng.happens(EvolutionEvent::PickLEQ) {
@@ -169,10 +169,10 @@ fn pick_gene<H: RngCore + Happens>(
 
 /// crossover connections where l and r are equally fit
 fn crossover_eq<H: RngCore + Happens>(
-    l: &[Connection],
-    r: &[Connection],
+    l: &[CTRConnection],
+    r: &[CTRConnection],
     rng: &mut H,
-) -> Vec<Connection> {
+) -> Vec<CTRConnection> {
     // TODO I wonder what the actual average case overlap between genomes is?
     // probably pretty close, could we measure this?
     let mut cross = Vec::with_capacity(l.len() + r.len());
@@ -214,10 +214,10 @@ fn crossover_eq<H: RngCore + Happens>(
 
 /// crossover connections where l is more fit than r
 fn crossover_ne<H: RngCore + Happens>(
-    l: &[Connection],
-    r: &[Connection],
+    l: &[CTRConnection],
+    r: &[CTRConnection],
     rng: &mut H,
-) -> Vec<Connection> {
+) -> Vec<CTRConnection> {
     // copy l, pick_gene where l.inno == r.inno
     let mut cross = Vec::with_capacity(l.len());
     let mut r_idx = 0;
@@ -243,11 +243,11 @@ fn crossover_ne<H: RngCore + Happens>(
 /// crossover connections
 /// l_fit describes how fit l is compared to r,
 pub fn crossover<H: RngCore + Happens>(
-    l: &[Connection],
-    r: &[Connection],
+    l: &[CTRConnection],
+    r: &[CTRConnection],
     l_fit: Ordering,
     rng: &mut H,
-) -> Vec<Connection> {
+) -> Vec<CTRConnection> {
     let mut usort = match l_fit {
         Ordering::Equal => crossover_eq(l, r, rng),
         Ordering::Less => crossover_ne(r, l, rng),
@@ -262,14 +262,14 @@ pub fn crossover<H: RngCore + Happens>(
 mod test {
     use super::*;
     use crate::{
-        genome::Connection,
+        genome::CTRConnection,
         random::{default_rng, ProbBinding, ProbStatic},
     };
     use std::collections::{HashMap, HashSet};
 
     macro_rules! connection {
         ($($k:ident = $v:expr),+ $(,)?) => {{
-            let mut c = Connection{
+            let mut c = CTRConnection{
                 inno: 0,
                 from: 0,
                 to: 0,
@@ -473,7 +473,7 @@ mod test {
         }};
     }
 
-    fn assert_crossover_eq(l: &[Connection], r: &[Connection]) {
+    fn assert_crossover_eq(l: &[CTRConnection], r: &[CTRConnection]) {
         for (l, r) in [(l, r), (r, l)] {
             let l_map = l.iter().map(|c| (c.inno, c)).collect::<HashMap<_, &_>>();
             let r_map = r.iter().map(|c| (c.inno, c)).collect::<HashMap<_, &_>>();
@@ -620,7 +620,7 @@ mod test {
         }
     }
 
-    fn assert_crossover_ne(l: &[Connection], r: &[Connection]) {
+    fn assert_crossover_ne(l: &[CTRConnection], r: &[CTRConnection]) {
         for (l, r) in [(l, r), (r, l)] {
             let l_map = l.iter().map(|c| (c.inno, c)).collect::<HashMap<_, &_>>();
             let r_map = r.iter().map(|c| (c.inno, c)).collect::<HashMap<_, &_>>();

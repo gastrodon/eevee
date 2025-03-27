@@ -1,4 +1,4 @@
-use crate::{genome::Node, Connection, Genome};
+use crate::{genome::CTRNode, CTRConnection, CTRGenome};
 use core::error::Error;
 use rulinalg::matrix::{BaseMatrix, BaseMatrixMut, Matrix};
 use serde::{Deserialize, Serialize};
@@ -27,7 +27,6 @@ pub mod loss {
 }
 
 pub trait Network: Serialize + for<'de> Deserialize<'de> {
-    fn from_genome(genome: &Genome) -> Self;
     fn step<F: Fn(f64) -> f64>(&mut self, prec: usize, input: &[f64], σ: F);
     fn flush(&mut self);
     fn output(&self) -> &[f64];
@@ -107,35 +106,6 @@ pub struct Ctrnn {
 }
 
 impl Network for Ctrnn {
-    fn from_genome(genome: &Genome) -> Self {
-        let cols = genome.nodes.len();
-        Self {
-            y: Matrix::zeros(1, cols),
-            θ: Matrix::new(
-                1,
-                cols,
-                genome
-                    .nodes
-                    .iter()
-                    .map(|n| if let Node::Bias(b) = n { *b } else { 0. })
-                    .collect::<Vec<_>>(),
-            ),
-            τ: Matrix::ones(1, cols),
-            w: {
-                let mut w = vec![0.; cols * cols];
-                for Connection {
-                    from, to, weight, ..
-                } in genome.connections.iter().filter(|c| c.enabled)
-                {
-                    w[from * cols + to] = *weight;
-                }
-                Matrix::new(cols, cols, w)
-            },
-            sensory: (0, genome.sensory),
-            action: (genome.sensory, genome.sensory + genome.action),
-        }
-    }
-
     fn step<F: Fn(f64) -> f64>(&mut self, prec: usize, input: &[f64], σ: F) {
         let mut m_input = Matrix::zeros(1, self.y.cols());
         m_input.mut_data()[self.sensory.0..self.sensory.1].copy_from_slice(input);
@@ -160,7 +130,7 @@ impl Network for Ctrnn {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::random::default_rng;
+    use crate::{genome::Genome, random::default_rng};
     use rand_distr::{num_traits::Float, Distribution, Uniform};
 
     // Macro for comparing f64 arrays with epsilon tolerance
@@ -271,84 +241,6 @@ mod test {
             let deserialized_output = deserialized.output();
 
             assert_matrices_f64_eq!(original_output, deserialized_output);
-        }
-    }
-
-    macro_rules! assert_f64_approx {
-        ($l:expr, $r:expr) => {
-            assert!(
-                ($l - $r).abs() < f64::EPSILON,
-                "assertion failed: {} !~ {}",
-                $l,
-                $r
-            )
-        };
-        ($l:expr, $r:expr, $msg:expr) => {
-            assert!(
-                ($l - $r).abs() < f64::EPSILON,
-                "assertion failed: {} !~ {}: {}",
-                $l,
-                $r,
-                $msg
-            )
-        };
-    }
-
-    #[test]
-    fn test_from_genome() {
-        let (mut genome, _) = Genome::new(2, 2);
-        genome.connections = vec![
-            Connection {
-                inno: 0,
-                from: 0,
-                to: 3,
-                weight: 0.5,
-                enabled: true,
-            },
-            Connection {
-                inno: 1,
-                from: 0,
-                to: 1,
-                weight: -1.,
-                enabled: true,
-            },
-            Connection {
-                inno: 2,
-                from: 0,
-                to: 1,
-                weight: 1.2,
-                enabled: false,
-            },
-        ];
-
-        let nn = Ctrnn::from_genome(&genome);
-        unsafe {
-            for Connection {
-                from, to, weight, ..
-            } in genome.connections.iter().filter(|c| c.enabled)
-            {
-                assert_f64_approx!(nn.w.get_unchecked([*from, *to]), weight);
-            }
-
-            for (i, node) in genome.nodes.iter().enumerate() {
-                assert_f64_approx!(
-                    nn.θ.get_unchecked([0, i]),
-                    if let Node::Bias(b) = node { b } else { &0. }
-                )
-            }
-        }
-
-        for i in nn.sensory.0..nn.sensory.1 {
-            assert!(genome
-                .nodes
-                .get(i)
-                .is_some_and(|n| matches!(n, Node::Sensory)))
-        }
-        for i in nn.action.0..nn.action.1 {
-            assert!(genome
-                .nodes
-                .get(i)
-                .is_some_and(|n| matches!(n, Node::Action)))
         }
     }
 }

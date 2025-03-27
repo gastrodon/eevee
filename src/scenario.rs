@@ -1,7 +1,7 @@
 use crate::{
     random::{Happens, Probabilities},
     specie::{population_reproduce, speciate, Specie, SpecieRepr},
-    Genome,
+    CTRGenome,
 };
 use core::{f64, ops::ControlFlow};
 use rand::RngCore;
@@ -27,7 +27,7 @@ impl<H: RngCore + Probabilities + Happens> Stats<'_, H> {
             .any(|Specie { members, .. }| members.iter().any(|(_, fitness)| *fitness > target))
     }
 
-    pub fn fittest(&self) -> Option<&(Genome, f64)> {
+    pub fn fittest(&self) -> Option<&(CTRGenome, f64)> {
         self.species
             .iter()
             .flat_map(|Specie { members, .. }| members.iter())
@@ -59,7 +59,7 @@ impl<H: RngCore + Probabilities + Happens> EvolutionHooks<H> {
 
 pub trait Scenario<H: RngCore + Probabilities + Happens, A: Fn(f64) -> f64> {
     fn io(&self) -> (usize, usize);
-    fn eval(&self, genome: &Genome, σ: &A) -> f64;
+    fn eval(&self, genome: &CTRGenome, σ: &A) -> f64;
 }
 
 pub fn evolve<

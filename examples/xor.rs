@@ -9,7 +9,7 @@ use brain::{
     },
     scenario::{evolve, EvolutionHooks},
     specie::population_init,
-    Ctrnn, Genome, Network, Scenario, Stats,
+    CTRGenome, Ctrnn, Network, Scenario, Stats,
 };
 use core::{f64, ops::ControlFlow};
 use rand::RngCore;
@@ -23,7 +23,7 @@ impl<H: RngCore + Probabilities + Happens, A: Fn(f64) -> f64> Scenario<H, A> for
         (2, 1)
     }
 
-    fn eval(&self, genome: &Genome, σ: &A) -> f64 {
+    fn eval(&self, genome: &CTRGenome, σ: &A) -> f64 {
         let mut network = Ctrnn::from_genome(genome);
         let mut fit = 0.;
         network.step(2, &[0., 0.], σ);
