@@ -295,6 +295,7 @@ fn gen_connection(genome: &CTRGenome, rng: &mut impl RngCore) -> Option<(usize, 
 mod test {
     use super::*;
     use crate::{
+        assert_f64_approx,
         random::{default_rng, ProbBinding, ProbStatic},
         specie::InnoGen,
     };
@@ -569,26 +570,6 @@ mod test {
         }
         .clone_from_slice(&[1., 2., 3.]);
         assert_eq!(state, vec![1., 2., 3., 0., 0.])
-    }
-
-    macro_rules! assert_f64_approx {
-        ($l:expr, $r:expr) => {
-            assert!(
-                ($l - $r).abs() < f64::EPSILON,
-                "assertion failed: {} !~ {}",
-                $l,
-                $r
-            )
-        };
-        ($l:expr, $r:expr, $msg:expr) => {
-            assert!(
-                ($l - $r).abs() < f64::EPSILON,
-                "assertion failed: {} !~ {}: {}",
-                $l,
-                $r,
-                $msg
-            )
-        };
     }
 
     #[test]

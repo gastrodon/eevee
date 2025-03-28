@@ -257,6 +257,7 @@ pub fn crossover<C: Connection, H: RngCore + Happens>(
 mod test {
     use super::*;
     use crate::{
+        assert_f64_approx,
         genome::CTRConnection,
         new_t,
         random::{default_rng, ProbBinding, ProbStatic},
@@ -278,7 +279,7 @@ mod test {
                 new_t!(inno = 4, weight = 2.0,),
             ],
         );
-        assert!((diff - 0.5).abs() < f64::EPSILON, "diff ne: {diff}, 0.5");
+        assert_f64_approx!(diff, 0.5, "diff ne: {diff}, 0.5");
     });
 
     test_t!(
@@ -290,13 +291,13 @@ mod test {
         ];
 
         let diff = avg_weight_diff(&full, &[]);
-        assert!((diff - 0.0).abs() < f64::EPSILON, "diff ne: {diff}, 0.");
+        assert_f64_approx!(diff, 0.0, "diff ne: {diff}, 0.");
 
         let diff = avg_weight_diff(&[], &full);
-        assert!((diff - 0.0).abs() < f64::EPSILON, "diff ne: {diff}, 0.");
+        assert_f64_approx!(diff, 0.0, "diff ne: {diff}, 0.");
 
         let diff = avg_weight_diff::<CTRConnection>(&[], &[]);
-        assert!((diff - 0.0).abs() < f64::EPSILON, "diff ne: {diff}, 0.");
+        assert_f64_approx!(diff, 0.0, "diff ne: {diff}, 0.");
     });
 
     test_t!(
@@ -312,7 +313,7 @@ mod test {
                 new_t!(inno = 6, weight = -0.5,),
             ],
         );
-        assert!((diff - 0.0).abs() < f64::EPSILON, "diff ne: {diff}, 0.");
+        assert_f64_approx!(diff, 0., "diff ne: {diff}, 0.")
     });
 
     test_t!(
@@ -329,7 +330,7 @@ mod test {
                 new_t!(inno = 3, weight = 1.0,),
             ],
         );
-        assert!((diff - 0.0).abs() < f64::EPSILON, "diff ne: {diff}, 0.");
+        assert_f64_approx!(diff, 0.0, "diff ne: {diff}, 0.");
     });
 
     test_t!(

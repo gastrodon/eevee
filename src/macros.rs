@@ -31,3 +31,24 @@ macro_rules! test_t {
       }
   )+};
 }
+
+#[macro_export]
+macro_rules! assert_f64_approx {
+    ($l:expr, $r:expr) => {
+        assert!(
+            ($l - $r).abs() < f64::EPSILON,
+            "assertion failed: {} !~ {}",
+            $l,
+            $r
+        )
+    };
+    ($l:expr, $r:expr, $msg:expr) => {
+        assert!(
+            ($l - $r).abs() < f64::EPSILON,
+            "assertion failed: {} !~ {}: {}",
+            $l,
+            $r,
+            $msg
+        )
+    };
+}
