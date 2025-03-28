@@ -3,6 +3,7 @@
 
 pub mod crossover;
 pub mod genome;
+pub mod macros;
 pub mod network;
 pub mod random;
 pub mod scenario;

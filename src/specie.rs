@@ -372,6 +372,7 @@ mod tests {
     use crate::{
         genome::CTRGenome,
         random::{default_rng, ProbBinding, ProbStatic},
+        test_t,
     };
 
     #[test]
@@ -388,17 +389,22 @@ mod tests {
         assert_eq!(inno2.path((0, 1)), 3);
     }
 
-    #[test]
-    fn test_population_init() {
+    test_t!(specie_init[T: CTRGenome]() {
         let count = 40;
-        let (species, inno_head) = population_init::<CTRGenome>(2, 2, count);
+        let (species, inno_head) = population_init::<T>(2, 2, count);
         assert_eq!(
             count,
             species
                 .iter()
                 .fold(0, |acc, Specie { members, .. }| acc + members.len())
         );
-        assert!(inno_head != 0);
+        assert!(species
+            .iter()
+            .flat_map(|specie| specie.members.iter().flat_map(|(member, _)| member
+                .connections()
+                .iter()
+                .map(|connection| connection.inno())))
+            .all(|inno| inno < inno_head));
         for specie in species.iter() {
             assert_ne!(0, specie.len());
         }
@@ -406,13 +412,12 @@ mod tests {
             assert_eq!(0, genome.connections().len());
             assert_eq!(f64::MIN, *fit);
         }
-    }
+    });
 
-    #[test]
-    fn test_specie_reproduce() {
+    test_t!(specie_reproduce[T: CTRGenome]() {
         let mut rng = ProbBinding::new(ProbStatic::default(), default_rng());
         let count = 40;
-        let (species, inno_head) = population_init::<CTRGenome>(2, 2, count);
+        let (species, inno_head) = population_init::<T>(2, 2, count);
 
         for specie in species {
             for i in [0, 1, count, count * 10] {
@@ -429,5 +434,5 @@ mod tests {
                 );
             }
         }
-    }
+    });
 }

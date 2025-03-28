@@ -2,12 +2,14 @@ pub mod recurrent;
 pub use recurrent::{CTRConnection, CTRGenome};
 
 use crate::{random::Happens, specie::InnoGen, Network};
-use core::{cmp::Ordering, error::Error, hash::Hash};
+use core::{cmp::Ordering, error::Error, fmt::Debug, hash::Hash};
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use std::{fs, path::Path};
 
-pub trait Connection: Serialize + for<'de> Deserialize<'de> + Clone + Hash + PartialEq {
+pub trait Connection:
+    Serialize + for<'de> Deserialize<'de> + Clone + Hash + PartialEq + Default + Debug
+{
     /// gene innovation id
     fn inno(&self) -> usize;
 

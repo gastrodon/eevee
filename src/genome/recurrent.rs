@@ -26,11 +26,11 @@ pub enum CTRNode {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CTRConnection {
-    inno: usize,
-    from: usize,
-    to: usize,
-    weight: f64,
-    enabled: bool,
+    pub inno: usize,
+    pub from: usize,
+    pub to: usize,
+    pub weight: f64,
+    pub enabled: bool,
 }
 
 impl Connection for CTRConnection {
@@ -54,6 +54,18 @@ impl Connection for CTRConnection {
         // TODO add other ctrnn specific diffs when we have those fields available
         // theta, bias, weight
         (self.weight - other.weight).abs()
+    }
+}
+
+impl Default for CTRConnection {
+    fn default() -> Self {
+        Self {
+            inno: 0,
+            from: 0,
+            to: 0,
+            weight: 0.,
+            enabled: true,
+        }
     }
 }
 

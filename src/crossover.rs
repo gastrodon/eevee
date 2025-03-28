@@ -257,90 +257,36 @@ pub fn crossover<C: Connection, H: RngCore + Happens>(
 mod test {
     use super::*;
     use crate::{
-        genome::Connection,
+        genome::CTRConnection,
+        new_t,
         random::{default_rng, ProbBinding, ProbStatic},
+        test_t,
     };
-    use core::hash::Hash;
-    use serde::{Deserialize, Serialize};
     use std::collections::{HashMap, HashSet};
 
-    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-    struct TestConnection {
-        inno: usize,
-        from: usize,
-        to: usize,
-        weight: f64,
-        enabled: bool,
-    }
-
-    impl Hash for TestConnection {
-        fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-            self.inno.hash(state);
-            self.from.hash(state);
-            self.to.hash(state);
-            ((1000. * self.weight) as usize).hash(state);
-        }
-    }
-
-    impl Connection for TestConnection {
-        fn inno(&self) -> usize {
-            self.inno
-        }
-
-        fn enabled(&self) -> bool {
-            self.enabled
-        }
-
-        fn enable(&mut self) {
-            self.enabled = true
-        }
-
-        fn disable(&mut self) {
-            self.enabled = false
-        }
-
-        fn param_diff(&self, other: &Self) -> f64 {
-            (self.weight - other.weight).abs()
-        }
-    }
-
-    macro_rules! connection {
-        ($($k:ident = $v:expr),+ $(,)?) => {{
-            let mut c = TestConnection{
-                inno: 0,
-                from: 0,
-                to: 0,
-                weight: 0.,
-                enabled: true,
-            };
-            $(c.$k = $v;)+
-            c
-          }}
-    }
-
-    #[test]
-    fn test_avg_weight_diff() {
+    test_t!(
+    test_avg_weight_diff[T: CTRConnection]() {
         let diff = avg_weight_diff(
             &[
-                connection!(inno = 1, weight = 0.5,),
-                connection!(inno = 2, weight = -0.5,),
-                connection!(inno = 3, weight = 1.0,),
+                new_t!(inno = 1, weight = 0.5,),
+                new_t!(inno = 2, weight = -0.5,),
+                new_t!(inno = 3, weight = 1.0,),
             ],
             &[
-                connection!(inno = 1, weight = 0.0,),
-                connection!(inno = 2, weight = -1.0,),
-                connection!(inno = 4, weight = 2.0,),
+                new_t!(inno = 1, weight = 0.0,),
+                new_t!(inno = 2, weight = -1.0,),
+                new_t!(inno = 4, weight = 2.0,),
             ],
         );
         assert!((diff - 0.5).abs() < f64::EPSILON, "diff ne: {diff}, 0.5");
-    }
+    });
 
-    #[test]
-    fn test_avg_weight_diff_empty() {
+    test_t!(
+    test_avg_weight_diff_empty[T: CTRConnection]() {
         let full = vec![
-            connection!(inno = 1, weight = 0.0,),
-            connection!(inno = 2, weight = -1.0,),
-            connection!(inno = 4, weight = 2.0,),
+            new_t!(inno = 1, weight = 0.0,),
+            new_t!(inno = 2, weight = -1.0,),
+            new_t!(inno = 4, weight = 2.0,),
         ];
 
         let diff = avg_weight_diff(&full, &[]);
@@ -349,141 +295,138 @@ mod test {
         let diff = avg_weight_diff(&[], &full);
         assert!((diff - 0.0).abs() < f64::EPSILON, "diff ne: {diff}, 0.");
 
-        let diff = avg_weight_diff::<TestConnection>(&[], &[]);
+        let diff = avg_weight_diff::<CTRConnection>(&[], &[]);
         assert!((diff - 0.0).abs() < f64::EPSILON, "diff ne: {diff}, 0.");
-    }
+    });
 
-    #[test]
-    fn test_avg_weight_diff_no_overlap() {
+    test_t!(
+    test_avg_weight_diff_no_overlap[T: CTRConnection]() {
         let diff = avg_weight_diff(
             &[
-                connection!(inno = 1, weight = 0.5,),
-                connection!(inno = 2, weight = -0.5,),
-                connection!(inno = 3, weight = 1.0,),
+                new_t!(inno = 1, weight = 0.5,),
+                new_t!(inno = 2, weight = -0.5,),
+                new_t!(inno = 3, weight = 1.0,),
             ],
             &[
-                connection!(inno = 5, weight = 0.5,),
-                connection!(inno = 6, weight = -0.5,),
+                new_t!(inno = 5, weight = 0.5,),
+                new_t!(inno = 6, weight = -0.5,),
             ],
         );
         assert!((diff - 0.0).abs() < f64::EPSILON, "diff ne: {diff}, 0.");
-    }
+    });
 
-    #[test]
-    fn test_avg_weight_diff_no_diff() {
+    test_t!(
+    test_avg_weight_diff_no_diff[T: CTRConnection]() {
         let diff = avg_weight_diff(
             &[
-                connection!(inno = 1, weight = 0.5,),
-                connection!(inno = 2, weight = -0.5,),
-                connection!(inno = 3, weight = 1.0,),
+                new_t!(inno = 1, weight = 0.5,),
+                new_t!(inno = 2, weight = -0.5,),
+                new_t!(inno = 3, weight = 1.0,),
             ],
             &[
-                connection!(inno = 1, weight = 0.5,),
-                connection!(inno = 2, weight = -0.5,),
-                connection!(inno = 3, weight = 1.0,),
+                new_t!(inno = 1, weight = 0.5,),
+                new_t!(inno = 2, weight = -0.5,),
+                new_t!(inno = 3, weight = 1.0,),
             ],
         );
         assert!((diff - 0.0).abs() < f64::EPSILON, "diff ne: {diff}, 0.");
-    }
+    });
 
-    #[test]
-    fn test_disjoint_excess_count() {
+    test_t!(
+    test_disjoint_excess_count[T: CTRConnection]() {
         assert_eq!(
             (4.0, 2.0),
             disjoint_excess_count(
                 &[
-                    connection!(inno = 1),
-                    connection!(inno = 2),
-                    connection!(inno = 6),
+                    new_t!(inno = 1),
+                    new_t!(inno = 2),
+                    new_t!(inno = 6),
                 ],
                 &[
-                    connection!(inno = 1),
-                    connection!(inno = 3),
-                    connection!(inno = 4),
-                    connection!(inno = 8),
-                    connection!(inno = 10),
+                    new_t!(inno = 1),
+                    new_t!(inno = 3),
+                    new_t!(inno = 4),
+                    new_t!(inno = 8),
+                    new_t!(inno = 10),
                 ]
             )
         );
-    }
+    });
 
-    #[test]
-    fn test_disjoint_excess_count_symmetrical() {
+    test_t!(
+    test_disjoint_excess_count_symmetrical[T: CTRConnection]() {
         let l = vec![
-            connection!(inno = 1),
-            connection!(inno = 2),
-            connection!(inno = 6),
+            new_t!(inno = 1),
+            new_t!(inno = 2),
+            new_t!(inno = 6),
         ];
         let r = vec![
-            connection!(inno = 1),
-            connection!(inno = 3),
-            connection!(inno = 4),
-            connection!(inno = 8),
-            connection!(inno = 10),
+            new_t!(inno = 1),
+            new_t!(inno = 3),
+            new_t!(inno = 4),
+            new_t!(inno = 8),
+            new_t!(inno = 10),
         ];
         assert_eq!(disjoint_excess_count(&l, &r), disjoint_excess_count(&r, &l));
-    }
+    });
 
-    #[test]
-    fn test_disjoint_excess_count_empty() {
-        let full = vec![connection!(inno = 1), connection!(inno = 2)];
+    test_t!(
+    test_disjoint_excess_count_empty[T: CTRConnection]() {
+        let full = vec![new_t!(inno = 1), new_t!(inno = 2)];
         assert_eq!((0.0, 2.0), disjoint_excess_count(&full, &[]));
         assert_eq!((0.0, 2.0), disjoint_excess_count(&[], &full));
-        assert_eq!(
-            (0.0, 0.0),
-            disjoint_excess_count::<TestConnection>(&[], &[])
-        );
-    }
+        assert_eq!((0.0, 0.0), disjoint_excess_count::<CTRConnection>(&[], &[]));
+    });
 
-    #[test]
-    fn test_disjoint_excess_count_hanging_l() {
+    test_t!(
+    test_disjoint_excess_count_hanging_l[T: CTRConnection]() {
         assert_eq!(
             (0.0, 1.0),
             disjoint_excess_count(
                 &[
-                    connection!(inno = 0),
-                    connection!(inno = 1),
-                    connection!(inno = 2),
+                    new_t!(inno = 0),
+                    new_t!(inno = 1),
+                    new_t!(inno = 2),
                 ],
-                &[connection!(inno = 0), connection!(inno = 1),]
+                &[new_t!(inno = 0), new_t!(inno = 1),]
             )
         )
-    }
+    });
 
-    #[test]
-    fn test_disjoint_excess_count_no_overlap() {
+    test_t!(
+    test_disjoint_excess_count_no_overlap[T: CTRConnection]() {
         assert_eq!(
             (2.0, 2.0),
             disjoint_excess_count(
-                &[connection!(inno = 1), connection!(inno = 2),],
-                &[connection!(inno = 3), connection!(inno = 4),]
+                &[new_t!(inno = 1), new_t!(inno = 2),],
+                &[new_t!(inno = 3), new_t!(inno = 4),]
             )
         );
-    }
+    });
 
-    #[test]
-    fn test_disjoint_excess_count_short_larger_inno() {
+    test_t!(
+    test_disjoint_excess_count_short_larger_inno[T: CTRConnection]() {
         assert_eq!(
             (3.0, 1.0),
             disjoint_excess_count(
-                &[connection!(inno = 10)],
+                &[new_t!(inno = 10)],
                 &[
-                    connection!(inno = 1),
-                    connection!(inno = 2),
-                    connection!(inno = 3),
+                    new_t!(inno = 1),
+                    new_t!(inno = 2),
+                    new_t!(inno = 3),
                 ]
             )
         );
-    }
+    });
 
     macro_rules! assert_from_connection {
         ($have:expr, ($l:expr, $r:expr), $($arg:tt)+) => {{
             let mut have = $have.to_owned();
-            have.enabled = true;
+            have.enable();
             let mut l = $l.to_owned();
-            l.enabled = true;
+            l.enable();
             let mut r = $r.to_owned();
-            r.enabled = true;
+            r.enable();
             assert!(have == l || have == r, $($arg)*);
         }};
         ($have:expr, ($l:expr, $r:expr)) => {{
@@ -497,9 +440,9 @@ mod test {
         }};
         ($have:expr, $f:expr, $($arg:tt)+) => {{
             let mut have = $have.to_owned();
-            have.enabled = true;
+            have.enable();
             let mut f = $f.to_owned();
-            f.enabled = true;
+            f.enable();
             assert!(have == f, $($arg)*);
 
         }};
@@ -513,7 +456,7 @@ mod test {
         }};
     }
 
-    fn assert_crossover_eq(l: &[TestConnection], r: &[TestConnection]) {
+    fn assert_crossover_eq<C: Connection>(l: &[C], r: &[C]) {
         for (l, r) in [(l, r), (r, l)] {
             let l_map = l.iter().map(|c| (c.inno(), c)).collect::<HashMap<_, &_>>();
             let r_map = r.iter().map(|c| (c.inno(), c)).collect::<HashMap<_, &_>>();
@@ -549,51 +492,51 @@ mod test {
         }
     }
 
-    #[test]
-    fn test_crossover_eq() {
+    test_t!(
+    test_crossover_eq[T: CTRConnection]() {
         let l = [
-            connection!(inno = 0, from = 1_1),
-            connection!(inno = 1, from = 1_2),
-            connection!(inno = 2, from = 1_3),
+            new_t!(inno = 0, from = 1_1),
+            new_t!(inno = 1, from = 1_2),
+            new_t!(inno = 2, from = 1_3),
         ];
         let r = [
-            connection!(inno = 0, from = 2_1),
-            connection!(inno = 2, from = 2_2),
-            connection!(inno = 3, from = 2_3),
+            new_t!(inno = 0, from = 2_1),
+            new_t!(inno = 2, from = 2_2),
+            new_t!(inno = 3, from = 2_3),
         ];
 
         assert_crossover_eq(&l, &r);
-    }
+    });
 
-    #[test]
-    fn test_crossover_eq_empty() {
-        let l = [connection!(inno = 2, from = 1)];
+    test_t!(
+    test_crossover_eq_empty[T: CTRConnection]() {
+        let l = [new_t!(inno = 2, from = 1)];
 
         assert_crossover_eq(&l, &[]);
-        assert_crossover_eq(&[], &[]);
-    }
+        assert_crossover_eq::<T>(&[], &[]);
+    });
 
-    #[test]
-    fn test_crossover_eq_overflow() {
-        let l = [connection!(inno = 0, from = 1_1)];
-        let r = [connection!(inno = 1, from = 2_1)];
-
-        assert_crossover_eq(&l, &r);
-
-        let l = [connection!(inno = 1, from = 1_1)];
-        let r = [connection!(inno = 0, from = 2_1)];
+    test_t!(
+    test_crossover_eq_overflow[T: CTRConnection]() {
+        let l = [new_t!(inno = 0, from = 1_1)];
+        let r = [new_t!(inno = 1, from = 2_1)];
 
         assert_crossover_eq(&l, &r);
-    }
 
-    #[test]
+        let l = [new_t!(inno = 1, from = 1_1)];
+        let r = [new_t!(inno = 0, from = 2_1)];
+
+        assert_crossover_eq(&l, &r);
+    });
+
+    test_t!(
     #[should_panic(expected = "not from r_0")]
-    fn test_crossover_eq_catchup_l() {
+    test_crossover_eq_catchup_l[T: CTRConnection]() {
         let l = [
-            connection!(inno = 0, from = 1_1),
-            connection!(inno = 1, from = 1_2),
+            new_t!(inno = 0, from = 1_1),
+            new_t!(inno = 1, from = 1_2),
         ];
-        let r = [connection!(inno = 1, from = 2_1)];
+        let r = [new_t!(inno = 1, from = 2_1)];
         let mut rng = ProbBinding::new(ProbStatic::default(), default_rng());
         for _ in 0..1000 {
             let lr = crossover_eq(&l, &r, &mut rng);
@@ -601,15 +544,15 @@ mod test {
             assert_from_connection!(lr[0], l[0]);
             assert_from_connection!(lr[1], r[0], "not from r_0");
         }
-    }
+    });
 
-    #[test]
+    test_t!(
     #[should_panic(expected = "not from l_0")]
-    fn test_crossover_eq_catchup_r() {
-        let l = [connection!(inno = 1, from = 2_1)];
+    test_crossover_eq_catchup_r[T: CTRConnection]() {
+        let l = [new_t!(inno = 1, from = 2_1)];
         let r = [
-            connection!(inno = 0, from = 1_1),
-            connection!(inno = 1, from = 1_2),
+            new_t!(inno = 0, from = 1_1),
+            new_t!(inno = 1, from = 1_2),
         ];
         let mut rng = ProbBinding::new(ProbStatic::default(), default_rng());
         for _ in 0..1000 {
@@ -618,18 +561,18 @@ mod test {
             assert_from_connection!(lr[0], r[0]);
             assert_from_connection!(lr[1], l[0], "not from l_0");
         }
-    }
+    });
 
-    #[test]
+    test_t!(
     #[should_panic(expected = "not from l_1")]
-    fn test_crossover_eq_both_step_l() {
+    test_crossover_eq_both_step_l[T: CTRConnection]() {
         let l = [
-            connection!(inno = 0, from = 1_1),
-            connection!(inno = 1, from = 1_2),
+            new_t!(inno = 0, from = 1_1),
+            new_t!(inno = 1, from = 1_2),
         ];
         let r = [
-            connection!(inno = 0, from = 2_1),
-            connection!(inno = 1, from = 2_2),
+            new_t!(inno = 0, from = 2_1),
+            new_t!(inno = 1, from = 2_2),
         ];
         let mut rng = ProbBinding::new(ProbStatic::default(), default_rng());
         for _ in 0..1000 {
@@ -638,18 +581,18 @@ mod test {
             assert_from_connection!(lr[0], (l[0], r[0]));
             assert_from_connection!(lr[1], l[1], "not from l_1");
         }
-    }
+    });
 
-    #[test]
+    test_t!(
     #[should_panic(expected = "not from r_1")]
-    fn test_crossover_eq_both_step_r() {
+    test_crossover_eq_both_step_r[T: CTRConnection]() {
         let l = [
-            connection!(inno = 0, from = 1_1),
-            connection!(inno = 1, from = 1_2),
+            new_t!(inno = 0, from = 1_1),
+            new_t!(inno = 1, from = 1_2),
         ];
         let r = [
-            connection!(inno = 0, from = 2_1),
-            connection!(inno = 1, from = 2_2),
+            new_t!(inno = 0, from = 2_1),
+            new_t!(inno = 1, from = 2_2),
         ];
         let mut rng = ProbBinding::new(ProbStatic::default(), default_rng());
         for _ in 0..1000 {
@@ -658,9 +601,9 @@ mod test {
             assert_from_connection!(lr[0], (l[0], r[0]));
             assert_from_connection!(lr[1], r[1], "not from r_1");
         }
-    }
+    });
 
-    fn assert_crossover_ne(l: &[TestConnection], r: &[TestConnection]) {
+    fn assert_crossover_ne<C: Connection>(l: &[C], r: &[C]) {
         for (l, r) in [(l, r), (r, l)] {
             let l_map = l.iter().map(|c| (c.inno(), c)).collect::<HashMap<_, &_>>();
             let r_map = r.iter().map(|c| (c.inno(), c)).collect::<HashMap<_, &_>>();
@@ -696,96 +639,96 @@ mod test {
         }
     }
 
-    #[test]
-    fn test_crossover_ne() {
+    test_t!(
+    test_crossover_ne[T: CTRConnection]() {
         let l = [
-            connection!(inno = 0, from = 1_1),
-            connection!(inno = 1, from = 1_2),
-            connection!(inno = 2, from = 1_3),
-            connection!(inno = 9, from = 1_4),
+            new_t!(inno = 0, from = 1_1),
+            new_t!(inno = 1, from = 1_2),
+            new_t!(inno = 2, from = 1_3),
+            new_t!(inno = 9, from = 1_4),
         ];
         let r = [
-            connection!(inno = 0, from = 2_1),
-            connection!(inno = 2, from = 2_2),
-            connection!(inno = 3, from = 2_3),
-            connection!(inno = 4, from = 2_4),
-            connection!(inno = 7, from = 2_5),
+            new_t!(inno = 0, from = 2_1),
+            new_t!(inno = 2, from = 2_2),
+            new_t!(inno = 3, from = 2_3),
+            new_t!(inno = 4, from = 2_4),
+            new_t!(inno = 7, from = 2_5),
         ];
 
         assert_crossover_ne(&l, &r);
-    }
+    });
 
-    #[test]
-    fn test_crossover_ne_empty() {
-        let l = [connection!(inno = 0, from = 1_1)];
+    test_t!(
+    test_crossover_ne_empty[T: CTRConnection]() {
+        let l = [new_t!(inno = 0, from = 1_1)];
 
         assert_crossover_ne(&l, &[]);
-        assert_crossover_ne(&[], &[]);
-    }
+        assert_crossover_ne::<T>(&[], &[]);
+    });
 
-    #[test]
-    fn test_crossover_ne_no_overlap() {
+    test_t!(
+    test_crossover_ne_no_overlap[T: CTRConnection]() {
         let l = [
-            connection!(inno = 1, from = 1_1),
-            connection!(inno = 3, from = 1_2),
-            connection!(inno = 5, from = 1_3),
+            new_t!(inno = 1, from = 1_1),
+            new_t!(inno = 3, from = 1_2),
+            new_t!(inno = 5, from = 1_3),
         ];
         let r = [
-            connection!(inno = 0, from = 2_1),
-            connection!(inno = 2, from = 2_2),
-            connection!(inno = 4, from = 2_3),
+            new_t!(inno = 0, from = 2_1),
+            new_t!(inno = 2, from = 2_2),
+            new_t!(inno = 4, from = 2_3),
         ];
 
         assert_crossover_ne(&l, &r);
-    }
+    });
 
-    #[test]
-    fn test_crossover_ne_full_overlap() {
+    test_t!(
+    test_crossover_ne_full_overlap[T: CTRConnection]() {
         let l = [
-            connection!(inno = 1, from = 1_1),
-            connection!(inno = 2, from = 1_2),
-            connection!(inno = 3, from = 1_3),
+            new_t!(inno = 1, from = 1_1),
+            new_t!(inno = 2, from = 1_2),
+            new_t!(inno = 3, from = 1_3),
         ];
         let r = [
-            connection!(inno = 1, from = 2_1),
-            connection!(inno = 2, from = 2_2),
-            connection!(inno = 3, from = 2_3),
+            new_t!(inno = 1, from = 2_1),
+            new_t!(inno = 2, from = 2_2),
+            new_t!(inno = 3, from = 2_3),
         ];
 
         assert_crossover_ne(&l, &r);
-    }
+    });
 
-    #[test]
-    fn test_crossover_ne_overflow() {
-        let l = [connection!(inno = 10, from = 1_1)];
+    test_t!(
+    test_crossover_ne_overflow[T: CTRConnection]() {
+        let l = [new_t!(inno = 10, from = 1_1)];
         let r = [
-            connection!(inno = 1, from = 2_1),
-            connection!(inno = 2, from = 2_2),
+            new_t!(inno = 1, from = 2_1),
+            new_t!(inno = 2, from = 2_2),
         ];
 
         assert_crossover_ne(&l, &r);
-    }
+    });
 
-    #[test]
-    fn test_crossover_ne_no_lt() {
-        let l = [connection!(inno = 0, from = 1_1)];
-        let r = [connection!(inno = 10, from = 2_1)];
+    test_t!(
+    test_crossover_ne_no_lt[T: CTRConnection]() {
+        let l = [new_t!(inno = 0, from = 1_1)];
+        let r = [new_t!(inno = 10, from = 2_1)];
 
         assert_crossover_ne(&l, &r);
-    }
+    });
 
-    #[test]
-    fn test_crossover_lt() {
+    test_t!(
+    test_crossover_lt[T: CTRConnection]() {
         let l = [
-            connection!(inno = 0, from = 1_1),
-            connection!(inno = 1, from = 1_2),
-            connection!(inno = 2, from = 1_3),
+            new_t!(inno = 0, from = 1_1),
+            new_t!(inno = 1, from = 1_2),
+            new_t!(inno = 2, from = 1_3),
         ];
         let r = [
-            connection!(inno = 0, from = 2_1),
-            connection!(inno = 2, from = 2_2),
-            connection!(inno = 3, from = 2_3),
-            connection!(inno = 4, from = 2_4),
+            new_t!(inno = 0, from = 2_1),
+            new_t!(inno = 2, from = 2_2),
+            new_t!(inno = 3, from = 2_3),
+            new_t!(inno = 4, from = 2_4),
         ];
 
         let mut rng = ProbBinding::new(ProbStatic::default(), default_rng());
@@ -796,5 +739,5 @@ mod test {
         {
             assert_eq!(le.inno(), ge.inno());
         }
-    }
+    });
 }
