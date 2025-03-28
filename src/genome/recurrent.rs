@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum CTRNode {
+enum CTRNode {
     Sensory,
     Action,
     Bias(f64),
