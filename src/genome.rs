@@ -300,7 +300,22 @@ mod test {
             sensory: 1,
             action: 1,
             nodes: vec![Node::Sensory, Node::Action],
-            connections: vec![],
+            connections: vec![
+                Connection {
+                    inno: 0,
+                    from: 0,
+                    to: 0,
+                    weight: 0.,
+                    enabled: true,
+                },
+                Connection {
+                    inno: 1,
+                    from: 1,
+                    to: 1,
+                    weight: 0.,
+                    enabled: true,
+                },
+            ],
         };
         for _ in 0..100 {
             match gen_connection(&genome, &mut default_rng()) {
@@ -317,13 +332,29 @@ mod test {
             sensory: 1,
             action: 1,
             nodes: vec![Node::Sensory, Node::Action],
-            connections: vec![Connection {
-                inno: 0,
-                from: 0,
-                to: 1,
-                weight: 1.,
-                enabled: true,
-            }],
+            connections: vec![
+                Connection {
+                    inno: 0,
+                    from: 0,
+                    to: 0,
+                    weight: 1.,
+                    enabled: true,
+                },
+                Connection {
+                    inno: 1,
+                    from: 0,
+                    to: 1,
+                    weight: 1.,
+                    enabled: true,
+                },
+                Connection {
+                    inno: 2,
+                    from: 1,
+                    to: 1,
+                    weight: 1.,
+                    enabled: true,
+                },
+            ],
         };
         for _ in 0..100 {
             assert_eq!(gen_connection(&genome, &mut default_rng()), Some((1, 0)));
@@ -368,14 +399,12 @@ mod test {
                     ],
                     connections: (0..5)
                         .flat_map(|from| {
-                            (0..5).filter_map(move |to| {
-                                (from != to).then_some(Connection {
-                                    inno: 0,
-                                    from,
-                                    to,
-                                    weight: 1.,
-                                    enabled: true,
-                                })
+                            (0..5).map(move |to| Connection {
+                                inno: 0,
+                                from,
+                                to,
+                                weight: 1.,
+                                enabled: true,
                             })
                         })
                         .collect(),
