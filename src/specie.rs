@@ -370,8 +370,8 @@ pub fn speciate<G: Genome>(
 mod tests {
     use super::*;
     use crate::{
+        genome::CTRGenome,
         random::{default_rng, ProbBinding, ProbStatic},
-        CTRGenome,
     };
 
     #[test]

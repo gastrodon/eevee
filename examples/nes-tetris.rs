@@ -3,11 +3,11 @@
 
 use brain::{
     activate::relu,
-    genome::Genome,
+    genome::{CTRGenome, Genome},
     random::{default_rng, percent, EvolutionEvent, ProbBinding, ProbStatic},
     scenario::{evolve, EvolutionHooks},
     specie::population_init,
-    CTRGenome, Happens, Network, Probabilities, Scenario, Stats,
+    Happens, Network, Probabilities, Scenario, Stats,
 };
 use core::ops::ControlFlow;
 use nes_rust::{

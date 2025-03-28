@@ -3,14 +3,14 @@
 
 use brain::{
     activate::relu,
-    genome::Genome,
+    genome::{CTRGenome, Genome},
     network::loss::decay_quadratic,
     random::{
         default_rng, percent, EvolutionEvent, Happens, ProbBinding, ProbStatic, Probabilities,
     },
     scenario::{evolve, EvolutionHooks},
     specie::population_init,
-    CTRGenome, Network, Scenario, Stats,
+    Network, Scenario, Stats,
 };
 use core::{f64, ops::ControlFlow};
 use rand::RngCore;

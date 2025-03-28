@@ -1,8 +1,7 @@
 use brain::{
-    genome::{Connection, Genome},
+    genome::{CTRGenome, Connection, Genome},
     random::{default_rng, ProbBinding, ProbStatic},
     specie::{reproduce, InnoGen},
-    CTRGenome,
 };
 use criterion::Criterion;
 

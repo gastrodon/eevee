@@ -1,7 +1,7 @@
 use brain::{
     crossover::{avg_weight_diff, disjoint_excess_count},
+    genome::{CTRConnection, CTRGenome},
     specie::speciate,
-    CTRConnection, CTRGenome,
 };
 use core::iter::empty;
 use criterion::Criterion;

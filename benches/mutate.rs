@@ -1,8 +1,7 @@
 use brain::{
-    genome::Genome,
+    genome::{CTRGenome, Genome},
     random::{default_rng, ProbBinding, ProbStatic},
     specie::InnoGen,
-    CTRGenome,
 };
 use criterion::Criterion;
 

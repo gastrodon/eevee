@@ -1,7 +1,7 @@
 use brain::{
     crossover::crossover,
+    genome::CTRConnection,
     random::{default_rng, ProbBinding, ProbStatic},
-    CTRConnection,
 };
 use core::cmp::Ordering;
 use criterion::Criterion;
