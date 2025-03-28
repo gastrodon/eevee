@@ -1,94 +1,9 @@
-use core::error::Error;
+use crate::{
+    network::serialize::{deserialize_flat, deserialize_square, serialize},
+    Network,
+};
 use rulinalg::matrix::{BaseMatrix, BaseMatrixMut, Matrix};
 use serde::{Deserialize, Serialize};
-use std::{fs, path::Path};
-
-pub mod activate {
-    use core::f64::consts::E;
-
-    pub fn steep_sigmoid(x: f64) -> f64 {
-        1. / (1. + E.powf(-4.9 * x))
-    }
-
-    pub fn relu(x: f64) -> f64 {
-        if x < 0. {
-            0.
-        } else {
-            x
-        }
-    }
-}
-
-pub mod loss {
-    pub fn decay_quadratic(want: f64, x: f64) -> f64 {
-        1. - (want - x).abs().powf(2.)
-    }
-}
-
-pub trait Network: Serialize + for<'de> Deserialize<'de> {
-    fn step<F: Fn(f64) -> f64>(&mut self, prec: usize, input: &[f64], σ: F);
-    fn flush(&mut self);
-    fn output(&self) -> &[f64];
-
-    fn to_string(&self) -> Result<String, Box<dyn Error>> {
-        Ok(serde_json::to_string(self)?)
-    }
-
-    fn from_str(s: &str) -> Result<Self, Box<dyn Error>>
-    where
-        Self: Sized,
-    {
-        serde_json::from_str(s).map_err(|op| op.into())
-    }
-
-    fn to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), Box<dyn Error>> {
-        fs::write(path, self.to_string()?)?;
-        Ok(())
-    }
-
-    fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, Box<dyn Error>>
-    where
-        Self: Sized,
-    {
-        Self::from_str(&fs::read_to_string(path)?)
-    }
-}
-
-fn serialize<S>(matrix: &Matrix<f64>, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-{
-    // Convert f64 values to u64 bits for precise serialization
-    let bits: Vec<u64> = matrix.data().iter().map(|&f| f64::to_bits(f)).collect();
-
-    bits.serialize(serializer)
-}
-
-fn deserialize_flat<'de, D>(deserializer: D) -> Result<Matrix<f64>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    Vec::<u64>::deserialize(deserializer).map(|v| {
-        // Convert u64 bits back to f64 values
-        let float_data: Vec<f64> = v.into_iter().map(f64::from_bits).collect();
-
-        Matrix::new(1, float_data.len(), float_data)
-    })
-}
-
-fn deserialize_square<'de, D>(deserializer: D) -> Result<Matrix<f64>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    Vec::<u64>::deserialize(deserializer).map(|v| {
-        // Convert u64 bits back to f64 values
-        let float_data: Vec<f64> = v.into_iter().map(f64::from_bits).collect();
-
-        let n = (float_data.len() as f64).sqrt() as usize;
-        debug_assert_eq!(n * n, float_data.len(), "non-square weight vec");
-        Matrix::new(n, n, float_data)
-    })
-}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Ctrnn {
@@ -129,8 +44,9 @@ impl Network for Ctrnn {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::random::default_rng;
+    use crate::{activate, random::default_rng};
     use rand_distr::{num_traits::Float, Distribution, Uniform};
+    use rulinalg::matrix::Matrix;
 
     // Macro for comparing f64 arrays with epsilon tolerance
     macro_rules! assert_matrices_f64_eq {
