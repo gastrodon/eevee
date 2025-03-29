@@ -66,7 +66,7 @@ impl Connection for CTRConnection {
     }
 
     fn disable(&mut self) {
-        self.enabled = true;
+        self.enabled = false;
     }
 
     fn enabled(&self) -> bool {
