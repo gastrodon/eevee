@@ -19,6 +19,9 @@ pub enum NodeKind {
 }
 
 pub trait Node: Serialize + for<'de> Deserialize<'de> + Clone + Debug {
+    /// A new node of some kind
+    fn new(kind: NodeKind) -> Self;
+
     /// The cond of node this is, where
     /// - sensory reads input to a network
     /// - action describes output from a network

@@ -24,6 +24,15 @@ pub enum CTRNode {
 }
 
 impl Node for CTRNode {
+    fn new(kind: NodeKind) -> Self {
+        match kind {
+            NodeKind::Sensory => Self::Sensory,
+            NodeKind::Action => Self::Action,
+            NodeKind::Internal => Self::Internal,
+            NodeKind::Bias => Self::Bias(1.),
+        }
+    }
+
     fn kind(&self) -> super::NodeKind {
         match self {
             Self::Sensory => NodeKind::Sensory,
@@ -248,7 +257,7 @@ impl Genome for CTRGenome {
             .unwrap()
             .bisect(center, inno);
 
-        self.push_node(CTRNode::Internal);
+        self.push_node(Self::Node::new(NodeKind::Internal));
         self.push_2_connections(lower, upper);
     }
 
