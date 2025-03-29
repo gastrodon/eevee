@@ -11,12 +11,27 @@ use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use std::{fs, path::Path};
 
+pub enum NodeKind {
+    Sensory,
+    Action,
+    Internal,
+    Bias,
+}
+
+pub trait Node: Serialize + for<'de> Deserialize<'de> + Clone + Debug {
+    fn kind(&self) -> NodeKind;
+    fn bias(&self) -> f64;
+}
+
 pub trait Connection:
     Serialize + for<'de> Deserialize<'de> + Clone + Hash + PartialEq + Default + Debug
 {
     const EXCESS_COEFFICIENT: f64;
     const DISJOINT_COEFFICIENT: f64;
     const PARAM_COEFFICIENT: f64;
+
+    type Node: Node;
+
     /// gene innovation id
     fn inno(&self) -> usize;
 

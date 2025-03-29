@@ -1,7 +1,7 @@
 /// A genome describing a Continuous Time Recurrent Neural Network (CTRNN)
 use crate::{
     crossover::crossover,
-    genome::{Connection, Genome},
+    genome::{Connection, Genome, Node, NodeKind},
     specie::InnoGen,
     Ctrnn, Happens,
 };
@@ -16,11 +16,29 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-enum CTRNode {
+pub enum CTRNode {
     Sensory,
     Action,
     Bias(f64),
     Internal,
+}
+
+impl Node for CTRNode {
+    fn kind(&self) -> super::NodeKind {
+        match self {
+            Self::Sensory => NodeKind::Sensory,
+            Self::Action => NodeKind::Action,
+            Self::Bias(_) => NodeKind::Bias,
+            Self::Internal => NodeKind::Internal,
+        }
+    }
+
+    fn bias(&self) -> f64 {
+        match self {
+            Self::Bias(b) => *b,
+            _ => 0.,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -36,6 +54,8 @@ impl Connection for CTRConnection {
     const EXCESS_COEFFICIENT: f64 = 1.0;
     const DISJOINT_COEFFICIENT: f64 = 1.0;
     const PARAM_COEFFICIENT: f64 = 0.4;
+
+    type Node = CTRNode;
 
     fn inno(&self) -> usize {
         self.inno
