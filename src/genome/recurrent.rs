@@ -242,25 +242,6 @@ impl Genome for CTRGenome {
         }
     }
 
-    // Picks a source connection, bisects it, and applies it
-    // picked source connection is marked as disabled
-    fn mutate_bisection(&mut self, rng: &mut (impl RngCore + Happens), inno: &mut InnoGen) {
-        if self.connections().is_empty() {
-            panic!("no connections available to bisect");
-        }
-
-        let center = self.nodes().len();
-        let connections_range = 0..self.connections().len();
-        let (lower, upper) = self
-            .connections_mut()
-            .get_mut(rng.random_range(connections_range))
-            .unwrap()
-            .bisect(center, inno);
-
-        self.push_node(Self::Node::new(NodeKind::Internal));
-        self.push_2_connections(lower, upper);
-    }
-
     fn reproduce_with(
         &self,
         other: &CTRGenome,

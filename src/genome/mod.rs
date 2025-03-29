@@ -7,7 +7,7 @@ use crate::{
     Network,
 };
 use core::{cmp::Ordering, error::Error, fmt::Debug, hash::Hash};
-use rand::RngCore;
+use rand::{Rng, RngCore};
 use serde::{Deserialize, Serialize};
 use std::{fs, path::Path};
 
@@ -99,7 +99,22 @@ pub trait Genome: Serialize + for<'de> Deserialize<'de> + Clone {
     fn mutate_connection(&mut self, rng: &mut (impl RngCore + Happens), inno: &mut InnoGen);
 
     /// Bisect an existing connection. Should panic if there are no connections to bisect
-    fn mutate_bisection(&mut self, rng: &mut (impl RngCore + Happens), inno: &mut InnoGen);
+    fn mutate_bisection(&mut self, rng: &mut (impl RngCore + Happens), inno: &mut InnoGen) {
+        if self.connections().is_empty() {
+            panic!("no connections available to bisect");
+        }
+
+        let center = self.nodes().len();
+        let source = rng.random_range(0..self.connections().len());
+        let (lower, upper) = self
+            .connections_mut()
+            .get_mut(source)
+            .unwrap()
+            .bisect(center, inno);
+
+        self.push_node(Self::Node::new(NodeKind::Internal));
+        self.push_2_connections(lower, upper);
+    }
 
     /// Perform 0 or more mutations on this genome ( should this be the only mutator exposed? TODO )
     fn mutate(&mut self, rng: &mut (impl RngCore + Happens), innogen: &mut InnoGen) {
