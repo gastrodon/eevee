@@ -66,6 +66,16 @@ impl Connection for CTRConnection {
 
     type Node = CTRNode;
 
+    fn new(from: usize, to: usize, inno: &mut InnoGen) -> Self {
+        Self {
+            inno: inno.path((from, to)),
+            from,
+            to,
+            weight: 1.,
+            enabled: true,
+        }
+    }
+
     fn inno(&self) -> usize {
         self.inno
     }
@@ -230,13 +240,8 @@ impl Genome for CTRGenome {
     // fails if no pair can be picked
     fn mutate_connection(&mut self, rng: &mut (impl RngCore + Happens), inext: &mut InnoGen) {
         if let Some((from, to)) = self.gen_connection_path(rng) {
-            self.connections.push(CTRConnection {
-                inno: inext.path((from, to)),
-                from,
-                to,
-                weight: 1.,
-                enabled: true,
-            });
+            self.connections
+                .push(Self::Connection::new(from, to, inext));
         } else {
             panic!("connections on genome are fully saturated")
         }

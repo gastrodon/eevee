@@ -42,6 +42,8 @@ pub trait Connection:
 
     type Node: Node;
 
+    fn new(from: usize, to: usize, inno: &mut InnoGen) -> Self;
+
     /// gene innovation id
     fn inno(&self) -> usize;
 
