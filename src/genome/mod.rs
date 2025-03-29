@@ -1,7 +1,11 @@
 pub mod recurrent;
 pub use recurrent::{CTRConnection, CTRGenome};
 
-use crate::{random::Happens, specie::InnoGen, Network};
+use crate::{
+    random::{EvolutionEvent, Happens},
+    specie::InnoGen,
+    Network,
+};
 use core::{cmp::Ordering, error::Error, fmt::Debug, hash::Hash};
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
@@ -37,7 +41,7 @@ pub trait Genome: Serialize + for<'de> Deserialize<'de> + Clone {
     fn connections(&self) -> &[Self::Connection];
 
     /// Perform a ( possible? TODO ) mutation across every weight
-    fn mutate_weights(&mut self, rng: &mut (impl RngCore + Happens));
+    fn mutate_params(&mut self, rng: &mut (impl RngCore + Happens));
 
     /// Generate a new connection
     fn mutate_connection(&mut self, rng: &mut (impl RngCore + Happens), inno: &mut InnoGen);
@@ -46,7 +50,17 @@ pub trait Genome: Serialize + for<'de> Deserialize<'de> + Clone {
     fn mutate_bisection(&mut self, rng: &mut (impl RngCore + Happens), inno: &mut InnoGen);
 
     /// Perform 0 or more mutations on this genome ( should this be the only mutator exposed? TODO )
-    fn maybe_mutate(&mut self, rng: &mut (impl RngCore + Happens), inno: &mut InnoGen);
+    fn mutate(&mut self, rng: &mut (impl RngCore + Happens), innogen: &mut InnoGen) {
+        if rng.happens(EvolutionEvent::MutateWeight) {
+            self.mutate_params(rng);
+        }
+        if rng.happens(EvolutionEvent::MutateConnection) {
+            self.mutate_connection(rng, innogen);
+        }
+        if rng.happens(EvolutionEvent::MutateBisection) && !self.connections().is_empty() {
+            self.mutate_bisection(rng, innogen);
+        }
+    }
 
     /// Perform crossover reproduction with other, where our fitness is `fitness_cmp` compared to other
     fn reproduce_with(

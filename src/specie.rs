@@ -160,7 +160,7 @@ fn reproduce_crossover<G: Genome, H: RngCore + Happens>(
         .take(size)
         .map(|((l, _), (r, _))| {
             let mut child = l.reproduce_with(r, std::cmp::Ordering::Greater, rng);
-            child.maybe_mutate(rng, innogen);
+            child.mutate(rng, innogen);
             Ok(child)
         })
         .collect()
@@ -191,7 +191,7 @@ fn reproduce_copy<G: Genome, H: RngCore + Happens>(
         .take(size)
         .map(|(genome, _)| {
             let mut child = genome.clone();
-            child.maybe_mutate(rng, innogen);
+            child.mutate(rng, innogen);
             Ok(child)
         })
         .collect()
