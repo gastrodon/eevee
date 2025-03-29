@@ -34,6 +34,10 @@ pub struct CTRConnection {
 }
 
 impl Connection for CTRConnection {
+    const EXCESS_COEFFICIENT: f64 = 1.0;
+    const DISJOINT_COEFFICIENT: f64 = 1.0;
+    const PARAM_COEFFICIENT: f64 = 0.4;
+
     fn inno(&self) -> usize {
         self.inno
     }

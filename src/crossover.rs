@@ -57,7 +57,7 @@ pub fn disjoint_excess_count<C: Connection>(l: &[C], r: &[C]) -> (f64, f64) {
 }
 
 /// if genomes share no overlapping weights, their average diff should be 0
-pub fn avg_weight_diff<C: Connection>(l: &[C], r: &[C]) -> f64 {
+pub fn avg_param_diff<C: Connection>(l: &[C], r: &[C]) -> f64 {
     let mut diff = 0.;
     let mut count = 0.;
     let mut l_iter = l.iter();
@@ -111,10 +111,6 @@ pub fn avg_weight_diff<C: Connection>(l: &[C], r: &[C]) -> f64 {
     }
 }
 
-const EXCESS_COEFFICIENT: f64 = 1.0;
-const DISJOINT_COEFFICIENT: f64 = 1.0;
-const WEIGHT_COEFFICIENT: f64 = 0.4;
-
 pub fn delta<C: Connection>(l: &[C], r: &[C]) -> f64 {
     let l_size = l.len() as f64;
     let r_size = r.len() as f64;
@@ -128,11 +124,11 @@ pub fn delta<C: Connection>(l: &[C], r: &[C]) -> f64 {
     };
 
     if l_size == 0. || r_size == 0. {
-        (EXCESS_COEFFICIENT * f64::max(l_size, r_size)) / fac
+        (C::EXCESS_COEFFICIENT * f64::max(l_size, r_size)) / fac
     } else {
         let (disjoint, excess) = disjoint_excess_count(l, r);
-        (DISJOINT_COEFFICIENT * disjoint + EXCESS_COEFFICIENT * excess) / fac
-            + WEIGHT_COEFFICIENT * avg_weight_diff(l, r)
+        (C::DISJOINT_COEFFICIENT * disjoint + C::EXCESS_COEFFICIENT * excess) / fac
+            + C::PARAM_COEFFICIENT * avg_param_diff(l, r)
     }
 }
 
@@ -266,8 +262,8 @@ mod test {
     use std::collections::{HashMap, HashSet};
 
     test_t!(
-    test_avg_weight_diff[T: CTRConnection]() {
-        let diff = avg_weight_diff(
+    test_avg_param_diff[T: CTRConnection]() {
+        let diff = avg_param_diff(
             &[
                 new_t!(inno = 1, weight = 0.5,),
                 new_t!(inno = 2, weight = -0.5,),
@@ -283,26 +279,26 @@ mod test {
     });
 
     test_t!(
-    test_avg_weight_diff_empty[T: CTRConnection]() {
+    test_avg_param_diff_empty[T: CTRConnection]() {
         let full = vec![
             new_t!(inno = 1, weight = 0.0,),
             new_t!(inno = 2, weight = -1.0,),
             new_t!(inno = 4, weight = 2.0,),
         ];
 
-        let diff = avg_weight_diff(&full, &[]);
+        let diff = avg_param_diff(&full, &[]);
         assert_f64_approx!(diff, 0.0, "diff ne: {diff}, 0.");
 
-        let diff = avg_weight_diff(&[], &full);
+        let diff = avg_param_diff(&[], &full);
         assert_f64_approx!(diff, 0.0, "diff ne: {diff}, 0.");
 
-        let diff = avg_weight_diff::<CTRConnection>(&[], &[]);
+        let diff = avg_param_diff::<CTRConnection>(&[], &[]);
         assert_f64_approx!(diff, 0.0, "diff ne: {diff}, 0.");
     });
 
     test_t!(
-    test_avg_weight_diff_no_overlap[T: CTRConnection]() {
-        let diff = avg_weight_diff(
+    test_avg_param_diff_no_overlap[T: CTRConnection]() {
+        let diff = avg_param_diff(
             &[
                 new_t!(inno = 1, weight = 0.5,),
                 new_t!(inno = 2, weight = -0.5,),
@@ -317,8 +313,8 @@ mod test {
     });
 
     test_t!(
-    test_avg_weight_diff_no_diff[T: CTRConnection]() {
-        let diff = avg_weight_diff(
+    test_avg_param_diff_no_diff[T: CTRConnection]() {
+        let diff = avg_param_diff(
             &[
                 new_t!(inno = 1, weight = 0.5,),
                 new_t!(inno = 2, weight = -0.5,),

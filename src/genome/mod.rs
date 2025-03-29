@@ -10,6 +10,9 @@ use std::{fs, path::Path};
 pub trait Connection:
     Serialize + for<'de> Deserialize<'de> + Clone + Hash + PartialEq + Default + Debug
 {
+    const EXCESS_COEFFICIENT: f64;
+    const DISJOINT_COEFFICIENT: f64;
+    const PARAM_COEFFICIENT: f64;
     /// gene innovation id
     fn inno(&self) -> usize;
 

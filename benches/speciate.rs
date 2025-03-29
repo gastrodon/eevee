@@ -1,5 +1,5 @@
 use brain::{
-    crossover::{avg_weight_diff, disjoint_excess_count},
+    crossover::{avg_param_diff, disjoint_excess_count},
     genome::{CTRConnection, CTRGenome},
     specie::speciate,
 };
@@ -19,7 +19,7 @@ fn bench_distance(bench: &mut Criterion) {
     });
 
     bench.bench_function("avg-weight-diff", |b| {
-        b.iter(|| avg_weight_diff(&l_conn, &r_conn))
+        b.iter(|| avg_param_diff(&l_conn, &r_conn))
     });
 }
 
