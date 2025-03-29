@@ -44,28 +44,11 @@ impl Network for Ctrnn {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{activate, random::default_rng};
+    use crate::{activate, assert_matrix_approx, random::default_rng};
     use rand_distr::{num_traits::Float, Distribution, Uniform};
     use rulinalg::matrix::Matrix;
 
     // Macro for comparing f64 arrays with epsilon tolerance
-    macro_rules! assert_matrices_f64_eq {
-        ($a:expr, $b:expr) => {
-            assert_eq!($a.len(), $b.len(), "Matrices have different lengths");
-
-            for (i, (l, r)) in $a.iter().zip($b.iter()).enumerate() {
-                let diff = (l - r).abs();
-                assert!(
-                    diff < f64::EPSILON,
-                    "[{}]: {} != {} (diff: {})",
-                    i,
-                    l,
-                    r,
-                    diff
-                );
-            }
-        };
-    }
 
     #[test]
     fn test_ctrnn_serialization_deserialization() {
@@ -101,10 +84,10 @@ mod test {
 
         let deserialized = Ctrnn::from_str(&serialized).expect("Failed to deserialize");
 
-        assert_matrices_f64_eq!(original.y.data(), deserialized.y.data());
-        assert_matrices_f64_eq!(original.θ.data(), deserialized.θ.data());
-        assert_matrices_f64_eq!(original.τ.data(), deserialized.τ.data());
-        assert_matrices_f64_eq!(original.w.data(), deserialized.w.data());
+        assert_matrix_approx!(original.y.data(), deserialized.y.data());
+        assert_matrix_approx!(original.θ.data(), deserialized.θ.data());
+        assert_matrix_approx!(original.τ.data(), deserialized.τ.data());
+        assert_matrix_approx!(original.w.data(), deserialized.w.data());
 
         assert_eq!(original.sensory, deserialized.sensory);
         assert_eq!(original.action, deserialized.action);
@@ -155,7 +138,7 @@ mod test {
             let original_output = original.output();
             let deserialized_output = deserialized.output();
 
-            assert_matrices_f64_eq!(original_output, deserialized_output);
+            assert_matrix_approx!(original_output, deserialized_output);
         }
     }
 }

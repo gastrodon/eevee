@@ -257,7 +257,7 @@ pub fn crossover<C: Connection, H: RngCore + Happens>(
 mod test {
     use super::*;
     use crate::{
-        assert_f64_approx,
+        assert_f64_approx, assert_some_normalized,
         genome::CTRConnection,
         new_t,
         random::{default_rng, ProbBinding, ProbStatic},
@@ -420,43 +420,6 @@ mod test {
         );
     });
 
-    macro_rules! assert_from_connection {
-        ($have:expr, ($l:expr, $r:expr), $($arg:tt)+) => {{
-            let mut have = $have.to_owned();
-            have.enable();
-            let mut l = $l.to_owned();
-            l.enable();
-            let mut r = $r.to_owned();
-            r.enable();
-            assert!(have == l || have == r, $($arg)*);
-        }};
-        ($have:expr, ($l:expr, $r:expr)) => {{
-            assert_from_connection!(
-                $have, ($l, $r),
-                "{:?} from neither {:?} or {:?}",
-                $have,
-                $l,
-                $r
-            );
-        }};
-        ($have:expr, $f:expr, $($arg:tt)+) => {{
-            let mut have = $have.to_owned();
-            have.enable();
-            let mut f = $f.to_owned();
-            f.enable();
-            assert!(have == f, $($arg)*);
-
-        }};
-        ($have:expr, $f:expr) => {{
-            assert_from_connection!(
-                $have, $f,
-                "{:?} not from {:?}",
-                $have,
-                $f
-            )
-        }};
-    }
-
     fn assert_crossover_eq<C: Connection>(l: &[C], r: &[C]) {
         for (l, r) in [(l, r), (r, l)] {
             let l_map = l.iter().map(|c| (c.inno(), c)).collect::<HashMap<_, &_>>();
@@ -482,10 +445,10 @@ mod test {
                     match (l_map.get(&lr_conn.inno()), r_map.get(&lr_conn.inno())) {
                         (None, None) => panic!("{} is in neither l nor r", lr_conn.inno()),
                         (None, Some(conn)) | (Some(conn), None) => {
-                            assert_from_connection!(lr_conn, *conn)
+                            assert_some_normalized!(lr_conn, [*conn]; {.enable()})
                         }
                         (Some(l_conn), Some(r_conn)) => {
-                            assert_from_connection!(lr_conn, (*l_conn, *r_conn))
+                            assert_some_normalized!(lr_conn, [*l_conn, *r_conn]; {.enable()});
                         }
                     }
                 }
@@ -542,8 +505,8 @@ mod test {
         for _ in 0..1000 {
             let lr = crossover_eq(&l, &r, &mut rng);
             assert_eq!(lr.len(), 2);
-            assert_from_connection!(lr[0], l[0]);
-            assert_from_connection!(lr[1], r[0], "not from r_0");
+            assert_some_normalized!(&lr[0], [&l[0]]; {.enable()});
+            assert_some_normalized!(&lr[1], [&r[0]]; {.enable()}, "not from r_0");
         }
     });
 
@@ -559,8 +522,8 @@ mod test {
         for _ in 0..1000 {
             let lr = crossover_eq(&l, &r, &mut rng);
             assert_eq!(lr.len(), 2);
-            assert_from_connection!(lr[0], r[0]);
-            assert_from_connection!(lr[1], l[0], "not from l_0");
+            assert_some_normalized!(&lr[0], [&r[0]]; {.enable()});
+            assert_some_normalized!(&lr[1], [&l[0]]; {.enable()}, "not from l_0");
         }
     });
 
@@ -579,8 +542,8 @@ mod test {
         for _ in 0..1000 {
             let lr = crossover_eq(&l, &r, &mut rng);
             assert_eq!(lr.len(), 2);
-            assert_from_connection!(lr[0], (l[0], r[0]));
-            assert_from_connection!(lr[1], l[1], "not from l_1");
+            assert_some_normalized!(&lr[0], [&l[0], &r[0]]; {.enable()});
+            assert_some_normalized!(&lr[1], [&l[1]]; {.enable()}, "not from l_1");
         }
     });
 
@@ -599,8 +562,8 @@ mod test {
         for _ in 0..1000 {
             let lr = crossover_eq(&l, &r, &mut rng);
             assert_eq!(lr.len(), 2);
-            assert_from_connection!(lr[0], (l[0], r[0]));
-            assert_from_connection!(lr[1], r[1], "not from r_1");
+            assert_some_normalized!(&lr[0], [&l[0], &r[0]]; {.enable()});
+            assert_some_normalized!(&lr[1], [&r[1]]; {.enable()}, "not from r_1");
         }
     });
 
@@ -629,10 +592,10 @@ mod test {
                         (None, None) => panic!("{} is in neither l nor r", lr_conn.inno()),
                         (None, Some(conn)) => panic!("{} is in only r", conn.inno()),
                         (Some(conn), None) => {
-                            assert_from_connection!(lr_conn, *conn)
+                            assert_some_normalized!(lr_conn, [*conn]; {.enable()})
                         }
                         (Some(l_conn), Some(r_conn)) => {
-                            assert_from_connection!(lr_conn, (*l_conn, *r_conn))
+                            assert_some_normalized!(lr_conn, [*l_conn, *r_conn]; {.enable()})
                         }
                     }
                 }

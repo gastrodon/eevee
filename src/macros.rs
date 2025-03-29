@@ -52,3 +52,32 @@ macro_rules! assert_f64_approx {
         )
     };
 }
+
+#[macro_export]
+macro_rules! assert_matrix_approx {
+    ($a:expr, $b:expr) => {
+        assert_eq!($a.len(), $b.len(), "Matrices have different lengths");
+
+        for (i, (l, r)) in $a.iter().zip($b.iter()).enumerate() {
+            $crate::assert_f64_approx!(l, r, format!("differs at [{i}]"));
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! normalized {
+    ($x:expr; $({.$($norm:tt)+})+) => {{
+        let mut x = $x;
+        $(x.$($norm)*;)+
+        x
+    }};
+}
+
+#[macro_export]
+macro_rules! assert_some_normalized {
+  ($l:expr, [$($r:expr),*  $(,)?]; $({.$($norm:tt)+})+, $msg: expr) => {{
+    let l = $crate::normalized!($l.to_owned(); $({.$($norm)* })+);
+    assert!([$($r,)*].into_iter().any(|r| l == $crate::normalized!(r.to_owned(); $({.$($norm)* })+)), "{}", $msg)
+  }};
+  ($l:expr, [$($r:expr),* $(,)?]; $({.$($norm:tt)+})+) => {$crate::assert_some_normalized!($l, [$($r,)*]; $({.$($norm)* })+, format!("{:?} not in {:?}", $l, [$($r,)*]))};
+}
