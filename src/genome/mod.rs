@@ -35,9 +35,13 @@ pub trait Connection:
     /// gene innovation id
     fn inno(&self) -> usize;
 
-    /// view and toggle whether or not the gene is enabled
+    /// whether or not this connection is active, and therefore affects its genomes behavior
     fn enabled(&self) -> bool;
+
+    /// unconditionally enable this connection
     fn enable(&mut self);
+
+    /// unconditionally disable this connection
     fn disable(&mut self);
 
     /// difference of connection parameters ( for example, weight )
