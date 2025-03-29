@@ -46,14 +46,34 @@ pub trait Connection:
 }
 
 pub trait Genome: Serialize + for<'de> Deserialize<'de> + Clone {
+    type Node: Node = <<Self as Genome>::Connection as Connection>::Node;
     type Connection: Connection;
     type Network: Network;
 
     /// A new genome of this type, with a known input and output size
     fn new(sensory: usize, action: usize) -> (Self, usize);
 
+    fn nodes(&self) -> &[Self::Node];
+
+    /// Push a new node onto the genome
+    fn push_node(&mut self, node: Self::Node);
+
     /// A collection to the connections comprising this genome
     fn connections(&self) -> &[Self::Connection];
+
+    /// Mutable reference to the connections comprising this genome
+    fn connections_mut(&mut self) -> &mut [Self::Connection];
+
+    /// Push a connection onto the genome
+    fn push_connection(&mut self, connection: Self::Connection);
+
+    /// Push 2 connections onto the genome, first then second.
+    /// The idea with this is that we'll often do so as a result of bisection,
+    /// so this gives us a chance to grow the connections just once if we want
+    fn push_2_connections(&mut self, first: Self::Connection, second: Self::Connection) {
+        self.push_connection(first);
+        self.push_connection(second);
+    }
 
     /// Perform a ( possible? TODO ) mutation across every weight
     fn mutate_params(&mut self, rng: &mut (impl RngCore + Happens));

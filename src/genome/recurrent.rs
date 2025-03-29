@@ -165,9 +165,26 @@ impl Genome for CTRGenome {
         )
     }
 
+    fn nodes(&self) -> &[Self::Node] {
+        &self.nodes
+    }
+
+    fn push_node(&mut self, node: Self::Node) {
+        self.nodes.push(node);
+    }
+
     fn connections(&self) -> &[Self::Connection] {
         &self.connections
     }
+
+    fn connections_mut(&mut self) -> &mut [Self::Connection] {
+        &mut self.connections
+    }
+
+    fn push_connection(&mut self, connection: Self::Connection) {
+        self.connections.push(connection);
+    }
+
     fn mutate_params(&mut self, rng: &mut (impl RngCore + Happens)) {
         for conn in self.connections.iter_mut() {
             if rng.random_ratio(1, 10) {
@@ -197,16 +214,16 @@ impl Genome for CTRGenome {
     // Picks a source connection, bisects it, and applies it
     // picked source connection is marked as disabled
     fn mutate_bisection(&mut self, rng: &mut (impl RngCore + Happens), inext: &mut InnoGen) {
-        if self.connections.is_empty() {
+        if self.connections().is_empty() {
             panic!("no connections available to bisect");
         }
 
-        let pick_idx = rng.random_range(0..self.connections.len());
-        let new_node_idx = self.nodes.len();
+        let pick_idx = rng.random_range(0..self.connections().len());
+        let new_node_idx = self.nodes().len();
         let (lower, upper) = {
             // possibly: would it make sense for a bisection to require a new inno?
-            let pick = self.connections.get_mut(pick_idx).unwrap();
-            pick.enabled = false;
+            let pick = self.connections_mut().get_mut(pick_idx).unwrap();
+            pick.disable();
             (
                 // from -{1.}> bisect-node
                 CTRConnection {
@@ -227,9 +244,8 @@ impl Genome for CTRGenome {
             )
         };
 
-        self.nodes.push(CTRNode::Internal);
-        self.connections.push(lower);
-        self.connections.push(upper);
+        self.push_node(CTRNode::Internal);
+        self.push_2_connections(lower, upper);
     }
 
     fn reproduce_with(

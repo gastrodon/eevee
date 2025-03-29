@@ -1,3 +1,4 @@
+#![feature(associated_type_defaults)]
 #![allow(mixed_script_confusables)]
 #![allow(confusable_idents)]
 
