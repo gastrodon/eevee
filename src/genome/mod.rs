@@ -19,7 +19,14 @@ pub enum NodeKind {
 }
 
 pub trait Node: Serialize + for<'de> Deserialize<'de> + Clone + Debug {
+    /// The cond of node this is, where
+    /// - sensory reads input to a network
+    /// - action describes output from a network
+    /// - internal is a hidden node of a network
+    /// - bias is a hidden node, but unaffected by input
     fn kind(&self) -> NodeKind;
+
+    /// The bias of a node, returning 0. for nodes who can't have bias
     fn bias(&self) -> f64;
 }
 
