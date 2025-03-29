@@ -4,13 +4,13 @@
 use brain::{
     activate::relu,
     genome::{CTRGenome, Genome},
-    network::loss::decay_quadratic,
+    network::{loss::decay_quadratic, ToNetwork},
     random::{
         default_rng, percent, EvolutionEvent, Happens, ProbBinding, ProbStatic, Probabilities,
     },
     scenario::{evolve, EvolutionHooks},
     specie::population_init,
-    Network, Scenario, Stats,
+    Ctrnn, Network, Scenario, Stats,
 };
 use core::{f64, ops::ControlFlow};
 use rand::RngCore;
@@ -19,7 +19,9 @@ const POPULATION: usize = 100;
 
 struct Xor;
 
-impl<G: Genome, H: RngCore + Probabilities + Happens, A: Fn(f64) -> f64> Scenario<G, H, A> for Xor {
+impl<G: Genome + ToNetwork<Ctrnn>, H: RngCore + Probabilities + Happens, A: Fn(f64) -> f64>
+    Scenario<G, H, A> for Xor
+{
     fn io(&self) -> (usize, usize) {
         (2, 1)
     }

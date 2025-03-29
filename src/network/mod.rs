@@ -2,6 +2,7 @@ pub mod recurrent;
 pub mod serialize;
 pub use recurrent::Ctrnn;
 
+use crate::Genome;
 use core::error::Error;
 use serde::{Deserialize, Serialize};
 use std::{fs, path::Path};
@@ -54,5 +55,22 @@ pub trait Network: Serialize + for<'de> Deserialize<'de> {
         Self: Sized,
     {
         Self::from_str(&fs::read_to_string(path)?)
+    }
+}
+
+pub trait FromGenome<G: Genome>: Network {
+    fn from_genome(genome: &G) -> Self;
+}
+
+pub trait ToNetwork<N: Network>: Genome {
+    fn network(&self) -> N;
+}
+
+impl<N: Network, G: Genome> ToNetwork<N> for G
+where
+    N: FromGenome<G>,
+{
+    fn network(&self) -> N {
+        N::from_genome(self)
     }
 }

@@ -4,10 +4,11 @@
 use brain::{
     activate::relu,
     genome::{CTRGenome, Genome},
+    network::ToNetwork,
     random::{default_rng, percent, EvolutionEvent, ProbBinding, ProbStatic},
     scenario::{evolve, EvolutionHooks},
     specie::population_init,
-    Happens, Network, Probabilities, Scenario, Stats,
+    Ctrnn, Happens, Network, Probabilities, Scenario, Stats,
 };
 use core::ops::ControlFlow;
 use nes_rust::{
@@ -144,8 +145,8 @@ fn enter_game(nes: &mut Nes) {
 
 struct NesTetris;
 
-impl<G: Genome, H: RngCore + Probabilities + Happens, A: Fn(f64) -> f64> Scenario<G, H, A>
-    for NesTetris
+impl<G: Genome + ToNetwork<Ctrnn>, H: RngCore + Probabilities + Happens, A: Fn(f64) -> f64>
+    Scenario<G, H, A> for NesTetris
 {
     fn io(&self) -> (usize, usize) {
         (200, 8)

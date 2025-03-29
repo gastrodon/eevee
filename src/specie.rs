@@ -389,7 +389,9 @@ mod tests {
         assert_eq!(inno2.path((0, 1)), 3);
     }
 
-    test_t!(specie_init[T: CTRGenome]() {
+    type BasicGenomeCtrnn = CTRGenome;
+
+    test_t!(specie_init[T: BasicGenomeCtrnn]() {
         let count = 40;
         let (species, inno_head) = population_init::<T>(2, 2, count);
         assert_eq!(
@@ -414,7 +416,7 @@ mod tests {
         }
     });
 
-    test_t!(specie_reproduce[T: CTRGenome]() {
+    test_t!(specie_reproduce[T: BasicGenomeCtrnn]() {
         let mut rng = ProbBinding::new(ProbStatic::default(), default_rng());
         let count = 40;
         let (species, inno_head) = population_init::<T>(2, 2, count);

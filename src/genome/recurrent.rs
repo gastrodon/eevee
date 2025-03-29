@@ -2,6 +2,7 @@
 use crate::{
     crossover::crossover,
     genome::{Connection, Genome, Node, NodeKind},
+    network::FromGenome,
     specie::InnoGen,
     Ctrnn, Happens,
 };
@@ -156,7 +157,6 @@ impl CTRGenome {
 
 impl Genome for CTRGenome {
     type Connection = CTRConnection;
-    type Network = Ctrnn;
 
     fn new(sensory: usize, action: usize) -> (Self, usize) {
         let mut nodes = Vec::with_capacity(sensory + action + 1);
@@ -272,15 +272,18 @@ impl Genome for CTRGenome {
             connections,
         }
     }
+}
 
-    fn network(&self) -> Self::Network {
-        let cols = self.nodes.len();
+impl FromGenome<CTRGenome> for Ctrnn {
+    fn from_genome(genome: &CTRGenome) -> Self {
+        let cols = genome.nodes.len();
         Ctrnn {
             y: Matrix::zeros(1, cols),
             θ: Matrix::new(
                 1,
                 cols,
-                self.nodes
+                genome
+                    .nodes
                     .iter()
                     .map(|n| if let CTRNode::Bias(b) = n { *b } else { 0. })
                     .collect::<Vec<_>>(),
@@ -290,14 +293,14 @@ impl Genome for CTRGenome {
                 let mut w = vec![0.; cols * cols];
                 for CTRConnection {
                     from, to, weight, ..
-                } in self.connections.iter().filter(|c| c.enabled)
+                } in genome.connections.iter().filter(|c| c.enabled)
                 {
                     w[from * cols + to] = *weight;
                 }
                 Matrix::new(cols, cols, w)
             },
-            sensory: (0, self.sensory),
-            action: (self.sensory, self.sensory + self.action),
+            sensory: (0, genome.sensory),
+            action: (genome.sensory, genome.sensory + genome.action),
         }
     }
 }
@@ -307,6 +310,7 @@ mod test {
     use super::*;
     use crate::{
         assert_f64_approx,
+        network::ToNetwork,
         random::{default_rng, ProbBinding, ProbStatic},
         specie::InnoGen,
     };
@@ -609,7 +613,7 @@ mod test {
             },
         ];
 
-        let nn = genome.network();
+        let nn: Ctrnn = genome.network();
         unsafe {
             for CTRConnection {
                 from, to, weight, ..

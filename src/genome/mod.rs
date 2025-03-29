@@ -4,7 +4,6 @@ pub use recurrent::{CTRConnection, CTRGenome};
 use crate::{
     random::{EvolutionEvent, Happens},
     specie::InnoGen,
-    Network,
 };
 use core::{cmp::Ordering, error::Error, fmt::Debug, hash::Hash};
 use rand::{Rng, RngCore};
@@ -67,7 +66,6 @@ pub trait Connection:
 pub trait Genome: Serialize + for<'de> Deserialize<'de> + Clone {
     type Node: Node = <<Self as Genome>::Connection as Connection>::Node;
     type Connection: Connection;
-    type Network: Network;
 
     /// A new genome of this type, with a known input and output size
     fn new(sensory: usize, action: usize) -> (Self, usize);
@@ -149,8 +147,6 @@ pub trait Genome: Serialize + for<'de> Deserialize<'de> + Clone {
         fitness_cmp: Ordering,
         rng: &mut (impl RngCore + Happens),
     ) -> Self;
-
-    fn network(&self) -> Self::Network;
 
     fn to_string(&self) -> Result<String, Box<dyn Error>> {
         Ok(serde_json::to_string(self)?)
