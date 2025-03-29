@@ -97,8 +97,19 @@ pub trait Genome: Serialize + for<'de> Deserialize<'de> + Clone {
     /// Perform a ( possible? TODO ) mutation across every weight
     fn mutate_params(&mut self, rng: &mut (impl RngCore + Happens));
 
-    /// Generate a new connection
-    fn mutate_connection(&mut self, rng: &mut (impl RngCore + Happens), inno: &mut InnoGen);
+    /// Find some open path ( that is, a path between nodes from -> to )
+    /// that no connection is occupying if any exist
+    fn open_path(&self, rng: &mut (impl RngCore + Happens)) -> Option<(usize, usize)>;
+
+    /// Generate a new connection between unconnected nodes.
+    /// Panics if all possible connections between nodes are saturated
+    fn mutate_connection(&mut self, rng: &mut (impl RngCore + Happens), inno: &mut InnoGen) {
+        if let Some((from, to)) = self.open_path(rng) {
+            self.push_connection(Self::Connection::new(from, to, inno));
+        } else {
+            panic!("connections on genome are fully saturated")
+        }
+    }
 
     /// Bisect an existing connection. Should panic if there are no connections to bisect
     fn mutate_bisection(&mut self, rng: &mut (impl RngCore + Happens), inno: &mut InnoGen) {

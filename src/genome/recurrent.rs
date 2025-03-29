@@ -152,33 +152,6 @@ pub struct CTRGenome {
 
 impl CTRGenome {
     const MUTATE_WEIGHT_FAC: f64 = 0.05;
-
-    /// Given a genome with 0 or more nodes, try to generate a connection between nodes
-    /// a connection should have a unique (from, to) from any other connection on genome,
-    /// and the connection should not describe a node that points to itself
-    fn gen_connection_path(&self, rng: &mut impl RngCore) -> Option<(usize, usize)> {
-        let mut saturated = HashSet::new();
-        loop {
-            let from = (0..self.nodes.len())
-                .filter(|from| !saturated.contains(from))
-                .choose(rng)?;
-
-            let exclude = self
-                .connections
-                .iter()
-                .filter_map(|c| (c.from == from).then_some(c.to))
-                .collect::<HashSet<_>>();
-
-            if let Some(to) = (0..self.nodes.len())
-                .filter(|to| !exclude.contains(to))
-                .choose(rng)
-            {
-                break Some((from, to));
-            }
-
-            saturated.insert(from);
-        }
-    }
 }
 
 impl Genome for CTRGenome {
@@ -236,14 +209,27 @@ impl Genome for CTRGenome {
         }
     }
 
-    // picks an unconnected pair, generates a connection between them, and applies it
-    // fails if no pair can be picked
-    fn mutate_connection(&mut self, rng: &mut (impl RngCore + Happens), inext: &mut InnoGen) {
-        if let Some((from, to)) = self.gen_connection_path(rng) {
-            self.connections
-                .push(Self::Connection::new(from, to, inext));
-        } else {
-            panic!("connections on genome are fully saturated")
+    fn open_path(&self, rng: &mut (impl RngCore + Happens)) -> Option<(usize, usize)> {
+        let mut saturated = HashSet::new();
+        loop {
+            let from = (0..self.nodes.len())
+                .filter(|from| !saturated.contains(from))
+                .choose(rng)?;
+
+            let exclude = self
+                .connections
+                .iter()
+                .filter_map(|c| (c.from == from).then_some(c.to))
+                .collect::<HashSet<_>>();
+
+            if let Some(to) = (0..self.nodes.len())
+                .filter(|to| !exclude.contains(to))
+                .choose(rng)
+            {
+                break Some((from, to));
+            }
+
+            saturated.insert(from);
         }
     }
 
@@ -387,7 +373,7 @@ mod test {
             ],
         };
         for _ in 0..100 {
-            match genome.gen_connection_path(&mut default_rng()) {
+            match genome.open_path(&mut ProbBinding::new(ProbStatic::default(), default_rng())) {
                 Some((0, o)) | Some((o, 0)) => assert_eq!(o, 1),
                 Some(p) => unreachable!("invalid pair {p:?} gen'd"),
                 None => unreachable!("no path gen'd"),
@@ -426,7 +412,10 @@ mod test {
             ],
         };
         for _ in 0..100 {
-            assert_eq!(genome.gen_connection_path(&mut default_rng()), Some((1, 0)));
+            assert_eq!(
+                genome.open_path(&mut ProbBinding::new(ProbStatic::default(), default_rng()),),
+                Some((1, 0))
+            );
         }
     }
 
@@ -445,7 +434,7 @@ mod test {
                     enabled: true,
                 }],
             }
-            .gen_connection_path(&mut default_rng()),
+            .open_path(&mut ProbBinding::new(ProbStatic::default(), default_rng()),),
             None
         );
     }
@@ -475,7 +464,7 @@ mod test {
                     })
                     .collect(),
             }
-            .gen_connection_path(&mut default_rng()),
+            .open_path(&mut ProbBinding::new(ProbStatic::default(), default_rng()),),
             None
         )
     }
