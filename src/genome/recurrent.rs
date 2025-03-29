@@ -73,6 +73,28 @@ impl Connection for CTRConnection {
         self.enabled
     }
 
+    fn bisect(&mut self, center: usize, inno: &mut InnoGen) -> (Self, Self) {
+        self.disable();
+        (
+            // from -{1.}> bisect-node
+            CTRConnection {
+                inno: inno.path((self.from, center)),
+                from: self.from,
+                to: center,
+                weight: 1.,
+                enabled: true,
+            },
+            // bisect-node -{w}> to
+            CTRConnection {
+                inno: inno.path((center, self.to)),
+                from: center,
+                to: self.to,
+                weight: self.weight,
+                enabled: true,
+            },
+        )
+    }
+
     fn param_diff(&self, other: &Self) -> f64 {
         // TODO add other ctrnn specific diffs when we have those fields available
         // theta, bias, weight
@@ -213,36 +235,18 @@ impl Genome for CTRGenome {
 
     // Picks a source connection, bisects it, and applies it
     // picked source connection is marked as disabled
-    fn mutate_bisection(&mut self, rng: &mut (impl RngCore + Happens), inext: &mut InnoGen) {
+    fn mutate_bisection(&mut self, rng: &mut (impl RngCore + Happens), inno: &mut InnoGen) {
         if self.connections().is_empty() {
             panic!("no connections available to bisect");
         }
 
-        let pick_idx = rng.random_range(0..self.connections().len());
-        let new_node_idx = self.nodes().len();
-        let (lower, upper) = {
-            // possibly: would it make sense for a bisection to require a new inno?
-            let pick = self.connections_mut().get_mut(pick_idx).unwrap();
-            pick.disable();
-            (
-                // from -{1.}> bisect-node
-                CTRConnection {
-                    inno: inext.path((pick.from, new_node_idx)),
-                    from: pick.from,
-                    to: new_node_idx,
-                    weight: 1.,
-                    enabled: true,
-                },
-                // bisect-node -{w}> to
-                CTRConnection {
-                    inno: inext.path((new_node_idx, pick.to)),
-                    from: new_node_idx,
-                    to: pick.to,
-                    weight: pick.weight,
-                    enabled: true,
-                },
-            )
-        };
+        let center = self.nodes().len();
+        let connections_range = 0..self.connections().len();
+        let (lower, upper) = self
+            .connections_mut()
+            .get_mut(rng.random_range(connections_range))
+            .unwrap()
+            .bisect(center, inno);
 
         self.push_node(CTRNode::Internal);
         self.push_2_connections(lower, upper);

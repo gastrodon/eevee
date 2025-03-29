@@ -44,6 +44,9 @@ pub trait Connection:
     /// unconditionally disable this connection
     fn disable(&mut self);
 
+    /// bisect this connection; disabling it, and returning the (upper, lower) bisection pair
+    fn bisect(&mut self, center: usize, inno: &mut InnoGen) -> (Self, Self);
+
     /// difference of connection parameters ( for example, weight )
     /// between this and another connection with the same innovation id
     fn param_diff(&self, other: &Self) -> f64;
