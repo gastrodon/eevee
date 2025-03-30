@@ -18,7 +18,7 @@ pub enum NodeKind {
     Sensory,
     Action,
     Internal,
-    Bias,
+    Static,
 }
 
 pub trait Node: Serialize + for<'de> Deserialize<'de> + Clone + Debug {
@@ -29,7 +29,7 @@ pub trait Node: Serialize + for<'de> Deserialize<'de> + Clone + Debug {
     /// - sensory reads input to a network
     /// - action describes output from a network
     /// - internal is a hidden node of a network
-    /// - bias is a hidden node, but unaffected by input
+    /// - static is a hidden node, but unaffected by input, yielding a static value
     fn kind(&self) -> NodeKind;
 
     /// The bias of a node, returning 0. for nodes who can't have bias

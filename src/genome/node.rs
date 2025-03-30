@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 pub enum CTRNode {
     Sensory,
     Action,
-    Bias(f64),
     Internal,
+    Static(f64),
 }
 
 impl Node for CTRNode {
@@ -15,7 +15,7 @@ impl Node for CTRNode {
             NodeKind::Sensory => Self::Sensory,
             NodeKind::Action => Self::Action,
             NodeKind::Internal => Self::Internal,
-            NodeKind::Bias => Self::Bias(1.),
+            NodeKind::Static => Self::Static(1.),
         }
     }
 
@@ -23,14 +23,14 @@ impl Node for CTRNode {
         match self {
             Self::Sensory => NodeKind::Sensory,
             Self::Action => NodeKind::Action,
-            Self::Bias(_) => NodeKind::Bias,
             Self::Internal => NodeKind::Internal,
+            Self::Static(_) => NodeKind::Static,
         }
     }
 
     fn bias(&self) -> f64 {
         match self {
-            Self::Bias(b) => *b,
+            Self::Static(b) => *b,
             _ => 0.,
         }
     }

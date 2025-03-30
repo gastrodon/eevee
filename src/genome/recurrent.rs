@@ -31,7 +31,7 @@ impl Genome for CTRGenome {
         for _ in sensory..sensory + action {
             nodes.push(CTRNode::Action);
         }
-        nodes.push(CTRNode::Bias(1.));
+        nodes.push(CTRNode::Static(1.));
 
         (
             Self {
@@ -118,7 +118,7 @@ impl Genome for CTRGenome {
         for _ in self.sensory..self.sensory + self.action {
             nodes.push(CTRNode::Action);
         }
-        nodes.push(CTRNode::Bias(1.));
+        nodes.push(CTRNode::Static(1.));
         for _ in self.sensory + self.action..nodes_size {
             nodes.push(CTRNode::Internal);
         }
@@ -150,7 +150,7 @@ impl FromGenome<CTRGenome> for Ctrnn {
                 genome
                     .nodes
                     .iter()
-                    .map(|n| if let CTRNode::Bias(b) = n { *b } else { 0. })
+                    .map(|n| if let CTRNode::Static(b) = n { *b } else { 0. })
                     .collect::<Vec<_>>(),
             ),
             τ: Matrix::ones(1, cols),
@@ -190,14 +190,14 @@ mod test {
         assert_eq!(genome.nodes.len(), 6);
         assert!(matches!(genome.nodes[0], CTRNode::Sensory));
         assert!(matches!(genome.nodes[3], CTRNode::Action));
-        assert!(matches!(genome.nodes[5], CTRNode::Bias(_)));
+        assert!(matches!(genome.nodes[5], CTRNode::Static(_)));
 
         let (genome_empty, inno_head) = CTRGenome::new(0, 0);
         assert_eq!(inno_head, 0);
         assert_eq!(genome_empty.sensory, 0);
         assert_eq!(genome_empty.action, 0);
         assert_eq!(genome_empty.nodes.len(), 1);
-        assert!(matches!(genome_empty.nodes[0], CTRNode::Bias(_)));
+        assert!(matches!(genome_empty.nodes[0], CTRNode::Static(_)));
 
         let (genome_only_sensory, inno_head) = CTRGenome::new(3, 0);
         assert_eq!(inno_head, 0);
@@ -206,7 +206,7 @@ mod test {
         assert_eq!(genome_only_sensory.nodes.len(), 4);
         assert!(matches!(genome_only_sensory.nodes[0], CTRNode::Sensory));
         assert!(matches!(genome_only_sensory.nodes[2], CTRNode::Sensory));
-        assert!(matches!(genome_only_sensory.nodes[3], CTRNode::Bias(_)));
+        assert!(matches!(genome_only_sensory.nodes[3], CTRNode::Static(_)));
 
         let (genome_only_action, inno_head) = CTRGenome::new(0, 3);
         assert_eq!(inno_head, 3);
@@ -215,7 +215,7 @@ mod test {
         assert_eq!(genome_only_action.nodes.len(), 4);
         assert!(matches!(genome_only_action.nodes[0], CTRNode::Action));
         assert!(matches!(genome_only_action.nodes[2], CTRNode::Action));
-        assert!(matches!(genome_only_action.nodes[3], CTRNode::Bias(_)));
+        assert!(matches!(genome_only_action.nodes[3], CTRNode::Static(_)));
     }
 
     #[test]
@@ -319,7 +319,7 @@ mod test {
                     CTRNode::Action,
                     CTRNode::Sensory,
                     CTRNode::Sensory,
-                    CTRNode::Bias(1.),
+                    CTRNode::Static(1.),
                 ],
                 connections: (0..5)
                     .flat_map(|from| {
@@ -490,7 +490,11 @@ mod test {
             for (i, node) in genome.nodes.iter().enumerate() {
                 assert_f64_approx!(
                     nn.θ.get_unchecked([0, i]),
-                    if let CTRNode::Bias(b) = node { b } else { &0. }
+                    if let CTRNode::Static(b) = node {
+                        b
+                    } else {
+                        &0.
+                    }
                 )
             }
         }
