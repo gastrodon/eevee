@@ -58,6 +58,21 @@ pub trait Network: Serialize + for<'de> Deserialize<'de> {
     }
 }
 
+/// A network propagating non-linearly, where propagation through
+/// recurrent connections is computed and invalid
+pub trait Recurrent: Network {}
+
+/// A network propagating linearly, where propagation through
+/// recurrent connections won't be computed and may be invalid
+pub trait Linear: Network {}
+
+/// A network that retains state between calls to step,
+/// where that state may interact with new input, or change output
+pub trait Stateful: Network {}
+
+/// A network that doesn't retain state between calls to step
+pub trait Stateless: Network {}
+
 pub trait FromGenome<G: Genome>: Network {
     fn from_genome(genome: &G) -> Self;
 }

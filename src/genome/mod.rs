@@ -1,5 +1,9 @@
+pub mod connection;
+pub mod node;
 pub mod recurrent;
-pub use recurrent::{CTRConnection, CTRGenome};
+
+pub use connection::CTRConnection;
+pub use recurrent::CTRGenome;
 
 use crate::{
     random::{EvolutionEvent, Happens},
