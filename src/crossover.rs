@@ -254,7 +254,7 @@ mod test {
     use super::*;
     use crate::{
         assert_f64_approx, assert_some_normalized,
-        genome::CTRConnection,
+        genome::{connection::BWConnection, WConnection},
         new_t,
         random::{default_rng, ProbBinding, ProbStatic},
         test_t,
@@ -262,7 +262,7 @@ mod test {
     use std::collections::{HashMap, HashSet};
 
     test_t!(
-    test_avg_param_diff[T: CTRConnection]() {
+    test_avg_param_diff[T: WConnection]() {
         let diff = avg_param_diff(
             &[
                 new_t!(inno = 1, weight = 0.5,),
@@ -279,7 +279,26 @@ mod test {
     });
 
     test_t!(
-    test_avg_param_diff_empty[T: CTRConnection]() {
+    test_avg_param_diff[T: BWConnection]() {
+        let diff = avg_param_diff(
+            &[
+                new_t!(inno = 1, weight = 0.5, bias = 1.),
+                new_t!(inno = 2, weight = -0.5,),
+                new_t!(inno = 3, weight = 1.0,),
+            ],
+            &[
+                new_t!(inno = 1, weight = 0.0, bias = 0.),
+                new_t!(inno = 2, weight = -1.0,),
+                new_t!(inno = 4, weight = 2.0,),
+            ],
+        );
+        let diff_w = 0.5;
+        let diff_b = 1. / 2.;
+        assert_f64_approx!(diff, diff_w + diff_b, "diff ne: {diff}, 0.5");
+    });
+
+    test_t!(
+    test_avg_param_diff_empty[T: WConnection | BWConnection ]() {
         let full = vec![
             new_t!(inno = 1, weight = 0.0,),
             new_t!(inno = 2, weight = -1.0,),
@@ -292,12 +311,12 @@ mod test {
         let diff = avg_param_diff(&[], &full);
         assert_f64_approx!(diff, 0.0, "diff ne: {diff}, 0.");
 
-        let diff = avg_param_diff::<CTRConnection>(&[], &[]);
+        let diff = avg_param_diff::<WConnection>(&[], &[]);
         assert_f64_approx!(diff, 0.0, "diff ne: {diff}, 0.");
     });
 
     test_t!(
-    test_avg_param_diff_no_overlap[T: CTRConnection]() {
+    test_avg_param_diff_no_overlap[T: WConnection | BWConnection]() {
         let diff = avg_param_diff(
             &[
                 new_t!(inno = 1, weight = 0.5,),
@@ -313,7 +332,7 @@ mod test {
     });
 
     test_t!(
-    test_avg_param_diff_no_diff[T: CTRConnection]() {
+    test_avg_param_diff_no_diff[T: WConnection | BWConnection]() {
         let diff = avg_param_diff(
             &[
                 new_t!(inno = 1, weight = 0.5,),
@@ -330,7 +349,7 @@ mod test {
     });
 
     test_t!(
-    test_disjoint_excess_count[T: CTRConnection]() {
+    test_disjoint_excess_count[T: WConnection | BWConnection]() {
         assert_eq!(
             (4.0, 2.0),
             disjoint_excess_count(
@@ -351,7 +370,7 @@ mod test {
     });
 
     test_t!(
-    test_disjoint_excess_count_symmetrical[T: CTRConnection]() {
+    test_disjoint_excess_count_symmetrical[T: WConnection | BWConnection]() {
         let l = vec![
             new_t!(inno = 1),
             new_t!(inno = 2),
@@ -368,15 +387,15 @@ mod test {
     });
 
     test_t!(
-    test_disjoint_excess_count_empty[T: CTRConnection]() {
+    test_disjoint_excess_count_empty[T: WConnection | BWConnection]() {
         let full = vec![new_t!(inno = 1), new_t!(inno = 2)];
         assert_eq!((0.0, 2.0), disjoint_excess_count(&full, &[]));
         assert_eq!((0.0, 2.0), disjoint_excess_count(&[], &full));
-        assert_eq!((0.0, 0.0), disjoint_excess_count::<CTRConnection>(&[], &[]));
+        assert_eq!((0.0, 0.0), disjoint_excess_count::<WConnection>(&[], &[]));
     });
 
     test_t!(
-    test_disjoint_excess_count_hanging_l[T: CTRConnection]() {
+    test_disjoint_excess_count_hanging_l[T: WConnection | BWConnection]() {
         assert_eq!(
             (0.0, 1.0),
             disjoint_excess_count(
@@ -391,7 +410,7 @@ mod test {
     });
 
     test_t!(
-    test_disjoint_excess_count_no_overlap[T: CTRConnection]() {
+    test_disjoint_excess_count_no_overlap[T: WConnection | BWConnection]() {
         assert_eq!(
             (2.0, 2.0),
             disjoint_excess_count(
@@ -402,7 +421,7 @@ mod test {
     });
 
     test_t!(
-    test_disjoint_excess_count_short_larger_inno[T: CTRConnection]() {
+    test_disjoint_excess_count_short_larger_inno[T: WConnection | BWConnection]() {
         assert_eq!(
             (3.0, 1.0),
             disjoint_excess_count(
@@ -453,7 +472,7 @@ mod test {
     }
 
     test_t!(
-    test_crossover_eq[T: CTRConnection]() {
+    test_crossover_eq[T: WConnection | BWConnection]() {
         let l = [
             new_t!(inno = 0, from = 1_1),
             new_t!(inno = 1, from = 1_2),
@@ -469,7 +488,7 @@ mod test {
     });
 
     test_t!(
-    test_crossover_eq_empty[T: CTRConnection]() {
+    test_crossover_eq_empty[T: WConnection | BWConnection]() {
         let l = [new_t!(inno = 2, from = 1)];
 
         assert_crossover_eq(&l, &[]);
@@ -477,7 +496,7 @@ mod test {
     });
 
     test_t!(
-    test_crossover_eq_overflow[T: CTRConnection]() {
+    test_crossover_eq_overflow[T: WConnection | BWConnection]() {
         let l = [new_t!(inno = 0, from = 1_1)];
         let r = [new_t!(inno = 1, from = 2_1)];
 
@@ -491,7 +510,7 @@ mod test {
 
     test_t!(
     #[should_panic(expected = "not from r_0")]
-    test_crossover_eq_catchup_l[T: CTRConnection]() {
+    test_crossover_eq_catchup_l[T: WConnection | BWConnection]() {
         let l = [
             new_t!(inno = 0, from = 1_1),
             new_t!(inno = 1, from = 1_2),
@@ -508,7 +527,7 @@ mod test {
 
     test_t!(
     #[should_panic(expected = "not from l_0")]
-    test_crossover_eq_catchup_r[T: CTRConnection]() {
+    test_crossover_eq_catchup_r[T: WConnection | BWConnection]() {
         let l = [new_t!(inno = 1, from = 2_1)];
         let r = [
             new_t!(inno = 0, from = 1_1),
@@ -525,7 +544,7 @@ mod test {
 
     test_t!(
     #[should_panic(expected = "not from l_1")]
-    test_crossover_eq_both_step_l[T: CTRConnection]() {
+    test_crossover_eq_both_step_l[T: WConnection | BWConnection]() {
         let l = [
             new_t!(inno = 0, from = 1_1),
             new_t!(inno = 1, from = 1_2),
@@ -545,7 +564,7 @@ mod test {
 
     test_t!(
     #[should_panic(expected = "not from r_1")]
-    test_crossover_eq_both_step_r[T: CTRConnection]() {
+    test_crossover_eq_both_step_r[T: WConnection | BWConnection]() {
         let l = [
             new_t!(inno = 0, from = 1_1),
             new_t!(inno = 1, from = 1_2),
@@ -600,7 +619,7 @@ mod test {
     }
 
     test_t!(
-    test_crossover_ne[T: CTRConnection]() {
+    test_crossover_ne[T: WConnection | BWConnection]() {
         let l = [
             new_t!(inno = 0, from = 1_1),
             new_t!(inno = 1, from = 1_2),
@@ -619,7 +638,7 @@ mod test {
     });
 
     test_t!(
-    test_crossover_ne_empty[T: CTRConnection]() {
+    test_crossover_ne_empty[T: WConnection | BWConnection]() {
         let l = [new_t!(inno = 0, from = 1_1)];
 
         assert_crossover_ne(&l, &[]);
@@ -627,7 +646,7 @@ mod test {
     });
 
     test_t!(
-    test_crossover_ne_no_overlap[T: CTRConnection]() {
+    test_crossover_ne_no_overlap[T: WConnection | BWConnection]() {
         let l = [
             new_t!(inno = 1, from = 1_1),
             new_t!(inno = 3, from = 1_2),
@@ -643,7 +662,7 @@ mod test {
     });
 
     test_t!(
-    test_crossover_ne_full_overlap[T: CTRConnection]() {
+    test_crossover_ne_full_overlap[T: WConnection | BWConnection]() {
         let l = [
             new_t!(inno = 1, from = 1_1),
             new_t!(inno = 2, from = 1_2),
@@ -659,7 +678,7 @@ mod test {
     });
 
     test_t!(
-    test_crossover_ne_overflow[T: CTRConnection]() {
+    test_crossover_ne_overflow[T: WConnection | BWConnection]() {
         let l = [new_t!(inno = 10, from = 1_1)];
         let r = [
             new_t!(inno = 1, from = 2_1),
@@ -670,7 +689,7 @@ mod test {
     });
 
     test_t!(
-    test_crossover_ne_no_lt[T: CTRConnection]() {
+    test_crossover_ne_no_lt[T: WConnection | BWConnection]() {
         let l = [new_t!(inno = 0, from = 1_1)];
         let r = [new_t!(inno = 10, from = 2_1)];
 
@@ -678,7 +697,7 @@ mod test {
     });
 
     test_t!(
-    test_crossover_lt[T: CTRConnection]() {
+    test_crossover_lt[T: WConnection | BWConnection]() {
         let l = [
             new_t!(inno = 0, from = 1_1),
             new_t!(inno = 1, from = 1_2),

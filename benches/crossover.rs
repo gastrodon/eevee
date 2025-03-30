@@ -1,6 +1,6 @@
 use brain::{
     crossover::crossover,
-    genome::CTRConnection,
+    genome::WConnection,
     random::{default_rng, ProbBinding, ProbStatic},
 };
 use core::cmp::Ordering;
@@ -8,10 +8,10 @@ use criterion::Criterion;
 
 fn bench_crossover(bench: &mut Criterion) {
     let l_conn =
-        serde_json::from_str::<Vec<CTRConnection>>(include_str!("data/ctr-connection-rand-l.json"))
+        serde_json::from_str::<Vec<WConnection>>(include_str!("data/ctr-connection-rand-l.json"))
             .unwrap();
     let r_conn =
-        serde_json::from_str::<Vec<CTRConnection>>(include_str!("data/ctr-connection-rand-r.json"))
+        serde_json::from_str::<Vec<WConnection>>(include_str!("data/ctr-connection-rand-r.json"))
             .unwrap();
 
     let mut rng = ProbBinding::new(ProbStatic::default(), default_rng());

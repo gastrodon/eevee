@@ -1,6 +1,6 @@
 use brain::{
     crossover::{avg_param_diff, disjoint_excess_count},
-    genome::{CTRConnection, CTRGenome},
+    genome::{WConnection, CTRGenome},
     specie::speciate,
 };
 use core::iter::empty;
@@ -8,10 +8,10 @@ use criterion::Criterion;
 
 fn bench_distance(bench: &mut Criterion) {
     let l_conn =
-        serde_json::from_str::<Vec<CTRConnection>>(include_str!("data/ctr-connection-rand-l.json"))
+        serde_json::from_str::<Vec<WConnection>>(include_str!("data/ctr-connection-rand-l.json"))
             .unwrap();
     let r_conn =
-        serde_json::from_str::<Vec<CTRConnection>>(include_str!("data/ctr-connection-rand-r.json"))
+        serde_json::from_str::<Vec<WConnection>>(include_str!("data/ctr-connection-rand-r.json"))
             .unwrap();
 
     bench.bench_function("disjoint-excess-count", |b| {

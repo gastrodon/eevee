@@ -1,5 +1,5 @@
 /// A genome describing a Continuous Time Recurrent Neural Network (CTRNN)
-use super::{node::CTRNode, CTRConnection, Genome};
+use super::{node::CTRNode, Genome, WConnection};
 use crate::{crossover::crossover, network::FromGenome, Ctrnn, Happens};
 use core::cmp::{max, Ordering};
 use rand::{seq::IteratorRandom, Rng, RngCore};
@@ -13,7 +13,7 @@ pub struct CTRGenome {
     sensory: usize,
     action: usize,
     nodes: Vec<CTRNode>,
-    connections: Vec<CTRConnection>,
+    connections: Vec<WConnection>,
 }
 
 impl CTRGenome {
@@ -21,7 +21,7 @@ impl CTRGenome {
 }
 
 impl Genome for CTRGenome {
-    type Connection = CTRConnection;
+    type Connection = WConnection;
 
     fn new(sensory: usize, action: usize) -> (Self, usize) {
         let mut nodes = Vec::with_capacity(sensory + action + 1);
@@ -107,7 +107,7 @@ impl Genome for CTRGenome {
         let connections = crossover(&self.connections, &other.connections, self_fit, rng);
         let nodes_size = connections
             .iter()
-            .fold(0, |prev, CTRConnection { from, to, .. }| {
+            .fold(0, |prev, WConnection { from, to, .. }| {
                 max(prev, max(*from, *to))
             });
 
@@ -156,7 +156,7 @@ impl FromGenome<CTRGenome> for Ctrnn {
             τ: Matrix::ones(1, cols),
             w: {
                 let mut w = vec![0.; cols * cols];
-                for CTRConnection {
+                for WConnection {
                     from, to, weight, ..
                 } in genome.connections.iter().filter(|c| c.enabled)
                 {
@@ -225,14 +225,14 @@ mod test {
             action: 1,
             nodes: vec![CTRNode::Sensory, CTRNode::Action],
             connections: vec![
-                CTRConnection {
+                WConnection {
                     inno: 0,
                     from: 0,
                     to: 0,
                     weight: 0.,
                     enabled: true,
                 },
-                CTRConnection {
+                WConnection {
                     inno: 1,
                     from: 1,
                     to: 1,
@@ -257,21 +257,21 @@ mod test {
             action: 1,
             nodes: vec![CTRNode::Sensory, CTRNode::Action],
             connections: vec![
-                CTRConnection {
+                WConnection {
                     inno: 0,
                     from: 0,
                     to: 0,
                     weight: 1.,
                     enabled: true,
                 },
-                CTRConnection {
+                WConnection {
                     inno: 1,
                     from: 0,
                     to: 1,
                     weight: 1.,
                     enabled: true,
                 },
-                CTRConnection {
+                WConnection {
                     inno: 2,
                     from: 1,
                     to: 1,
@@ -295,7 +295,7 @@ mod test {
                 sensory: 0,
                 action: 0,
                 nodes: vec![],
-                connections: vec![CTRConnection {
+                connections: vec![WConnection {
                     inno: 0,
                     from: 0,
                     to: 1,
@@ -323,7 +323,7 @@ mod test {
                 ],
                 connections: (0..5)
                     .flat_map(|from| {
-                        (0..5).map(move |to| CTRConnection {
+                        (0..5).map(move |to| WConnection {
                             inno: 0,
                             from,
                             to,
@@ -343,14 +343,14 @@ mod test {
         let (mut genome, _) = CTRGenome::new(4, 4);
         let mut inext = InnoGen::new(0);
         genome.connections = vec![
-            CTRConnection {
+            WConnection {
                 inno: inext.path((0, 1)),
                 from: 0,
                 to: 1,
                 weight: 0.5,
                 enabled: true,
             },
-            CTRConnection {
+            WConnection {
                 inno: inext.path((1, 2)),
                 from: 1,
                 to: 2,
@@ -379,7 +379,7 @@ mod test {
     #[test]
     fn test_mutate_bisection() {
         let (mut genome, _) = CTRGenome::new(0, 1);
-        genome.connections = vec![CTRConnection {
+        genome.connections = vec![WConnection {
             inno: 0,
             from: 0,
             to: 1,
@@ -455,21 +455,21 @@ mod test {
     fn test_ctrgenome_network() {
         let (mut genome, _) = CTRGenome::new(2, 2);
         genome.connections = vec![
-            CTRConnection {
+            WConnection {
                 inno: 0,
                 from: 0,
                 to: 3,
                 weight: 0.5,
                 enabled: true,
             },
-            CTRConnection {
+            WConnection {
                 inno: 1,
                 from: 0,
                 to: 1,
                 weight: -1.,
                 enabled: true,
             },
-            CTRConnection {
+            WConnection {
                 inno: 2,
                 from: 0,
                 to: 1,
@@ -480,7 +480,7 @@ mod test {
 
         let nn: Ctrnn = genome.network();
         unsafe {
-            for CTRConnection {
+            for WConnection {
                 from, to, weight, ..
             } in genome.connections.iter().filter(|c| c.enabled)
             {

@@ -2,7 +2,7 @@ pub mod connection;
 pub mod node;
 pub mod recurrent;
 
-pub use connection::CTRConnection;
+pub use connection::WConnection;
 pub use recurrent::CTRGenome;
 
 use crate::{
