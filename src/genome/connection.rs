@@ -49,7 +49,7 @@ impl Connection for CTRConnection {
         self.disable();
         (
             // from -{1.}> bisect-node
-            CTRConnection {
+            Self {
                 inno: inno.path((self.from, center)),
                 from: self.from,
                 to: center,
@@ -57,7 +57,7 @@ impl Connection for CTRConnection {
                 enabled: true,
             },
             // bisect-node -{w}> to
-            CTRConnection {
+            Self {
                 inno: inno.path((center, self.to)),
                 from: center,
                 to: self.to,
