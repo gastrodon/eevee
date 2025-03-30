@@ -1,4 +1,4 @@
-use super::{node::CTRNode, Connection};
+use super::{node::NonBNode, Connection};
 use crate::specie::InnoGen;
 use serde::{Deserialize, Serialize};
 use std::hash::Hash;
@@ -17,7 +17,7 @@ impl Connection for WConnection {
     const DISJOINT_COEFFICIENT: f64 = 1.0;
     const PARAM_COEFFICIENT: f64 = 0.4;
 
-    type Node = CTRNode;
+    type Node = NonBNode;
 
     fn new(from: usize, to: usize, inno: &mut InnoGen) -> Self {
         Self {
@@ -110,7 +110,7 @@ impl Connection for BWConnection {
     const DISJOINT_COEFFICIENT: f64 = 1.0;
     const PARAM_COEFFICIENT: f64 = 0.4;
 
-    type Node = CTRNode;
+    type Node = NonBNode;
 
     fn new(from: usize, to: usize, inno: &mut InnoGen) -> Self {
         Self {

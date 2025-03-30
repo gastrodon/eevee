@@ -1,5 +1,5 @@
 /// A genome describing a Continuous Time Recurrent Neural Network (CTRNN)
-use super::{node::CTRNode, Genome, WConnection};
+use super::{node::NonBNode, Genome, WConnection};
 use crate::{crossover::crossover, network::FromGenome, Ctrnn, Happens};
 use core::cmp::{max, Ordering};
 use rand::{seq::IteratorRandom, Rng, RngCore};
@@ -12,7 +12,7 @@ use std::collections::HashSet;
 pub struct CTRGenome {
     sensory: usize,
     action: usize,
-    nodes: Vec<CTRNode>,
+    nodes: Vec<NonBNode>,
     connections: Vec<WConnection>,
 }
 
@@ -26,12 +26,12 @@ impl Genome for CTRGenome {
     fn new(sensory: usize, action: usize) -> (Self, usize) {
         let mut nodes = Vec::with_capacity(sensory + action + 1);
         for _ in 0..sensory {
-            nodes.push(CTRNode::Sensory);
+            nodes.push(NonBNode::Sensory);
         }
         for _ in sensory..sensory + action {
-            nodes.push(CTRNode::Action);
+            nodes.push(NonBNode::Action);
         }
-        nodes.push(CTRNode::Static(1.));
+        nodes.push(NonBNode::Static(1.));
 
         (
             Self {
@@ -113,14 +113,14 @@ impl Genome for CTRGenome {
 
         let mut nodes = Vec::with_capacity(self.sensory + self.action + 1);
         for _ in 0..self.sensory {
-            nodes.push(CTRNode::Sensory);
+            nodes.push(NonBNode::Sensory);
         }
         for _ in self.sensory..self.sensory + self.action {
-            nodes.push(CTRNode::Action);
+            nodes.push(NonBNode::Action);
         }
-        nodes.push(CTRNode::Static(1.));
+        nodes.push(NonBNode::Static(1.));
         for _ in self.sensory + self.action..nodes_size {
-            nodes.push(CTRNode::Internal);
+            nodes.push(NonBNode::Internal);
         }
 
         debug_assert!(
@@ -150,7 +150,7 @@ impl FromGenome<CTRGenome> for Ctrnn {
                 genome
                     .nodes
                     .iter()
-                    .map(|n| if let CTRNode::Static(b) = n { *b } else { 0. })
+                    .map(|n| if let NonBNode::Static(b) = n { *b } else { 0. })
                     .collect::<Vec<_>>(),
             ),
             τ: Matrix::ones(1, cols),
@@ -188,34 +188,34 @@ mod test {
         assert_eq!(genome.sensory, 3);
         assert_eq!(genome.action, 2);
         assert_eq!(genome.nodes.len(), 6);
-        assert!(matches!(genome.nodes[0], CTRNode::Sensory));
-        assert!(matches!(genome.nodes[3], CTRNode::Action));
-        assert!(matches!(genome.nodes[5], CTRNode::Static(_)));
+        assert!(matches!(genome.nodes[0], NonBNode::Sensory));
+        assert!(matches!(genome.nodes[3], NonBNode::Action));
+        assert!(matches!(genome.nodes[5], NonBNode::Static(_)));
 
         let (genome_empty, inno_head) = CTRGenome::new(0, 0);
         assert_eq!(inno_head, 0);
         assert_eq!(genome_empty.sensory, 0);
         assert_eq!(genome_empty.action, 0);
         assert_eq!(genome_empty.nodes.len(), 1);
-        assert!(matches!(genome_empty.nodes[0], CTRNode::Static(_)));
+        assert!(matches!(genome_empty.nodes[0], NonBNode::Static(_)));
 
         let (genome_only_sensory, inno_head) = CTRGenome::new(3, 0);
         assert_eq!(inno_head, 0);
         assert_eq!(genome_only_sensory.sensory, 3);
         assert_eq!(genome_only_sensory.action, 0);
         assert_eq!(genome_only_sensory.nodes.len(), 4);
-        assert!(matches!(genome_only_sensory.nodes[0], CTRNode::Sensory));
-        assert!(matches!(genome_only_sensory.nodes[2], CTRNode::Sensory));
-        assert!(matches!(genome_only_sensory.nodes[3], CTRNode::Static(_)));
+        assert!(matches!(genome_only_sensory.nodes[0], NonBNode::Sensory));
+        assert!(matches!(genome_only_sensory.nodes[2], NonBNode::Sensory));
+        assert!(matches!(genome_only_sensory.nodes[3], NonBNode::Static(_)));
 
         let (genome_only_action, inno_head) = CTRGenome::new(0, 3);
         assert_eq!(inno_head, 3);
         assert_eq!(genome_only_action.sensory, 0);
         assert_eq!(genome_only_action.action, 3);
         assert_eq!(genome_only_action.nodes.len(), 4);
-        assert!(matches!(genome_only_action.nodes[0], CTRNode::Action));
-        assert!(matches!(genome_only_action.nodes[2], CTRNode::Action));
-        assert!(matches!(genome_only_action.nodes[3], CTRNode::Static(_)));
+        assert!(matches!(genome_only_action.nodes[0], NonBNode::Action));
+        assert!(matches!(genome_only_action.nodes[2], NonBNode::Action));
+        assert!(matches!(genome_only_action.nodes[3], NonBNode::Static(_)));
     }
 
     #[test]
@@ -223,7 +223,7 @@ mod test {
         let genome = CTRGenome {
             sensory: 1,
             action: 1,
-            nodes: vec![CTRNode::Sensory, CTRNode::Action],
+            nodes: vec![NonBNode::Sensory, NonBNode::Action],
             connections: vec![
                 WConnection {
                     inno: 0,
@@ -255,7 +255,7 @@ mod test {
         let genome = CTRGenome {
             sensory: 1,
             action: 1,
-            nodes: vec![CTRNode::Sensory, CTRNode::Action],
+            nodes: vec![NonBNode::Sensory, NonBNode::Action],
             connections: vec![
                 WConnection {
                     inno: 0,
@@ -315,11 +315,11 @@ mod test {
                 sensory: 2,
                 action: 2,
                 nodes: vec![
-                    CTRNode::Action,
-                    CTRNode::Action,
-                    CTRNode::Sensory,
-                    CTRNode::Sensory,
-                    CTRNode::Static(1.),
+                    NonBNode::Action,
+                    NonBNode::Action,
+                    NonBNode::Sensory,
+                    NonBNode::Sensory,
+                    NonBNode::Static(1.),
                 ],
                 connections: (0..5)
                     .flat_map(|from| {
@@ -490,7 +490,7 @@ mod test {
             for (i, node) in genome.nodes.iter().enumerate() {
                 assert_f64_approx!(
                     nn.θ.get_unchecked([0, i]),
-                    if let CTRNode::Static(b) = node {
+                    if let NonBNode::Static(b) = node {
                         b
                     } else {
                         &0.
@@ -503,13 +503,13 @@ mod test {
             assert!(genome
                 .nodes
                 .get(i)
-                .is_some_and(|n| matches!(n, CTRNode::Sensory)))
+                .is_some_and(|n| matches!(n, NonBNode::Sensory)))
         }
         for i in nn.action.0..nn.action.1 {
             assert!(genome
                 .nodes
                 .get(i)
-                .is_some_and(|n| matches!(n, CTRNode::Action)))
+                .is_some_and(|n| matches!(n, NonBNode::Action)))
         }
     }
 }

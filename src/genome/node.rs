@@ -2,14 +2,34 @@ use super::{Node, NodeKind};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum CTRNode {
+pub struct BNode {
+    bias: f64,
+    kind: NodeKind,
+}
+
+impl Node for BNode {
+    fn new(kind: NodeKind) -> Self {
+        Self { bias: 0., kind }
+    }
+
+    fn kind(&self) -> NodeKind {
+        self.kind
+    }
+
+    fn bias(&self) -> f64 {
+        self.bias
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum NonBNode {
     Sensory,
     Action,
     Internal,
     Static(f64),
 }
 
-impl Node for CTRNode {
+impl Node for NonBNode {
     fn new(kind: NodeKind) -> Self {
         match kind {
             NodeKind::Sensory => Self::Sensory,

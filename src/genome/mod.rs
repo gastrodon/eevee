@@ -14,6 +14,7 @@ use rand::{Rng, RngCore};
 use serde::{Deserialize, Serialize};
 use std::{fs, path::Path};
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum NodeKind {
     Sensory,
     Action,
