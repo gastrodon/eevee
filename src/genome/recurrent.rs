@@ -78,12 +78,6 @@ impl<N: Node, C: Connection<N>> Genome<N, C> for CTRGenome<N, C> {
     fn mutate_params(&mut self, rng: &mut (impl RngCore + Happens)) {
         for conn in self.connections.iter_mut() {
             conn.mutate_params(rng);
-            // TODO
-            // if rng.random_ratio(1, 10) {
-            //     conn.weight = rng.sample(StandardNormal);
-            // } else {
-            //     conn.weight += Self::MUTATE_WEIGHT_FAC * rng.sample::<f64, _>(StandardNormal)
-            // }
         }
     }
 
@@ -164,7 +158,7 @@ impl<N: Node, C: Connection<N>> FromGenome<N, C, CTRGenome<N, C>> for Ctrnn {
             w: {
                 let mut w = vec![0.; cols * cols];
                 for c in genome.connections.iter().filter(|c| c.enabled()) {
-                    w[c.from() * cols + c.to()] = todo!("a way to get connection weight");
+                    w[c.from() * cols + c.to()] = c.weight();
                 }
                 Matrix::new(cols, cols, w)
             },
@@ -328,7 +322,7 @@ mod test {
         let tail = genome.connections().last().unwrap();
         assert!(!before.connections().iter().any(|c| c.inno() == tail.inno()));
         assert!(!before.connections().iter().any(|c| c.path() == tail.path()));
-        assert_eq!(tail.weight, 1.);
+        assert_eq!(tail.weight(), 1.);
     }
 
     #[test]
@@ -356,7 +350,7 @@ mod test {
 
         assert_eq!(connections[1].from(), 0);
         assert_eq!(connections[1].to(), 2);
-        assert_eq!(connections[1].weight, 1.0);
+        assert_eq!(connections[1].weight(), 1.0);
         assert!(connections[1].enabled);
         assert_eq!(
             genome.connections[1].inno,
@@ -365,7 +359,11 @@ mod test {
 
         assert_eq!(genome.connections[2].from(), 2);
         assert_eq!(genome.connections[2].to(), 1);
-        assert_eq!(genome.connections[2].weight, 0.5);
+        assert_eq!(genome.connections[1].weight(), 1.);
+        assert_eq!(
+            genome.connections[2].weight(),
+            genome.connections[0].weight()
+        );
         assert!(genome.connections[2].enabled);
         assert_eq!(
             genome.connections[2].inno,

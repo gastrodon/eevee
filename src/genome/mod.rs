@@ -69,6 +69,8 @@ pub trait Connection<N: Node>:
         self.path().0
     }
 
+    fn weight(&self) -> f64;
+
     /// path destination
     fn to(&self) -> usize {
         self.path().1

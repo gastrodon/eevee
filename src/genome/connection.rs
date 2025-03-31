@@ -1,5 +1,7 @@
 use super::{Connection, Node};
-use crate::specie::InnoGen;
+use crate::{random::EvolutionEvent, specie::InnoGen, Happens};
+use rand::{Rng, RngCore};
+use rand_distr::StandardNormal;
 use serde::{Deserialize, Serialize};
 use std::{hash::Hash, marker::PhantomData};
 
@@ -11,6 +13,10 @@ pub struct WConnection<N: Node> {
     pub weight: f64,
     pub enabled: bool,
     _phantom: PhantomData<N>,
+}
+
+impl<N: Node> WConnection<N> {
+    const MUTATE_WEIGHT_FAC: f64 = 0.05;
 }
 
 impl<N: Node> Connection<N> for WConnection<N> {
@@ -49,8 +55,16 @@ impl<N: Node> Connection<N> for WConnection<N> {
         (self.from, self.to)
     }
 
-    fn mutate_params(&mut self, rng: &mut (impl rand::RngCore + crate::Happens)) {
-        todo!()
+    fn weight(&self) -> f64 {
+        self.weight
+    }
+
+    fn mutate_params(&mut self, rng: &mut (impl RngCore + Happens)) {
+        if rng.happens(EvolutionEvent::NewWeight) {
+            self.weight = rng.sample(StandardNormal);
+        } else if rng.happens(EvolutionEvent::PerturbWeight) {
+            self.weight += Self::MUTATE_WEIGHT_FAC * rng.sample::<f64, _>(StandardNormal)
+        }
     }
 
     fn bisect(&mut self, center: usize, inno: &mut InnoGen) -> (Self, Self) {
@@ -117,6 +131,10 @@ pub struct BWConnection<N: Node> {
     _phantom: PhantomData<N>,
 }
 
+impl<N: Node> BWConnection<N> {
+    const MUTATE_WEIGHT_FAC: f64 = 0.05;
+}
+
 impl<N: Node> Connection<N> for BWConnection<N> {
     const EXCESS_COEFFICIENT: f64 = 1.0;
     const DISJOINT_COEFFICIENT: f64 = 1.0;
@@ -154,8 +172,16 @@ impl<N: Node> Connection<N> for BWConnection<N> {
         (self.from, self.to)
     }
 
-    fn mutate_params(&mut self, rng: &mut (impl rand::RngCore + crate::Happens)) {
-        todo!()
+    fn weight(&self) -> f64 {
+        self.weight
+    }
+
+    fn mutate_params(&mut self, rng: &mut (impl RngCore + Happens)) {
+        if rng.happens(EvolutionEvent::NewWeight) {
+            self.weight = rng.sample(StandardNormal);
+        } else if rng.happens(EvolutionEvent::PerturbWeight) {
+            self.weight += Self::MUTATE_WEIGHT_FAC * rng.sample::<f64, _>(StandardNormal)
+        }
     }
 
     fn bisect(&mut self, center: usize, inno: &mut InnoGen) -> (Self, Self) {
