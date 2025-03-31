@@ -88,7 +88,8 @@ pub trait Scenario<
 pub fn evolve<
     N: Node,
     C: Connection<N>,
-    G: Genome<N, C>,
+    #[cfg(not(feature = "parallel"))] G: Genome,
+    #[cfg(feature = "parallel")] G: Genome<N, C> + Send,
     H: RngCore + Probabilities + Happens,
     I: FnOnce((usize, usize)) -> (Vec<Specie<N, C, G>>, usize),
     #[cfg(not(feature = "parallel"))] A: Fn(f64) -> f64,
