@@ -129,12 +129,14 @@ fn hook<
 >(
     stats: &mut Stats<'_, G, H>,
 ) -> ControlFlow<()> {
-    if stats.generation % 10 == 1 {
-        let (_, f) = stats.fittest().unwrap();
-        println!("fittest of gen {}: {:.4}", stats.generation, f);
-    }
+    let fittest = stats.fittest().unwrap();
+    println!("fittest of gen {}: {:.4}", stats.generation, fittest.1);
 
     if stats.generation == 100 {
+        fittest
+            .0
+            .to_file(format!("output/sentiment-{}.json", stats.generation))
+            .unwrap();
         ControlFlow::Break(())
     } else {
         ControlFlow::Continue(())
