@@ -11,6 +11,7 @@ RUN cat Cargo.toml
 
 ARG TARGET
 ARG BUILD_OPT="-r"
+RUN rustup default nightly
 RUN cargo build ${BUILD_OPT} --example ${TARGET}
 
 FROM alpine:latest
