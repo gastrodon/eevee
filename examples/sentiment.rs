@@ -92,7 +92,6 @@ impl<G: Genome, H: RngCore + Probabilities + Happens, A: Fn(f64) -> f64> Scenari
                         .iter()
                         .map(|s| (s, chunked(self.chunk_size, s), SentimentKind::Negative)),
                 )
-                .take(1)
             {
                 mixed.push(p);
             }
@@ -103,7 +102,6 @@ impl<G: Genome, H: RngCore + Probabilities + Happens, A: Fn(f64) -> f64> Scenari
         let mut network = genome.network();
         let fit = inputs
             .into_iter()
-            .take(10)
             .map(|(_, input, kind)| {
                 for chunk in input {
                     network.step(5, &chunk, σ);
