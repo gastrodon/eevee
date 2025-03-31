@@ -1,3 +1,6 @@
+/genome
 /target
-flamegraph.svg
+.deps/*
+flamegraph*.svg
 perf.data*
+output/*

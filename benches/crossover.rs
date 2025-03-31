@@ -1,12 +1,12 @@
 use brain::{
-    crossover::{avg_param_diff, disjoint_excess_count},
-    genome::{CTRConnection, CTRGenome},
-    specie::speciate,
+    crossover::crossover,
+    genome::CTRConnection,
+    random::{default_rng, ProbBinding, ProbStatic},
 };
-use core::iter::empty;
+use core::cmp::Ordering;
 use criterion::Criterion;
 
-fn bench_distance(bench: &mut Criterion) {
+fn bench_crossover(bench: &mut Criterion) {
     let l_conn =
         serde_json::from_str::<Vec<CTRConnection>>(include_str!("data/ctr-connection-rand-l.json"))
             .unwrap();
@@ -14,21 +14,13 @@ fn bench_distance(bench: &mut Criterion) {
         serde_json::from_str::<Vec<CTRConnection>>(include_str!("data/ctr-connection-rand-r.json"))
             .unwrap();
 
-    bench.bench_function("disjoint-excess-count", |b| {
-        b.iter(|| disjoint_excess_count(&l_conn, &r_conn))
+    let mut rng = ProbBinding::new(ProbStatic::default(), default_rng());
+    bench.bench_function("crossover-ne", |b| {
+        b.iter(|| crossover(&l_conn, &r_conn, Ordering::Greater, &mut rng))
     });
 
-    bench.bench_function("avg-weight-diff", |b| {
-        b.iter(|| avg_param_diff(&l_conn, &r_conn))
-    });
-}
-
-fn bench_speciate(bench: &mut Criterion) {
-    let genomes =
-        serde_json::from_str::<Vec<(CTRGenome, _)>>(include_str!("data/ctr-genome-xor-100.json"))
-            .unwrap();
-    bench.bench_function("speciate", |b| {
-        b.iter(|| speciate(genomes.iter().cloned(), empty()))
+    bench.bench_function("crossover-eq", |b| {
+        b.iter(|| crossover(&l_conn, &r_conn, Ordering::Equal, &mut rng))
     });
 }
 
@@ -47,8 +39,7 @@ pub fn benches() {
             .without_plots()
             .configure_from_args()
     };
-    bench_distance(&mut criterion);
-    bench_speciate(&mut criterion);
+    bench_crossover(&mut criterion);
 }
 
 fn main() {

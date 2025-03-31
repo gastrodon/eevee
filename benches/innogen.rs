@@ -1,9 +1,9 @@
-use brain::specie::InnoGen;
+use brain::{random::default_rng, specie::InnoGen};
 use criterion::Criterion;
-use rand::{rng, Rng};
+use rand::Rng;
 
-fn bench(bench: &mut Criterion) {
-    let mut rng = rng();
+fn bench_innogen(bench: &mut Criterion) {
+    let mut rng = default_rng();
     let mut inno = InnoGen::new(0);
     bench.bench_function("innogen", |b| {
         b.iter(|| inno.path((rng.random_range(0..=10_000), rng.random_range(0..=10_000))))
@@ -25,7 +25,7 @@ pub fn benches() {
             .without_plots()
             .configure_from_args()
     };
-    bench(&mut criterion);
+    bench_innogen(&mut criterion);
 }
 
 fn main() {

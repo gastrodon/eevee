@@ -9,7 +9,7 @@ fi
 shift
 CARGO_PROFILE_RELEASE_DEBUG=true cargo flamegraph \
         --features smol_bench -o "flamegraph-$target-$(git branch --show-current)-$(git rev-parse --short HEAD).svg" \
-        --bench speciate \
+        --bench $target \
         -- --bench \
         $@ \
         && firefox "flamegraph-$target-$(git branch --show-current)-$(git rev-parse --short HEAD).svg"

@@ -2,57 +2,90 @@
 #![allow(confusable_idents)]
 
 use brain::{
-    activate::relu, network::loss::decay_quadratic, specie::population_init, Ctrnn,
-    EvolutionTarget, Genome, Network, Scenario, Specie,
+    activate::relu,
+    genome::{CTRGenome, Genome},
+    network::loss::decay_quadratic,
+    random::{
+        default_rng, percent, EvolutionEvent, Happens, ProbBinding, ProbStatic, Probabilities,
+    },
+    scenario::{evolve, EvolutionHooks},
+    specie::population_init,
+    Network, Scenario, Stats,
 };
-use core::f64;
+use core::{f64, ops::ControlFlow};
+use rand::RngCore;
 
 const POPULATION: usize = 100;
 
 struct Xor;
 
-impl Scenario for Xor {
+impl<G: Genome, H: RngCore + Probabilities + Happens, A: Fn(f64) -> f64> Scenario<G, H, A> for Xor {
     fn io(&self) -> (usize, usize) {
         (2, 1)
     }
 
-    fn eval<F: Fn(f64) -> f64>(&self, genome: &Genome, σ: F) -> f64 {
-        let mut network = Ctrnn::from_genome(genome);
+    fn eval(&self, genome: &G, σ: &A) -> f64 {
+        let mut network = genome.network();
         let mut fit = 0.;
-        network.step(2, &[0., 0.], &σ);
+        network.step(2, &[0., 0.], σ);
         fit += decay_quadratic(1., network.output()[0]);
         network.flush();
 
-        network.step(2, &[1., 1.], &σ);
+        network.step(2, &[1., 1.], σ);
         fit += decay_quadratic(1., network.output()[0]);
         network.flush();
 
-        network.step(2, &[0., 1.], &σ);
+        network.step(2, &[0., 1.], σ);
         fit += decay_quadratic(0., network.output()[0]);
         network.flush();
 
-        network.step(2, &[1., 0.], &σ);
+        network.step(2, &[1., 0.], σ);
         fit += decay_quadratic(0., network.output()[0]);
 
         fit / 4.
     }
 }
 
-fn main() {
-    let res = Xor {}.evolve(
-        EvolutionTarget::Fitness(0.9999),
-        |(i, o)| population_init(i, o, POPULATION),
-        POPULATION,
-        relu,
-    );
+fn hook<
+    G: Genome,
+    H: RngCore + Probabilities<Update = (brain::random::EvolutionEvent, u64)> + Happens,
+>(
+    stats: &mut Stats<'_, G, H>,
+) -> ControlFlow<()> {
+    if stats.generation % 10 == 1 {
+        let (_, f) = stats.fittest().unwrap();
+        println!("fittest of gen {}: {:.4}", stats.generation, f);
+    }
 
-    println!(
-        "top score: {:?}",
-        res.0
-            .into_iter()
-            .flat_map(|Specie { members, .. }| members)
-            .max_by(|(_, l), (_, r)| l.partial_cmp(r).unwrap())
-            .unwrap()
-            .1
+    if stats.any_fitter_than(0.749999) {
+        let fittest = stats.fittest().unwrap();
+        println!("target met in gen {}: {:.4}", stats.generation, fittest.1);
+        fittest
+            .0
+            .to_file(format!("output/xor-{}.json", stats.generation))
+            .unwrap();
+
+        return ControlFlow::Break(());
+    }
+
+    if stats.generation == 100 {
+        stats
+            .rng
+            .update((EvolutionEvent::MutateConnection, percent(35)));
+        stats
+            .rng
+            .update((EvolutionEvent::MutateBisection, percent(35)));
+    }
+
+    ControlFlow::Continue(())
+}
+
+fn main() {
+    evolve(
+        Xor {},
+        |(i, o)| population_init::<CTRGenome>(i, o, POPULATION),
+        relu,
+        ProbBinding::new(ProbStatic::default(), default_rng()),
+        EvolutionHooks::new(vec![Box::new(hook)]),
     );
 }

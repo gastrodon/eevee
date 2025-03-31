@@ -2,12 +2,16 @@
 #![allow(confusable_idents)]
 
 use brain::{
-    activate::relu,
-    network::loss::{decay_linear, decay_quadratic},
+    activate::{relu, steep_sigmoid},
+    genome::CTRGenome,
+    random::{default_rng, ProbBinding, ProbStatic},
+    scenario::{evolve, EvolutionHooks},
     specie::population_init,
-    Ctrnn, EvolutionTarget, Genome, Network, Scenario, Specie,
+    Genome, Happens, Network, Probabilities, Scenario, Stats,
 };
 use core::f64;
+use rand::RngCore;
+use std::ops::ControlFlow;
 
 const POPULATION: usize = 100;
 
@@ -30,6 +34,10 @@ struct Sentiment {
     chunk_size: usize,
     positive: Vec<&'static str>,
     negative: Vec<&'static str>,
+}
+
+fn decay_sigmoid(want: f64, have: f64) -> f64 {
+    -steep_sigmoid((want - have).abs())
 }
 
 fn chunked(chunk_size: usize, data: &'static str) -> Vec<Vec<f64>> {
@@ -63,12 +71,14 @@ fn chunked(chunk_size: usize, data: &'static str) -> Vec<Vec<f64>> {
         .collect::<Vec<Vec<_>>>()
 }
 
-impl Scenario for Sentiment {
+impl<G: Genome, H: RngCore + Probabilities + Happens, A: Fn(f64) -> f64> Scenario<G, H, A>
+    for Sentiment
+{
     fn io(&self) -> (usize, usize) {
         (8 * self.chunk_size, 2)
     }
 
-    fn eval<F: Fn(f64) -> f64>(&self, genome: &Genome, σ: F) -> f64 {
+    fn eval(&self, genome: &G, σ: &A) -> f64 {
         let inputs = {
             let plen = self.positive.len();
             let nlen = self.negative.len();
@@ -90,13 +100,13 @@ impl Scenario for Sentiment {
             mixed
         };
 
-        let mut network = Ctrnn::from_genome(genome);
+        let mut network = genome.network();
         let fit = inputs
             .into_iter()
             .take(10)
             .map(|(input_raw, input, kind)| {
                 for chunk in input {
-                    network.step(5, &chunk, &σ);
+                    network.step(5, &chunk, σ);
                 }
 
                 let [w_positive, w_negative] = kind.value();
@@ -107,12 +117,15 @@ impl Scenario for Sentiment {
                     [c_positive.clamp(-1., 1.), c_negative.clamp(0., 100.)]
                 };
 
-                // println!(
-                //     "{input_raw}\n\tpos:{c_positive} ({})\n\tneg:{c_negative} ({})",
-                //     decay_linear(w_positive, c_positive),
-                //     decay_linear(w_negative, c_negative)
-                // );
-                decay_linear(w_positive, c_positive) + decay_linear(w_negative, c_negative)
+                let decay_positive = decay_sigmoid(w_positive, c_positive);
+                let decay_negative = decay_sigmoid(w_negative, c_negative);
+                println!(
+                    r#"{input_raw}
+                        pos:{c_positive} ({decay_positive})
+                        neg:{c_negative} ({decay_positive})"#,
+                );
+
+                decay_positive + decay_negative
             })
             .sum();
 
@@ -120,28 +133,37 @@ impl Scenario for Sentiment {
     }
 }
 
+fn hook<
+    G: Genome,
+    H: RngCore + Probabilities<Update = (brain::random::EvolutionEvent, u64)> + Happens,
+>(
+    stats: &mut Stats<'_, G, H>,
+) -> ControlFlow<()> {
+    if stats.generation % 10 == 1 {
+        let (_, f) = stats.fittest().unwrap();
+        println!("fittest of gen {}: {:.4}", stats.generation, f);
+    }
+
+    if stats.generation == 100 {
+        ControlFlow::Break(())
+    } else {
+        ControlFlow::Continue(())
+    }
+}
+
 fn main() {
-    let scenario = Sentiment {
-        chunk_size: 8,
-        positive: include_str!("positive.txt").split('\n').collect(),
-        negative: include_str!("negative.txt").split('\n').collect(),
-    };
+    let positive = include_str!("positive.txt").split('\n').collect();
+    let negative = include_str!("negative.txt").split('\n').collect();
 
-    let res = scenario.evolve(
-        EvolutionTarget::Generation(4000),
-        |(i, o)| population_init(i, o, POPULATION),
-        POPULATION,
+    evolve(
+        Sentiment {
+            chunk_size: 8,
+            positive,
+            negative,
+        },
+        |(i, o)| population_init::<CTRGenome>(i, o, POPULATION),
         relu,
-    );
-
-    println!(
-        "top score: {:?}",
-        res.0
-            .into_iter()
-            .flat_map(|Specie { members, .. }| members.into_iter().map(|(_, fit)| fit))
-            .collect::<Vec<_>>(),
-        // .max_by(|(_, l), (_, r)| l.partial_cmp(r).unwrap())
-        // .unwrap()
-        // .1
+        ProbBinding::new(ProbStatic::default(), default_rng()),
+        EvolutionHooks::new(vec![Box::new(hook)]),
     );
 }

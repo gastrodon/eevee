@@ -1,0 +1,17 @@
+#!/bin/bash
+
+target="$1"
+if [ -z "$target" ]; then
+        echo "Target is empty. Exiting."
+        exit 1
+fi
+cmp_branch="$2"
+if [ -z "$cmp_branch" ]; then
+        cmp_branch="-"
+fi
+
+git checkout $cmp_branch
+cargo bench --bench $target
+
+git checkout -
+cargo bench --bench $target
