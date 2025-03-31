@@ -2,7 +2,7 @@
 #![allow(confusable_idents)]
 
 use brain::{
-    activate::{relu, steep_sigmoid},
+    activate::relu,
     genome::CTRGenome,
     random::{default_rng, ProbBinding, ProbStatic},
     scenario::{evolve, EvolutionHooks},
@@ -24,8 +24,8 @@ enum SentimentKind {
 impl SentimentKind {
     const fn value(&self) -> [f64; 2] {
         match self {
-            SentimentKind::Positive => [100., 0.],
-            SentimentKind::Negative => [0., 100.],
+            SentimentKind::Positive => [1., 0.],
+            SentimentKind::Negative => [0., 1.],
         }
     }
 }
@@ -36,8 +36,8 @@ struct Sentiment {
     negative: Vec<&'static str>,
 }
 
-fn decay_sigmoid(want: f64, have: f64) -> f64 {
-    -steep_sigmoid((want - have).abs())
+fn decay_linear(want: f64, have: f64) -> f64 {
+    0. - (want - have).abs()
 }
 
 fn chunked(chunk_size: usize, data: &'static str) -> Vec<Vec<f64>> {
@@ -104,7 +104,7 @@ impl<G: Genome, H: RngCore + Probabilities + Happens, A: Fn(f64) -> f64> Scenari
         let fit = inputs
             .into_iter()
             .take(10)
-            .map(|(input_raw, input, kind)| {
+            .map(|(_, input, kind)| {
                 for chunk in input {
                     network.step(5, &chunk, σ);
                 }
@@ -117,15 +117,7 @@ impl<G: Genome, H: RngCore + Probabilities + Happens, A: Fn(f64) -> f64> Scenari
                     [c_positive.clamp(-1., 1.), c_negative.clamp(0., 100.)]
                 };
 
-                let decay_positive = decay_sigmoid(w_positive, c_positive);
-                let decay_negative = decay_sigmoid(w_negative, c_negative);
-                println!(
-                    r#"{input_raw}
-                        pos:{c_positive} ({decay_positive})
-                        neg:{c_negative} ({decay_positive})"#,
-                );
-
-                decay_positive + decay_negative
+                decay_linear(w_positive, c_positive) + decay_linear(w_negative, c_negative)
             })
             .sum();
 
