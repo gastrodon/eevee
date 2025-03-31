@@ -1,7 +1,7 @@
 use super::{Node, NodeKind};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BNode {
     bias: f64,
     kind: NodeKind,
@@ -19,9 +19,13 @@ impl Node for BNode {
     fn bias(&self) -> f64 {
         self.bias
     }
+
+    fn mutate_params(&mut self, rng: &mut (impl rand::RngCore + crate::Happens)) {
+        todo!()
+    }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum NonBNode {
     Sensory,
     Action,
@@ -53,5 +57,9 @@ impl Node for NonBNode {
             Self::Static(b) => *b,
             _ => 0.,
         }
+    }
+
+    fn mutate_params(&mut self, rng: &mut (impl rand::RngCore + crate::Happens)) {
+        todo!()
     }
 }

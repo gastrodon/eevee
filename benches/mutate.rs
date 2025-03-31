@@ -1,12 +1,16 @@
 use brain::{
-    genome::{CTRGenome, Genome},
+    genome::{node::NonBNode, CTRGenome, Genome, WConnection},
     random::{default_rng, ProbBinding, ProbStatic},
     specie::InnoGen,
 };
 use criterion::Criterion;
 
+type N = NonBNode;
+type C = WConnection<N>;
+type G = CTRGenome<N, C>;
+
 fn bench_mutate(bench: &mut Criterion) {
-    let genome = CTRGenome::from_str(include_str!("data/ctr-genome-rand-100.json")).unwrap();
+    let genome = G::from_str(include_str!("data/ctr-genome-rand-100.json")).unwrap();
     let mut rng = ProbBinding::new(ProbStatic::default(), default_rng());
     bench.bench_function("mutate-connection", |b| {
         b.iter(|| {

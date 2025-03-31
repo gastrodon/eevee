@@ -2,7 +2,7 @@ pub mod recurrent;
 pub mod serialize;
 pub use recurrent::Ctrnn;
 
-use crate::Genome;
+use crate::{Connection, Genome, Node};
 use core::error::Error;
 use serde::{Deserialize, Serialize};
 use std::{fs, path::Path};
@@ -73,19 +73,19 @@ pub trait Stateful: Network {}
 /// A network that doesn't retain state between calls to step
 pub trait Stateless: Network {}
 
-pub trait FromGenome<G: Genome>: Network {
+pub trait FromGenome<N: Node, C: Connection<N>, G: Genome<N, C>>: Network {
     fn from_genome(genome: &G) -> Self;
 }
 
-pub trait ToNetwork<N: Network>: Genome {
-    fn network(&self) -> N;
+pub trait ToNetwork<NN: Network, N: Node, C: Connection<N>>: Genome<N, C> {
+    fn network(&self) -> NN;
 }
 
-impl<N: Network, G: Genome> ToNetwork<N> for G
+impl<NN: Network, N: Node, C: Connection<N>, G: Genome<N, C>> ToNetwork<NN, N, C> for G
 where
-    N: FromGenome<G>,
+    NN: FromGenome<N, C, G>,
 {
-    fn network(&self) -> N {
-        N::from_genome(self)
+    fn network(&self) -> NN {
+        NN::from_genome(self)
     }
 }

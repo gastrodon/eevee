@@ -1,37 +1,48 @@
 /// A genome describing a Continuous Time Recurrent Neural Network (CTRNN)
-use super::{node::NonBNode, Genome, WConnection};
+use super::{Connection, Genome, Node, NodeKind};
 use crate::{crossover::crossover, network::FromGenome, Ctrnn, Happens};
 use core::cmp::{max, Ordering};
-use rand::{seq::IteratorRandom, Rng, RngCore};
-use rand_distr::StandardNormal;
+use rand::{seq::IteratorRandom, RngCore};
 use rulinalg::matrix::Matrix;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::HashSet;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CTRGenome {
-    sensory: usize,
-    action: usize,
-    nodes: Vec<NonBNode>,
-    connections: Vec<WConnection>,
+pub fn deserialize_nodes<'de, N: Node, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Vec<N>, D::Error> {
+    Vec::<N>::deserialize(deserializer)
 }
 
-impl CTRGenome {
+pub fn deserialize_connections<'de, N: Node, C: Connection<N>, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Vec<C>, D::Error> {
+    Vec::<C>::deserialize(deserializer)
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CTRGenome<N: Node, C: Connection<N>> {
+    sensory: usize,
+    action: usize,
+    #[serde(deserialize_with = "deserialize_nodes")]
+    nodes: Vec<N>,
+    #[serde(deserialize_with = "deserialize_connections")]
+    connections: Vec<C>,
+}
+
+impl<N: Node, C: Connection<N>> CTRGenome<N, C> {
     const MUTATE_WEIGHT_FAC: f64 = 0.05;
 }
 
-impl Genome for CTRGenome {
-    type Connection = WConnection;
-
+impl<N: Node, C: Connection<N>> Genome<N, C> for CTRGenome<N, C> {
     fn new(sensory: usize, action: usize) -> (Self, usize) {
         let mut nodes = Vec::with_capacity(sensory + action + 1);
         for _ in 0..sensory {
-            nodes.push(NonBNode::Sensory);
+            nodes.push(N::new(NodeKind::Sensory));
         }
         for _ in sensory..sensory + action {
-            nodes.push(NonBNode::Action);
+            nodes.push(N::new(NodeKind::Action));
         }
-        nodes.push(NonBNode::Static(1.));
+        nodes.push(N::new(NodeKind::Static)); // TODO
 
         (
             Self {
@@ -44,33 +55,35 @@ impl Genome for CTRGenome {
         )
     }
 
-    fn nodes(&self) -> &[Self::Node] {
+    fn nodes(&self) -> &[N] {
         &self.nodes
     }
 
-    fn push_node(&mut self, node: Self::Node) {
+    fn push_node(&mut self, node: N) {
         self.nodes.push(node);
     }
 
-    fn connections(&self) -> &[Self::Connection] {
+    fn connections(&self) -> &[C] {
         &self.connections
     }
 
-    fn connections_mut(&mut self) -> &mut [Self::Connection] {
+    fn connections_mut(&mut self) -> &mut [C] {
         &mut self.connections
     }
 
-    fn push_connection(&mut self, connection: Self::Connection) {
+    fn push_connection(&mut self, connection: C) {
         self.connections.push(connection);
     }
 
     fn mutate_params(&mut self, rng: &mut (impl RngCore + Happens)) {
         for conn in self.connections.iter_mut() {
-            if rng.random_ratio(1, 10) {
-                conn.weight = rng.sample(StandardNormal);
-            } else {
-                conn.weight += Self::MUTATE_WEIGHT_FAC * rng.sample::<f64, _>(StandardNormal)
-            }
+            conn.mutate_params(rng);
+            // TODO
+            // if rng.random_ratio(1, 10) {
+            //     conn.weight = rng.sample(StandardNormal);
+            // } else {
+            //     conn.weight += Self::MUTATE_WEIGHT_FAC * rng.sample::<f64, _>(StandardNormal)
+            // }
         }
     }
 
@@ -84,7 +97,7 @@ impl Genome for CTRGenome {
             let exclude = self
                 .connections
                 .iter()
-                .filter_map(|c| (c.from == from).then_some(c.to))
+                .filter_map(|c| (c.from() == from).then_some(c.to()))
                 .collect::<HashSet<_>>();
 
             if let Some(to) = (0..self.nodes.len())
@@ -100,33 +113,31 @@ impl Genome for CTRGenome {
 
     fn reproduce_with(
         &self,
-        other: &CTRGenome,
+        other: &Self,
         self_fit: Ordering,
         rng: &mut (impl RngCore + Happens),
     ) -> Self {
         let connections = crossover(&self.connections, &other.connections, self_fit, rng);
         let nodes_size = connections
             .iter()
-            .fold(0, |prev, WConnection { from, to, .. }| {
-                max(prev, max(*from, *to))
-            });
+            .fold(0, |prev, c| max(prev, max(c.from(), c.to())));
 
         let mut nodes = Vec::with_capacity(self.sensory + self.action + 1);
         for _ in 0..self.sensory {
-            nodes.push(NonBNode::Sensory);
+            nodes.push(N::new(NodeKind::Sensory));
         }
         for _ in self.sensory..self.sensory + self.action {
-            nodes.push(NonBNode::Action);
+            nodes.push(N::new(NodeKind::Action));
         }
-        nodes.push(NonBNode::Static(1.));
+        nodes.push(N::new(NodeKind::Static)); // TODO
         for _ in self.sensory + self.action..nodes_size {
-            nodes.push(NonBNode::Internal);
+            nodes.push(N::new(NodeKind::Internal));
         }
 
         debug_assert!(
             connections
                 .iter()
-                .fold(0, |acc, c| max(acc, max(c.from, c.to)))
+                .fold(0, |acc, c| max(acc, max(c.from(), c.to())))
                 < nodes.len()
         );
 
@@ -139,28 +150,21 @@ impl Genome for CTRGenome {
     }
 }
 
-impl FromGenome<CTRGenome> for Ctrnn {
-    fn from_genome(genome: &CTRGenome) -> Self {
+impl<N: Node, C: Connection<N>> FromGenome<N, C, CTRGenome<N, C>> for Ctrnn {
+    fn from_genome(genome: &CTRGenome<N, C>) -> Self {
         let cols = genome.nodes.len();
         Ctrnn {
             y: Matrix::zeros(1, cols),
             θ: Matrix::new(
                 1,
                 cols,
-                genome
-                    .nodes
-                    .iter()
-                    .map(|n| if let NonBNode::Static(b) = n { *b } else { 0. })
-                    .collect::<Vec<_>>(),
+                genome.nodes.iter().map(|n| n.bias()).collect::<Vec<_>>(),
             ),
             τ: Matrix::ones(1, cols),
             w: {
                 let mut w = vec![0.; cols * cols];
-                for WConnection {
-                    from, to, weight, ..
-                } in genome.connections.iter().filter(|c| c.enabled)
-                {
-                    w[from * cols + to] = *weight;
+                for c in genome.connections.iter().filter(|c| c.enabled()) {
+                    w[c.from() * cols + c.to()] = todo!("a way to get connection weight");
                 }
                 Matrix::new(cols, cols, w)
             },
@@ -175,15 +179,16 @@ mod test {
     use super::*;
     use crate::{
         assert_f64_approx,
+        genome::{node::NonBNode, WConnection},
         network::ToNetwork,
-        random::{default_rng, ProbBinding, ProbStatic},
+        random::{default_rng, percent, EvolutionEvent, ProbBinding, ProbStatic},
         specie::InnoGen,
     };
     use rulinalg::matrix::BaseMatrix;
 
     #[test]
     fn test_genome_creation() {
-        let (genome, inno_head) = CTRGenome::new(3, 2);
+        let (genome, inno_head) = CTRGenome::<NonBNode, WConnection<NonBNode>>::new(3, 2);
         assert_eq!(inno_head, 8);
         assert_eq!(genome.sensory, 3);
         assert_eq!(genome.action, 2);
@@ -192,14 +197,15 @@ mod test {
         assert!(matches!(genome.nodes[3], NonBNode::Action));
         assert!(matches!(genome.nodes[5], NonBNode::Static(_)));
 
-        let (genome_empty, inno_head) = CTRGenome::new(0, 0);
+        let (genome_empty, inno_head) = CTRGenome::<NonBNode, WConnection<NonBNode>>::new(0, 0);
         assert_eq!(inno_head, 0);
         assert_eq!(genome_empty.sensory, 0);
         assert_eq!(genome_empty.action, 0);
         assert_eq!(genome_empty.nodes.len(), 1);
         assert!(matches!(genome_empty.nodes[0], NonBNode::Static(_)));
 
-        let (genome_only_sensory, inno_head) = CTRGenome::new(3, 0);
+        let (genome_only_sensory, inno_head) =
+            CTRGenome::<NonBNode, WConnection<NonBNode>>::new(3, 0);
         assert_eq!(inno_head, 0);
         assert_eq!(genome_only_sensory.sensory, 3);
         assert_eq!(genome_only_sensory.action, 0);
@@ -208,7 +214,8 @@ mod test {
         assert!(matches!(genome_only_sensory.nodes[2], NonBNode::Sensory));
         assert!(matches!(genome_only_sensory.nodes[3], NonBNode::Static(_)));
 
-        let (genome_only_action, inno_head) = CTRGenome::new(0, 3);
+        let (genome_only_action, inno_head) =
+            CTRGenome::<NonBNode, WConnection<NonBNode>>::new(0, 3);
         assert_eq!(inno_head, 3);
         assert_eq!(genome_only_action.sensory, 0);
         assert_eq!(genome_only_action.action, 3);
@@ -220,25 +227,14 @@ mod test {
 
     #[test]
     fn test_gen_connection() {
+        let mut inno = InnoGen::new(0);
         let genome = CTRGenome {
             sensory: 1,
             action: 1,
             nodes: vec![NonBNode::Sensory, NonBNode::Action],
             connections: vec![
-                WConnection {
-                    inno: 0,
-                    from: 0,
-                    to: 0,
-                    weight: 0.,
-                    enabled: true,
-                },
-                WConnection {
-                    inno: 1,
-                    from: 1,
-                    to: 1,
-                    weight: 0.,
-                    enabled: true,
-                },
+                WConnection::<NonBNode>::new(0, 0, &mut inno),
+                WConnection::<NonBNode>::new(1, 1, &mut inno),
             ],
         };
         for _ in 0..100 {
@@ -252,32 +248,15 @@ mod test {
 
     #[test]
     fn test_gen_connection_no_dupe() {
+        let mut inno = InnoGen::new(0);
         let genome = CTRGenome {
             sensory: 1,
             action: 1,
             nodes: vec![NonBNode::Sensory, NonBNode::Action],
             connections: vec![
-                WConnection {
-                    inno: 0,
-                    from: 0,
-                    to: 0,
-                    weight: 1.,
-                    enabled: true,
-                },
-                WConnection {
-                    inno: 1,
-                    from: 0,
-                    to: 1,
-                    weight: 1.,
-                    enabled: true,
-                },
-                WConnection {
-                    inno: 2,
-                    from: 1,
-                    to: 1,
-                    weight: 1.,
-                    enabled: true,
-                },
+                WConnection::<NonBNode>::new(0, 0, &mut inno),
+                WConnection::<NonBNode>::new(0, 1, &mut inno),
+                WConnection::<NonBNode>::new(1, 1, &mut inno),
             ],
         };
         for _ in 0..100 {
@@ -290,18 +269,13 @@ mod test {
 
     #[test]
     fn test_gen_connection_none_possble() {
+        let mut inno = InnoGen::new(0);
         assert_eq!(
-            CTRGenome {
+            CTRGenome::<NonBNode, WConnection<NonBNode>> {
                 sensory: 0,
                 action: 0,
                 nodes: vec![],
-                connections: vec![WConnection {
-                    inno: 0,
-                    from: 0,
-                    to: 1,
-                    weight: 1.,
-                    enabled: true,
-                }],
+                connections: vec![WConnection::<NonBNode>::new(0, 1, &mut inno)],
             }
             .open_path(&mut ProbBinding::new(ProbStatic::default(), default_rng()),),
             None
@@ -323,12 +297,8 @@ mod test {
                 ],
                 connections: (0..5)
                     .flat_map(|from| {
-                        (0..5).map(move |to| WConnection {
-                            inno: 0,
-                            from,
-                            to,
-                            weight: 1.,
-                            enabled: true,
+                        (0..5).map(move |to| {
+                            WConnection::<NonBNode>::new(from, to, &mut InnoGen::new(0))
                         })
                     })
                     .collect(),
@@ -340,76 +310,66 @@ mod test {
 
     #[test]
     fn test_mutate_connection() {
-        let (mut genome, _) = CTRGenome::new(4, 4);
-        let mut inext = InnoGen::new(0);
-        genome.connections = vec![
-            WConnection {
-                inno: inext.path((0, 1)),
-                from: 0,
-                to: 1,
-                weight: 0.5,
-                enabled: true,
-            },
-            WConnection {
-                inno: inext.path((1, 2)),
-                from: 1,
-                to: 2,
-                weight: 0.5,
-                enabled: true,
-            },
-        ];
+        let (mut genome, _) = CTRGenome::<NonBNode, WConnection<NonBNode>>::new(4, 4);
+        let mut inno = InnoGen::new(0);
+        genome.push_2_connections(
+            WConnection::<NonBNode>::new(0, 1, &mut inno),
+            WConnection::<NonBNode>::new(1, 2, &mut inno),
+        );
 
         let before = genome.clone();
         genome.mutate_connection(
             &mut ProbBinding::new(ProbStatic::default(), default_rng()),
-            &mut inext,
+            &mut inno,
         );
 
-        assert_eq!(genome.connections.len(), before.connections.len() + 1);
+        assert_eq!(genome.connections().len(), before.connections().len() + 1);
 
-        let tail = genome.connections.last().unwrap();
-        assert!(!before.connections.iter().any(|c| c.inno == tail.inno));
-        assert!(!before
-            .connections
-            .iter()
-            .any(|c| (c.from, c.to) == (tail.from, tail.to)));
+        let tail = genome.connections().last().unwrap();
+        assert!(!before.connections().iter().any(|c| c.inno() == tail.inno()));
+        assert!(!before.connections().iter().any(|c| c.path() == tail.path()));
         assert_eq!(tail.weight, 1.);
     }
 
     #[test]
     fn test_mutate_bisection() {
-        let (mut genome, _) = CTRGenome::new(0, 1);
-        genome.connections = vec![WConnection {
-            inno: 0,
-            from: 0,
-            to: 1,
-            weight: 0.5,
-            enabled: true,
-        }];
+        let mut inno = InnoGen::new(0);
+        let (mut genome, _) = CTRGenome::<NonBNode, WConnection<NonBNode>>::new(0, 1);
+
+        genome.push_connection({
+            let mut c = WConnection::<NonBNode>::new(0, 1, &mut inno);
+            c.mutate_params(&mut ProbBinding::new(
+                ProbStatic::default().with_overrides(&[(EvolutionEvent::NewWeight, percent(100))]),
+                default_rng(),
+            ));
+            c
+        });
+
         let innogen = &mut InnoGen::new(1);
         genome.mutate_bisection(
             &mut ProbBinding::new(ProbStatic::default(), default_rng()),
             innogen,
         );
 
-        assert!(!genome.connections[0].enabled);
+        let connections: &[WConnection<NonBNode>] = genome.connections();
+        assert!(!connections[0].enabled);
 
-        assert_eq!(genome.connections[1].from, 0);
-        assert_eq!(genome.connections[1].to, 2);
-        assert_eq!(genome.connections[1].weight, 1.0);
-        assert!(genome.connections[1].enabled);
+        assert_eq!(connections[1].from(), 0);
+        assert_eq!(connections[1].to(), 2);
+        assert_eq!(connections[1].weight, 1.0);
+        assert!(connections[1].enabled);
         assert_eq!(
             genome.connections[1].inno,
-            innogen.path((genome.connections[1].from, genome.connections[1].to))
+            innogen.path((genome.connections[1].from(), genome.connections[1].to()))
         );
 
-        assert_eq!(genome.connections[2].from, 2);
-        assert_eq!(genome.connections[2].to, 1);
+        assert_eq!(genome.connections[2].from(), 2);
+        assert_eq!(genome.connections[2].to(), 1);
         assert_eq!(genome.connections[2].weight, 0.5);
         assert!(genome.connections[2].enabled);
         assert_eq!(
             genome.connections[2].inno,
-            innogen.path((genome.connections[2].from, genome.connections[2].to))
+            innogen.path((genome.connections[2].from(), genome.connections[2].to()))
         );
 
         assert_ne!(genome.connections[0].inno, genome.connections[1].inno);
@@ -420,7 +380,7 @@ mod test {
     #[test]
     #[should_panic]
     fn test_mutate_bisection_empty_genome() {
-        let (mut genome, _) = CTRGenome::new(0, 0);
+        let (mut genome, _) = CTRGenome::<NonBNode, WConnection<NonBNode>>::new(0, 0);
         genome.mutate_bisection(
             &mut ProbBinding::new(ProbStatic::default(), default_rng()),
             &mut InnoGen::new(0),
@@ -430,7 +390,7 @@ mod test {
     #[test]
     #[should_panic]
     fn test_mutate_bisection_no_connections() {
-        let (mut genome, _) = CTRGenome::new(2, 2);
+        let (mut genome, _) = CTRGenome::<NonBNode, WConnection<NonBNode>>::new(2, 2);
         genome.connections = vec![];
         genome.mutate_bisection(
             &mut ProbBinding::new(ProbStatic::default(), default_rng()),
@@ -453,34 +413,17 @@ mod test {
 
     #[test]
     fn test_ctrgenome_network() {
-        let (mut genome, _) = CTRGenome::new(2, 2);
+        let mut inno = InnoGen::new(0);
+        let (mut genome, _) = CTRGenome::<NonBNode, WConnection<NonBNode>>::new(2, 2);
         genome.connections = vec![
-            WConnection {
-                inno: 0,
-                from: 0,
-                to: 3,
-                weight: 0.5,
-                enabled: true,
-            },
-            WConnection {
-                inno: 1,
-                from: 0,
-                to: 1,
-                weight: -1.,
-                enabled: true,
-            },
-            WConnection {
-                inno: 2,
-                from: 0,
-                to: 1,
-                weight: 1.2,
-                enabled: false,
-            },
+            WConnection::<NonBNode>::new(0, 3, &mut inno),
+            WConnection::<NonBNode>::new(0, 1, &mut inno),
+            WConnection::<NonBNode>::new(0, 1, &mut inno),
         ];
 
         let nn: Ctrnn = genome.network();
         unsafe {
-            for WConnection {
+            for WConnection::<NonBNode> {
                 from, to, weight, ..
             } in genome.connections.iter().filter(|c| c.enabled)
             {

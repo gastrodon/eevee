@@ -3,14 +3,14 @@
 
 use brain::{
     activate::relu,
-    genome::{CTRGenome, Genome},
+    genome::{node::NonBNode, CTRGenome, Genome, WConnection},
     network::{loss::decay_quadratic, ToNetwork},
     random::{
         default_rng, percent, EvolutionEvent, Happens, ProbBinding, ProbStatic, Probabilities,
     },
     scenario::{evolve, EvolutionHooks},
     specie::population_init,
-    Ctrnn, Network, Scenario, Stats,
+    Connection, Ctrnn, Network, Node, Scenario, Stats,
 };
 use core::{f64, ops::ControlFlow};
 use rand::RngCore;
@@ -19,8 +19,13 @@ const POPULATION: usize = 100;
 
 struct Xor;
 
-impl<G: Genome + ToNetwork<Ctrnn>, H: RngCore + Probabilities + Happens, A: Fn(f64) -> f64>
-    Scenario<G, H, A> for Xor
+impl<
+        N: Node,
+        C: Connection<N>,
+        G: Genome<N, C> + ToNetwork<Ctrnn, N, C>,
+        H: RngCore + Probabilities + Happens,
+        A: Fn(f64) -> f64,
+    > Scenario<N, C, G, H, A> for Xor
 {
     fn io(&self) -> (usize, usize) {
         (2, 1)
@@ -49,10 +54,12 @@ impl<G: Genome + ToNetwork<Ctrnn>, H: RngCore + Probabilities + Happens, A: Fn(f
 }
 
 fn hook<
-    G: Genome,
+    N: Node,
+    C: Connection<N>,
+    G: Genome<N, C>,
     H: RngCore + Probabilities<Update = (brain::random::EvolutionEvent, u64)> + Happens,
 >(
-    stats: &mut Stats<'_, G, H>,
+    stats: &mut Stats<'_, N, C, G, H>,
 ) -> ControlFlow<()> {
     if stats.generation % 10 == 1 {
         let (_, f) = stats.fittest().unwrap();
@@ -82,10 +89,14 @@ fn hook<
     ControlFlow::Continue(())
 }
 
+type N = NonBNode;
+type C = WConnection<NonBNode>;
+type G = CTRGenome<NonBNode, WConnection<NonBNode>>;
+
 fn main() {
     evolve(
         Xor {},
-        |(i, o)| population_init::<CTRGenome>(i, o, POPULATION),
+        |(i, o)| population_init::<N, C, G>(i, o, POPULATION),
         relu,
         ProbBinding::new(ProbStatic::default(), default_rng()),
         EvolutionHooks::new(vec![Box::new(hook)]),

@@ -1,18 +1,20 @@
 use brain::{
     crossover::{avg_param_diff, disjoint_excess_count},
-    genome::{WConnection, CTRGenome},
+    genome::{node::NonBNode, CTRGenome, WConnection},
     specie::speciate,
 };
 use core::iter::empty;
 use criterion::Criterion;
 
+type N = NonBNode;
+type C = WConnection<N>;
+type G = CTRGenome<N, C>;
+
 fn bench_distance(bench: &mut Criterion) {
     let l_conn =
-        serde_json::from_str::<Vec<WConnection>>(include_str!("data/ctr-connection-rand-l.json"))
-            .unwrap();
+        serde_json::from_str::<Vec<C>>(include_str!("data/ctr-connection-rand-l.json")).unwrap();
     let r_conn =
-        serde_json::from_str::<Vec<WConnection>>(include_str!("data/ctr-connection-rand-r.json"))
-            .unwrap();
+        serde_json::from_str::<Vec<C>>(include_str!("data/ctr-connection-rand-r.json")).unwrap();
 
     bench.bench_function("disjoint-excess-count", |b| {
         b.iter(|| disjoint_excess_count(&l_conn, &r_conn))
@@ -25,8 +27,7 @@ fn bench_distance(bench: &mut Criterion) {
 
 fn bench_speciate(bench: &mut Criterion) {
     let genomes =
-        serde_json::from_str::<Vec<(CTRGenome, _)>>(include_str!("data/ctr-genome-xor-100.json"))
-            .unwrap();
+        serde_json::from_str::<Vec<(G, _)>>(include_str!("data/ctr-genome-xor-100.json")).unwrap();
     bench.bench_function("speciate", |b| {
         b.iter(|| speciate(genomes.iter().cloned(), empty()))
     });

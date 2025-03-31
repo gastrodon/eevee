@@ -1,23 +1,22 @@
-use super::{node::NonBNode, Connection};
+use super::{Connection, Node};
 use crate::specie::InnoGen;
 use serde::{Deserialize, Serialize};
-use std::hash::Hash;
+use std::{hash::Hash, marker::PhantomData};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct WConnection {
+pub struct WConnection<N: Node> {
     pub inno: usize,
     pub from: usize,
     pub to: usize,
     pub weight: f64,
     pub enabled: bool,
+    _phantom: PhantomData<N>,
 }
 
-impl Connection for WConnection {
+impl<N: Node> Connection<N> for WConnection<N> {
     const EXCESS_COEFFICIENT: f64 = 1.0;
     const DISJOINT_COEFFICIENT: f64 = 1.0;
     const PARAM_COEFFICIENT: f64 = 0.4;
-
-    type Node = NonBNode;
 
     fn new(from: usize, to: usize, inno: &mut InnoGen) -> Self {
         Self {
@@ -26,6 +25,7 @@ impl Connection for WConnection {
             to,
             weight: 1.,
             enabled: true,
+            _phantom: PhantomData,
         }
     }
 
@@ -45,8 +45,16 @@ impl Connection for WConnection {
         self.enabled
     }
 
+    fn path(&self) -> (usize, usize) {
+        (self.from, self.to)
+    }
+
+    fn mutate_params(&mut self, rng: &mut (impl rand::RngCore + crate::Happens)) {
+        todo!()
+    }
+
     fn bisect(&mut self, center: usize, inno: &mut InnoGen) -> (Self, Self) {
-        self.disable();
+        <Self as Connection<N>>::disable(self);
         (
             // from -{1.}> bisect-node
             Self {
@@ -55,6 +63,7 @@ impl Connection for WConnection {
                 to: center,
                 weight: 1.,
                 enabled: true,
+                _phantom: PhantomData,
             },
             // bisect-node -{w}> to
             Self {
@@ -63,6 +72,7 @@ impl Connection for WConnection {
                 to: self.to,
                 weight: self.weight,
                 enabled: true,
+                _phantom: PhantomData,
             },
         )
     }
@@ -74,7 +84,7 @@ impl Connection for WConnection {
     }
 }
 
-impl Default for WConnection {
+impl<N: Node> Default for WConnection<N> {
     fn default() -> Self {
         Self {
             inno: 0,
@@ -82,11 +92,12 @@ impl Default for WConnection {
             to: 0,
             weight: 0.,
             enabled: true,
+            _phantom: PhantomData,
         }
     }
 }
 
-impl Hash for WConnection {
+impl<N: Node> Hash for WConnection<N> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.inno.hash(state);
         self.from.hash(state);
@@ -96,21 +107,20 @@ impl Hash for WConnection {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct BWConnection {
+pub struct BWConnection<N: Node> {
     pub inno: usize,
     pub from: usize,
     pub to: usize,
     pub bias: f64,
     pub weight: f64,
     pub enabled: bool,
+    _phantom: PhantomData<N>,
 }
 
-impl Connection for BWConnection {
+impl<N: Node> Connection<N> for BWConnection<N> {
     const EXCESS_COEFFICIENT: f64 = 1.0;
     const DISJOINT_COEFFICIENT: f64 = 1.0;
     const PARAM_COEFFICIENT: f64 = 0.4;
-
-    type Node = NonBNode;
 
     fn new(from: usize, to: usize, inno: &mut InnoGen) -> Self {
         Self {
@@ -120,6 +130,7 @@ impl Connection for BWConnection {
             bias: 0.,
             weight: 1.,
             enabled: true,
+            _phantom: PhantomData,
         }
     }
 
@@ -139,8 +150,16 @@ impl Connection for BWConnection {
         self.enabled
     }
 
+    fn path(&self) -> (usize, usize) {
+        (self.from, self.to)
+    }
+
+    fn mutate_params(&mut self, rng: &mut (impl rand::RngCore + crate::Happens)) {
+        todo!()
+    }
+
     fn bisect(&mut self, center: usize, inno: &mut InnoGen) -> (Self, Self) {
-        self.disable();
+        <Self as Connection<N>>::disable(self);
         (
             // from -{1.}> bisect-node
             Self {
@@ -150,6 +169,7 @@ impl Connection for BWConnection {
                 bias: 0.,
                 weight: 1.,
                 enabled: true,
+                _phantom: PhantomData,
             },
             // bisect-node -{w}> to
             Self {
@@ -159,6 +179,7 @@ impl Connection for BWConnection {
                 bias: self.bias,
                 weight: self.weight,
                 enabled: true,
+                _phantom: PhantomData,
             },
         )
     }
@@ -168,7 +189,7 @@ impl Connection for BWConnection {
     }
 }
 
-impl Default for BWConnection {
+impl<N: Node> Default for BWConnection<N> {
     fn default() -> Self {
         Self {
             inno: 0,
@@ -177,11 +198,12 @@ impl Default for BWConnection {
             bias: 0.,
             weight: 0.,
             enabled: true,
+            _phantom: PhantomData,
         }
     }
 }
 
-impl Hash for BWConnection {
+impl<N: Node> Hash for BWConnection<N> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.inno.hash(state);
         self.from.hash(state);
