@@ -13,7 +13,7 @@ use core::f64;
 use rand::RngCore;
 use std::ops::ControlFlow;
 
-const POPULATION: usize = 100;
+const POPULATION: usize = 1000;
 
 #[derive(Debug)]
 enum SentimentKind {
