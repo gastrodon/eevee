@@ -17,11 +17,11 @@ use std::ops::ControlFlow;
 const POPULATION: usize = 1000;
 
 fn decay_linear(want: f64, have: f64) -> f64 {
-    let v = 0. - (want - have).abs();
-    if v.is_nan() {
-        panic!("decay between {want} and {have} is nan")
+    if have.is_nan() {
+        f64::MIN
+    } else {
+        0. - (want - have).abs()
     }
-    v
 }
 
 #[derive(Debug)]
