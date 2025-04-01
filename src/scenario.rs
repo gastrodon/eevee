@@ -31,7 +31,10 @@ impl<G: Genome, H: RngCore + Probabilities + Happens> Stats<'_, G, H> {
         self.species
             .iter()
             .flat_map(|Specie { members, .. }| members.iter())
-            .max_by(|(_, l), (_, r)| l.partial_cmp(r).unwrap())
+            .max_by(|(_, l), (_, r)| {
+                l.partial_cmp(r)
+                    .unwrap_or_else(|| panic!("cannot partial_cmp {l} and {r}"))
+            })
     }
 }
 
@@ -140,9 +143,10 @@ pub fn evolve<
         scores = species
             .iter()
             .filter_map(|Specie { repr, members }| {
-                let gen_max = members
-                    .iter()
-                    .max_by(|(_, l), (_, r)| l.partial_cmp(r).unwrap());
+                let gen_max = members.iter().max_by(|(_, l), (_, r)| {
+                    l.partial_cmp(r)
+                        .unwrap_or_else(|| panic!("cannot partial_cmp {l} and {r}"))
+                });
                 let past_max = scores_prev.get(repr);
 
                 match (gen_max, past_max) {
@@ -171,7 +175,10 @@ pub fn evolve<
                             repr: s.repr,
                             members: {
                                 let mut trunc = s.members;
-                                trunc.sort_by(|(_, l), (_, r)| r.partial_cmp(l).unwrap());
+                                trunc.sort_by(|(_, l), (_, r)| {
+                                    r.partial_cmp(l)
+                                        .unwrap_or_else(|| panic!("cannot partial_cmp {l} and {r}"))
+                                });
                                 trunc[..2].to_vec()
                             },
                         },
