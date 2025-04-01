@@ -5,7 +5,7 @@ use brain::{
     activate::relu,
     genome::{node::NonBNode, CTRGenome, WConnection},
     network::ToNetwork,
-    random::{default_rng, ProbBinding, ProbStatic},
+    random::{default_rng, percent, EvolutionEvent, ProbBinding, ProbStatic},
     scenario::{evolve, EvolutionHooks},
     specie::population_init,
     Connection, Ctrnn, Genome, Happens, Network, Node, Probabilities, Scenario, Stats,
@@ -169,7 +169,13 @@ fn main() {
         Sentiment::new(8, positive, negative),
         |(i, o)| population_init::<N, C, G>(i, o, POPULATION),
         relu,
-        ProbBinding::new(ProbStatic::default(), default_rng()),
+        ProbBinding::new(
+            ProbStatic::default().with_overrides(&[
+                (EvolutionEvent::MutateBisection, percent(15)),
+                (EvolutionEvent::MutateConnection, percent(30)),
+            ]),
+            default_rng(),
+        ),
         EvolutionHooks::new(vec![Box::new(hook)]),
     );
 }
