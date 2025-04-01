@@ -10,7 +10,7 @@ use crate::{
     specie::InnoGen,
 };
 use core::{cmp::Ordering, error::Error, fmt::Debug, hash::Hash};
-use rand::{Rng, RngCore};
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::{fs, path::Path};
 
@@ -74,7 +74,7 @@ pub trait Connection<N: Node>:
     }
 
     /// mutate connection parameters
-    fn mutate_params(&mut self, rng: &mut (impl RngCore + Happens));
+    fn mutate_params(&mut self, rng: &mut impl Happens);
 
     /// bisect this connection; disabling it, and returning the (upper, lower) bisection pair
     fn bisect(&mut self, center: usize, inno: &mut InnoGen) -> (Self, Self);
@@ -111,15 +111,15 @@ pub trait Genome<N: Node, C: Connection<N>>: Serialize + for<'de> Deserialize<'d
     }
 
     /// Perform a ( possible? TODO ) mutation across every weight
-    fn mutate_params(&mut self, rng: &mut (impl RngCore + Happens));
+    fn mutate_params(&mut self, rng: &mut impl Happens);
 
     /// Find some open path ( that is, a path between nodes from -> to )
     /// that no connection is occupying if any exist
-    fn open_path(&self, rng: &mut (impl RngCore + Happens)) -> Option<(usize, usize)>;
+    fn open_path(&self, rng: &mut impl Happens) -> Option<(usize, usize)>;
 
     /// Generate a new connection between unconnected nodes.
     /// Panics if all possible connections between nodes are saturated
-    fn mutate_connection(&mut self, rng: &mut (impl RngCore + Happens), inno: &mut InnoGen) {
+    fn mutate_connection(&mut self, rng: &mut impl Happens, inno: &mut InnoGen) {
         if let Some((from, to)) = self.open_path(rng) {
             self.push_connection(C::new(from, to, inno));
         } else {
@@ -128,7 +128,7 @@ pub trait Genome<N: Node, C: Connection<N>>: Serialize + for<'de> Deserialize<'d
     }
 
     /// Bisect an existing connection. Should panic if there are no connections to bisect
-    fn mutate_bisection(&mut self, rng: &mut (impl RngCore + Happens), inno: &mut InnoGen) {
+    fn mutate_bisection(&mut self, rng: &mut impl Happens, inno: &mut InnoGen) {
         if self.connections().is_empty() {
             panic!("no connections available to bisect");
         }
@@ -146,7 +146,7 @@ pub trait Genome<N: Node, C: Connection<N>>: Serialize + for<'de> Deserialize<'d
     }
 
     /// Perform 0 or more mutations on this genome ( should this be the only mutator exposed? TODO )
-    fn mutate(&mut self, rng: &mut (impl RngCore + Happens), innogen: &mut InnoGen) {
+    fn mutate(&mut self, rng: &mut impl Happens, innogen: &mut InnoGen) {
         if rng.happens(EvolutionEvent::MutateWeight) {
             self.mutate_params(rng);
         }
@@ -159,12 +159,7 @@ pub trait Genome<N: Node, C: Connection<N>>: Serialize + for<'de> Deserialize<'d
     }
 
     /// Perform crossover reproduction with other, where our fitness is `fitness_cmp` compared to other
-    fn reproduce_with(
-        &self,
-        other: &Self,
-        fitness_cmp: Ordering,
-        rng: &mut (impl RngCore + Happens),
-    ) -> Self;
+    fn reproduce_with(&self, other: &Self, fitness_cmp: Ordering, rng: &mut impl Happens) -> Self;
 
     fn to_string(&self) -> Result<String, Box<dyn Error>> {
         Ok(serde_json::to_string(self)?)

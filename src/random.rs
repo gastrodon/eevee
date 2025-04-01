@@ -28,7 +28,7 @@ pub trait Probabilities {
     fn update(&mut self, stats: Self::Update);
 }
 
-pub trait Happens {
+pub trait Happens: RngCore + Probabilities {
     fn happens(&mut self, evt: EvolutionEvent) -> bool;
 }
 

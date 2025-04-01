@@ -2,7 +2,7 @@
 use super::{Connection, Genome, Node, NodeKind};
 use crate::{crossover::crossover, network::FromGenome, Ctrnn, Happens};
 use core::cmp::{max, Ordering};
-use rand::{seq::IteratorRandom, RngCore};
+use rand::seq::IteratorRandom;
 use rulinalg::matrix::Matrix;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::HashSet;
@@ -71,13 +71,13 @@ impl<N: Node, C: Connection<N>> Genome<N, C> for CTRGenome<N, C> {
         self.connections.push(connection);
     }
 
-    fn mutate_params(&mut self, rng: &mut (impl RngCore + Happens)) {
+    fn mutate_params(&mut self, rng: &mut impl Happens) {
         for conn in self.connections.iter_mut() {
             conn.mutate_params(rng);
         }
     }
 
-    fn open_path(&self, rng: &mut (impl RngCore + Happens)) -> Option<(usize, usize)> {
+    fn open_path(&self, rng: &mut impl Happens) -> Option<(usize, usize)> {
         let mut saturated = HashSet::new();
         loop {
             let from = (0..self.nodes.len())
@@ -101,12 +101,7 @@ impl<N: Node, C: Connection<N>> Genome<N, C> for CTRGenome<N, C> {
         }
     }
 
-    fn reproduce_with(
-        &self,
-        other: &Self,
-        self_fit: Ordering,
-        rng: &mut (impl RngCore + Happens),
-    ) -> Self {
+    fn reproduce_with(&self, other: &Self, self_fit: Ordering, rng: &mut impl Happens) -> Self {
         let connections = crossover(&self.connections, &other.connections, self_fit, rng);
         let nodes_size = connections
             .iter()

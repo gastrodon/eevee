@@ -1,6 +1,6 @@
 use super::{Connection, Node};
 use crate::{random::EvolutionEvent, specie::InnoGen, Happens};
-use rand::{Rng, RngCore};
+use rand::Rng;
 use rand_distr::StandardNormal;
 use serde::{Deserialize, Serialize};
 use std::{hash::Hash, marker::PhantomData};
@@ -59,7 +59,7 @@ impl<N: Node> Connection<N> for WConnection<N> {
         self.weight
     }
 
-    fn mutate_params(&mut self, rng: &mut (impl RngCore + Happens)) {
+    fn mutate_params(&mut self, rng: &mut impl Happens) {
         if rng.happens(EvolutionEvent::NewWeight) {
             self.weight = rng.sample(StandardNormal);
         } else if rng.happens(EvolutionEvent::PerturbWeight) {
@@ -176,7 +176,7 @@ impl<N: Node> Connection<N> for BWConnection<N> {
         self.weight
     }
 
-    fn mutate_params(&mut self, rng: &mut (impl RngCore + Happens)) {
+    fn mutate_params(&mut self, rng: &mut impl Happens) {
         if rng.happens(EvolutionEvent::NewWeight) {
             self.weight = rng.sample(StandardNormal);
         } else if rng.happens(EvolutionEvent::PerturbWeight) {
