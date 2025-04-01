@@ -123,14 +123,11 @@ impl<
                 }
 
                 let [w_positive, w_negative] = kind.value();
-                let [c_positive, c_negative] = {
-                    let [c_positive, c_negative] = network.output() else {
-                        unreachable!("incorrect output size")
-                    };
-                    [c_positive.clamp(-1., 1.), c_negative.clamp(0., 100.)]
+                let [c_positive, c_negative] = network.output() else {
+                    unreachable!("incorrect output size")
                 };
 
-                decay_linear(w_positive, c_positive) + decay_linear(w_negative, c_negative)
+                decay_linear(w_positive, *c_positive) + decay_linear(w_negative, *c_negative)
             })
             .sum();
 
