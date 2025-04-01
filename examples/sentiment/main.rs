@@ -158,8 +158,8 @@ fn hook<
 }
 
 fn main() {
-    let positive = include_str!("positive.txt").split('\n').collect();
-    let negative = include_str!("negative.txt").split('\n').collect();
+    let positive = include_str!("data/positive.txt").split('\n').collect();
+    let negative = include_str!("data/negative.txt").split('\n').collect();
 
     type N = NonBNode;
     type C = WConnection<N>;
