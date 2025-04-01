@@ -16,6 +16,14 @@ use std::ops::ControlFlow;
 
 const POPULATION: usize = 1000;
 
+fn decay_linear(want: f64, have: f64) -> f64 {
+    let v = 0. - (want - have).abs();
+    if v.is_nan() {
+        panic!("decay between {want} and {have} is nan")
+    }
+    v
+}
+
 #[derive(Debug)]
 enum SentimentKind {
     Positive,
@@ -31,21 +39,36 @@ impl SentimentKind {
     }
 }
 
-struct Sentiment {
+struct Sentiment<'a> {
     chunk_size: usize,
-    positive: Vec<&'static str>,
-    negative: Vec<&'static str>,
+    data: Vec<(&'a str, Vec<Vec<f64>>, SentimentKind)>,
 }
 
-fn decay_linear(want: f64, have: f64) -> f64 {
-    let v = 0. - (want - have).abs();
-    if v.is_nan() {
-        panic!("decay between {want} and {have} is nan")
+impl<'a> Sentiment<'a> {
+    fn new(chunk_size: usize, positive: Vec<&'a str>, negative: Vec<&'a str>) -> Self {
+        let plen = positive.len();
+        let nlen = negative.len();
+        let mut mixed = Vec::with_capacity(plen + nlen);
+        for p in positive
+            .iter()
+            .map(|line| (*line, chunked(chunk_size, line), SentimentKind::Positive))
+            .chain(
+                negative
+                    .iter()
+                    .map(|line| (*line, chunked(chunk_size, line), SentimentKind::Negative)),
+            )
+        {
+            mixed.push(p);
+        }
+
+        Self {
+            chunk_size,
+            data: mixed,
+        }
     }
-    v
 }
 
-fn chunked(chunk_size: usize, data: &'static str) -> Vec<Vec<f64>> {
+fn chunked(chunk_size: usize, data: &str) -> Vec<Vec<f64>> {
     let chunk_size = chunk_size * 8;
     let f_bits = data
         .as_bytes()
@@ -77,44 +100,26 @@ fn chunked(chunk_size: usize, data: &'static str) -> Vec<Vec<f64>> {
 }
 
 impl<
+        'a,
         N: Node,
         C: Connection<N>,
         G: Genome<N, C> + ToNetwork<Ctrnn, N, C>,
         H: RngCore + Probabilities + Happens,
         A: Fn(f64) -> f64,
-    > Scenario<N, C, G, H, A> for Sentiment
+    > Scenario<N, C, G, H, A> for Sentiment<'a>
 {
     fn io(&self) -> (usize, usize) {
         (8 * self.chunk_size, 2)
     }
 
     fn eval(&self, genome: &G, σ: &A) -> f64 {
-        let inputs = {
-            let plen = self.positive.len();
-            let nlen = self.negative.len();
-            let mut mixed = Vec::with_capacity(plen + nlen);
-            for p in self
-                .positive
-                .iter()
-                .map(|s| (s, chunked(self.chunk_size, s), SentimentKind::Positive))
-                .chain(
-                    self.negative
-                        .iter()
-                        .map(|s| (s, chunked(self.chunk_size, s), SentimentKind::Negative)),
-                )
-            {
-                mixed.push(p);
-            }
-
-            mixed
-        };
-
         let mut network = genome.network();
-        let fit = inputs
-            .into_iter()
+        let fit = self
+            .data
+            .iter()
             .map(|(_, input, kind)| {
                 for chunk in input {
-                    network.step(5, &chunk, σ);
+                    network.step(5, chunk, σ);
                 }
 
                 let [w_positive, w_negative] = kind.value();
@@ -164,11 +169,7 @@ fn main() {
     type G = CTRGenome<N, C>;
 
     evolve(
-        Sentiment {
-            chunk_size: 8,
-            positive,
-            negative,
-        },
+        Sentiment::new(8, positive, negative),
         |(i, o)| population_init::<N, C, G>(i, o, POPULATION),
         relu,
         ProbBinding::new(ProbStatic::default(), default_rng()),
