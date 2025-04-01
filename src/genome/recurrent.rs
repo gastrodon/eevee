@@ -29,10 +29,6 @@ pub struct CTRGenome<N: Node, C: Connection<N>> {
     connections: Vec<C>,
 }
 
-impl<N: Node, C: Connection<N>> CTRGenome<N, C> {
-    const MUTATE_WEIGHT_FAC: f64 = 0.05;
-}
-
 impl<N: Node, C: Connection<N>> Genome<N, C> for CTRGenome<N, C> {
     fn new(sensory: usize, action: usize) -> (Self, usize) {
         let mut nodes = Vec::with_capacity(sensory + action + 1);
