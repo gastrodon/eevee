@@ -1,6 +1,4 @@
 use super::{Node, NodeKind};
-use crate::Happens;
-use rand::RngCore;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -20,10 +18,6 @@ impl Node for BNode {
 
     fn bias(&self) -> f64 {
         self.bias
-    }
-
-    fn mutate_params(&mut self, rng: &mut (impl RngCore + Happens)) {
-        todo!()
     }
 }
 
@@ -59,9 +53,5 @@ impl Node for NonBNode {
             Self::Static(b) => *b,
             _ => 0.,
         }
-    }
-
-    fn mutate_params(&mut self, rng: &mut (impl RngCore + Happens)) {
-        todo!()
     }
 }

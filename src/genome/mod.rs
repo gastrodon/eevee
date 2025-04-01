@@ -35,9 +35,6 @@ pub trait Node: Serialize + for<'de> Deserialize<'de> + Clone + Debug + PartialE
 
     /// The bias of a node, returning 0. for nodes who can't have bias
     fn bias(&self) -> f64;
-
-    /// mutate node parameters
-    fn mutate_params(&mut self, rng: &mut (impl RngCore + Happens));
 }
 
 pub trait Connection<N: Node>:
