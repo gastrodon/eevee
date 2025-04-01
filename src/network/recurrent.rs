@@ -29,7 +29,7 @@ impl Network for Ctrnn {
         let inv = 1. / (prec as f64);
         for _ in 0..prec {
             self.y += (((&self.y + &self.θ).apply(&σ) * &self.w) - &self.y + &m_input)
-                .elediv(&self.τ)
+                .elemul(&self.τ)
                 .apply(&|v| v * inv);
         }
     }

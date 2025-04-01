@@ -140,6 +140,8 @@ impl<N: Node, C: Connection<N>> Genome<N, C> for CTRGenome<N, C> {
     }
 }
 
+const TAU_DEFAULT: f64 = 1.;
+
 impl<N: Node, C: Connection<N>> FromGenome<N, C, CTRGenome<N, C>> for Ctrnn {
     fn from_genome(genome: &CTRGenome<N, C>) -> Self {
         let cols = genome.nodes.len();
@@ -150,7 +152,7 @@ impl<N: Node, C: Connection<N>> FromGenome<N, C, CTRGenome<N, C>> for Ctrnn {
                 cols,
                 genome.nodes.iter().map(|n| n.bias()).collect::<Vec<_>>(),
             ),
-            τ: Matrix::ones(1, cols),
+            τ: Matrix::from_fn(1, cols, |_, _| 1. / TAU_DEFAULT),
             w: {
                 let mut w = vec![0.; cols * cols];
                 for c in genome.connections.iter().filter(|c| c.enabled()) {
