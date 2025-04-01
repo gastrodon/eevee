@@ -38,7 +38,11 @@ struct Sentiment {
 }
 
 fn decay_linear(want: f64, have: f64) -> f64 {
-    0. - (want - have).abs()
+    let v = 0. - (want - have).abs();
+    if v.is_nan() {
+        panic!("decay between {want} and {have} is nan")
+    }
+    v
 }
 
 fn chunked(chunk_size: usize, data: &'static str) -> Vec<Vec<f64>> {
