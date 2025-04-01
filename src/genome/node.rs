@@ -9,7 +9,14 @@ pub struct BNode {
 
 impl Node for BNode {
     fn new(kind: NodeKind) -> Self {
-        Self { bias: 0., kind }
+        Self {
+            bias: if matches!(kind, NodeKind::Static) {
+                1.
+            } else {
+                0.
+            },
+            kind,
+        }
     }
 
     fn kind(&self) -> NodeKind {

@@ -38,7 +38,7 @@ impl<N: Node, C: Connection<N>> Genome<N, C> for CTRGenome<N, C> {
         for _ in sensory..sensory + action {
             nodes.push(N::new(NodeKind::Action));
         }
-        nodes.push(N::new(NodeKind::Static)); // TODO
+        nodes.push(N::new(NodeKind::Static));
 
         (
             Self {
@@ -119,7 +119,7 @@ impl<N: Node, C: Connection<N>> Genome<N, C> for CTRGenome<N, C> {
         for _ in self.sensory..self.sensory + self.action {
             nodes.push(N::new(NodeKind::Action));
         }
-        nodes.push(N::new(NodeKind::Static)); // TODO
+        nodes.push(N::new(NodeKind::Static));
         for _ in self.sensory + self.action..nodes_size {
             nodes.push(N::new(NodeKind::Internal));
         }
