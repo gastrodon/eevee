@@ -1,5 +1,6 @@
 FROM rust:alpine AS builder
 RUN apk add --no-cache musl-dev
+RUN rustup default nightly
 
 WORKDIR /opt/brain-rs
 ADD src src
@@ -11,7 +12,6 @@ RUN cat Cargo.toml
 
 ARG TARGET
 ARG BUILD_OPT="-r"
-RUN rustup default nightly
 RUN cargo build ${BUILD_OPT} --example ${TARGET}
 
 FROM alpine:latest
