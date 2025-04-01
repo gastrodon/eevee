@@ -150,7 +150,12 @@ fn reproduce_crossover<G: Genome, H: RngCore + Happens>(
                     })
             })
             .collect::<Vec<_>>();
-        pairs.sort_by(|l, r| (r.0 .1 + r.1 .1).partial_cmp(&(l.0 .1 + l.1 .1)).unwrap());
+        pairs.sort_by(|l, r| {
+            let r = r.0 .1 + r.1 .1;
+            let l = l.0 .1 + l.1 .1;
+            (r).partial_cmp(&l)
+                .unwrap_or_else(|| panic!("cannot partial_cmp {l} and {r}"))
+        });
         pairs
     };
 
@@ -185,7 +190,10 @@ fn reproduce_copy<G: Genome, H: RngCore + Happens>(
     }
 
     let mut top = genomes.iter().collect::<Vec<_>>();
-    top.sort_by(|(_, l), (_, r)| r.partial_cmp(l).unwrap());
+    top.sort_by(|(_, l), (_, r)| {
+        r.partial_cmp(l)
+            .unwrap_or_else(|| panic!("cannot partial_cmp {l} and {r}"))
+    });
     top.into_iter()
         .cycle()
         .take(size)
@@ -219,7 +227,10 @@ pub fn reproduce<G: Genome, H: RngCore + Happens>(
     pop.push(
         genomes
             .iter()
-            .max_by(|(_, l), (_, r)| l.partial_cmp(r).unwrap())
+            .max_by(|(_, l), (_, r)| {
+                l.partial_cmp(r)
+                    .unwrap_or_else(|| panic!("cannot partial_cmp {l} and {r}"))
+            })
             .unwrap()
             .0
             .clone(),
