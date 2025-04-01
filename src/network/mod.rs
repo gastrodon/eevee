@@ -2,6 +2,7 @@ pub mod recurrent;
 pub mod serialize;
 pub use recurrent::Ctrnn;
 
+use crate::{Connection, Genome, Node};
 use core::error::Error;
 use serde::{Deserialize, Serialize};
 use std::{fs, path::Path};
@@ -54,5 +55,37 @@ pub trait Network: Serialize + for<'de> Deserialize<'de> {
         Self: Sized,
     {
         Self::from_str(&fs::read_to_string(path)?)
+    }
+}
+
+/// A network propagating non-linearly, where propagation through
+/// recurrent connections is computed and invalid
+pub trait Recurrent: Network {}
+
+/// A network propagating linearly, where propagation through
+/// recurrent connections won't be computed and may be invalid
+pub trait Linear: Network {}
+
+/// A network that retains state between calls to step,
+/// where that state may interact with new input, or change output
+pub trait Stateful: Network {}
+
+/// A network that doesn't retain state between calls to step
+pub trait Stateless: Network {}
+
+pub trait FromGenome<N: Node, C: Connection<N>, G: Genome<N, C>>: Network {
+    fn from_genome(genome: &G) -> Self;
+}
+
+pub trait ToNetwork<NN: Network, N: Node, C: Connection<N>>: Genome<N, C> {
+    fn network(&self) -> NN;
+}
+
+impl<NN: Network, N: Node, C: Connection<N>, G: Genome<N, C>> ToNetwork<NN, N, C> for G
+where
+    NN: FromGenome<N, C, G>,
+{
+    fn network(&self) -> NN {
+        NN::from_genome(self)
     }
 }

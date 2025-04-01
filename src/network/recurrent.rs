@@ -5,6 +5,8 @@ use crate::{
 use rulinalg::matrix::{BaseMatrix, BaseMatrixMut, Matrix};
 use serde::{Deserialize, Serialize};
 
+use super::{Recurrent, Stateful};
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Ctrnn {
     #[serde(serialize_with = "serialize", deserialize_with = "deserialize_flat")]
@@ -40,6 +42,10 @@ impl Network for Ctrnn {
         &self.y.data()[self.action.0..self.action.1]
     }
 }
+
+impl Recurrent for Ctrnn {}
+
+impl Stateful for Ctrnn {}
 
 #[cfg(test)]
 mod test {

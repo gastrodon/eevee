@@ -3,11 +3,12 @@
 
 use brain::{
     activate::relu,
-    genome::CTRGenome,
+    genome::{node::NonBNode, CTRGenome, WConnection},
+    network::ToNetwork,
     random::{default_rng, ProbBinding, ProbStatic},
     scenario::{evolve, EvolutionHooks},
     specie::population_init,
-    Genome, Happens, Network, Probabilities, Scenario, Stats,
+    Connection, Ctrnn, Genome, Happens, Network, Node, Probabilities, Scenario, Stats,
 };
 use core::f64;
 use rand::RngCore;
@@ -71,8 +72,13 @@ fn chunked(chunk_size: usize, data: &'static str) -> Vec<Vec<f64>> {
         .collect::<Vec<Vec<_>>>()
 }
 
-impl<G: Genome, H: RngCore + Probabilities + Happens, A: Fn(f64) -> f64> Scenario<G, H, A>
-    for Sentiment
+impl<
+        N: Node,
+        C: Connection<N>,
+        G: Genome<N, C> + ToNetwork<Ctrnn, N, C>,
+        H: RngCore + Probabilities + Happens,
+        A: Fn(f64) -> f64,
+    > Scenario<N, C, G, H, A> for Sentiment
 {
     fn io(&self) -> (usize, usize) {
         (8 * self.chunk_size, 2)
@@ -124,10 +130,12 @@ impl<G: Genome, H: RngCore + Probabilities + Happens, A: Fn(f64) -> f64> Scenari
 }
 
 fn hook<
-    G: Genome,
+    N: Node,
+    C: Connection<N>,
+    G: Genome<N, C>,
     H: RngCore + Probabilities<Update = (brain::random::EvolutionEvent, u64)> + Happens,
 >(
-    stats: &mut Stats<'_, G, H>,
+    stats: &mut Stats<'_, N, C, G, H>,
 ) -> ControlFlow<()> {
     let fittest = stats.fittest().unwrap();
     println!("fittest of gen {}: {:.4}", stats.generation, fittest.1);
@@ -147,13 +155,17 @@ fn main() {
     let positive = include_str!("positive.txt").split('\n').collect();
     let negative = include_str!("negative.txt").split('\n').collect();
 
+    type N = NonBNode;
+    type C = WConnection<N>;
+    type G = CTRGenome<N, C>;
+
     evolve(
         Sentiment {
             chunk_size: 8,
             positive,
             negative,
         },
-        |(i, o)| population_init::<CTRGenome>(i, o, POPULATION),
+        |(i, o)| population_init::<N, C, G>(i, o, POPULATION),
         relu,
         ProbBinding::new(ProbStatic::default(), default_rng()),
         EvolutionHooks::new(vec![Box::new(hook)]),

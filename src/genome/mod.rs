@@ -1,24 +1,28 @@
+pub mod connection;
+pub mod node;
 pub mod recurrent;
-pub use recurrent::{CTRConnection, CTRGenome};
+
+pub use connection::WConnection;
+pub use recurrent::CTRGenome;
 
 use crate::{
     random::{EvolutionEvent, Happens},
     specie::InnoGen,
-    Network,
 };
 use core::{cmp::Ordering, error::Error, fmt::Debug, hash::Hash};
 use rand::{Rng, RngCore};
 use serde::{Deserialize, Serialize};
 use std::{fs, path::Path};
 
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum NodeKind {
     Sensory,
     Action,
     Internal,
-    Bias,
+    Static,
 }
 
-pub trait Node: Serialize + for<'de> Deserialize<'de> + Clone + Debug {
+pub trait Node: Serialize + for<'de> Deserialize<'de> + Clone + Debug + PartialEq {
     /// A new node of some kind
     fn new(kind: NodeKind) -> Self;
 
@@ -26,21 +30,19 @@ pub trait Node: Serialize + for<'de> Deserialize<'de> + Clone + Debug {
     /// - sensory reads input to a network
     /// - action describes output from a network
     /// - internal is a hidden node of a network
-    /// - bias is a hidden node, but unaffected by input
+    /// - static is a hidden node, but unaffected by input, yielding a static value
     fn kind(&self) -> NodeKind;
 
     /// The bias of a node, returning 0. for nodes who can't have bias
     fn bias(&self) -> f64;
 }
 
-pub trait Connection:
+pub trait Connection<N: Node>:
     Serialize + for<'de> Deserialize<'de> + Clone + Hash + PartialEq + Default + Debug
 {
     const EXCESS_COEFFICIENT: f64;
     const DISJOINT_COEFFICIENT: f64;
     const PARAM_COEFFICIENT: f64;
-
-    type Node: Node;
 
     fn new(from: usize, to: usize, inno: &mut InnoGen) -> Self;
 
@@ -56,6 +58,24 @@ pub trait Connection:
     /// unconditionally disable this connection
     fn disable(&mut self);
 
+    /// (from, to) path of this connection
+    fn path(&self) -> (usize, usize);
+
+    /// path source
+    fn from(&self) -> usize {
+        self.path().0
+    }
+
+    fn weight(&self) -> f64;
+
+    /// path destination
+    fn to(&self) -> usize {
+        self.path().1
+    }
+
+    /// mutate connection parameters
+    fn mutate_params(&mut self, rng: &mut (impl RngCore + Happens));
+
     /// bisect this connection; disabling it, and returning the (upper, lower) bisection pair
     fn bisect(&mut self, center: usize, inno: &mut InnoGen) -> (Self, Self);
 
@@ -64,32 +84,28 @@ pub trait Connection:
     fn param_diff(&self, other: &Self) -> f64;
 }
 
-pub trait Genome: Serialize + for<'de> Deserialize<'de> + Clone {
-    type Node: Node = <<Self as Genome>::Connection as Connection>::Node;
-    type Connection: Connection;
-    type Network: Network;
-
+pub trait Genome<N: Node, C: Connection<N>>: Serialize + for<'de> Deserialize<'de> + Clone {
     /// A new genome of this type, with a known input and output size
     fn new(sensory: usize, action: usize) -> (Self, usize);
 
-    fn nodes(&self) -> &[Self::Node];
+    fn nodes(&self) -> &[N];
 
     /// Push a new node onto the genome
-    fn push_node(&mut self, node: Self::Node);
+    fn push_node(&mut self, node: N);
 
     /// A collection to the connections comprising this genome
-    fn connections(&self) -> &[Self::Connection];
+    fn connections(&self) -> &[C];
 
     /// Mutable reference to the connections comprising this genome
-    fn connections_mut(&mut self) -> &mut [Self::Connection];
+    fn connections_mut(&mut self) -> &mut [C];
 
     /// Push a connection onto the genome
-    fn push_connection(&mut self, connection: Self::Connection);
+    fn push_connection(&mut self, connection: C);
 
     /// Push 2 connections onto the genome, first then second.
     /// The idea with this is that we'll often do so as a result of bisection,
     /// so this gives us a chance to grow the connections just once if we want
-    fn push_2_connections(&mut self, first: Self::Connection, second: Self::Connection) {
+    fn push_2_connections(&mut self, first: C, second: C) {
         self.push_connection(first);
         self.push_connection(second);
     }
@@ -105,7 +121,7 @@ pub trait Genome: Serialize + for<'de> Deserialize<'de> + Clone {
     /// Panics if all possible connections between nodes are saturated
     fn mutate_connection(&mut self, rng: &mut (impl RngCore + Happens), inno: &mut InnoGen) {
         if let Some((from, to)) = self.open_path(rng) {
-            self.push_connection(Self::Connection::new(from, to, inno));
+            self.push_connection(C::new(from, to, inno));
         } else {
             panic!("connections on genome are fully saturated")
         }
@@ -125,7 +141,7 @@ pub trait Genome: Serialize + for<'de> Deserialize<'de> + Clone {
             .unwrap()
             .bisect(center, inno);
 
-        self.push_node(Self::Node::new(NodeKind::Internal));
+        self.push_node(N::new(NodeKind::Internal));
         self.push_2_connections(lower, upper);
     }
 
@@ -149,8 +165,6 @@ pub trait Genome: Serialize + for<'de> Deserialize<'de> + Clone {
         fitness_cmp: Ordering,
         rng: &mut (impl RngCore + Happens),
     ) -> Self;
-
-    fn network(&self) -> Self::Network;
 
     fn to_string(&self) -> Result<String, Box<dyn Error>> {
         Ok(serde_json::to_string(self)?)

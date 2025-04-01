@@ -3,11 +3,12 @@
 
 use brain::{
     activate::relu,
-    genome::{CTRGenome, Genome},
+    genome::{node::NonBNode, CTRGenome, Genome, WConnection},
+    network::ToNetwork,
     random::{default_rng, percent, EvolutionEvent, ProbBinding, ProbStatic},
     scenario::{evolve, EvolutionHooks},
     specie::population_init,
-    Happens, Network, Probabilities, Scenario, Stats,
+    Connection, Ctrnn, Happens, Network, Node, Probabilities, Scenario, Stats,
 };
 use core::ops::ControlFlow;
 use nes_rust::{
@@ -144,8 +145,13 @@ fn enter_game(nes: &mut Nes) {
 
 struct NesTetris;
 
-impl<G: Genome, H: RngCore + Probabilities + Happens, A: Fn(f64) -> f64> Scenario<G, H, A>
-    for NesTetris
+impl<
+        N: Node,
+        C: Connection<N>,
+        G: Genome<N, C> + ToNetwork<Ctrnn, N, C>,
+        H: RngCore + Probabilities + Happens,
+        A: Fn(f64) -> f64,
+    > Scenario<N, C, G, H, A> for NesTetris
 {
     fn io(&self) -> (usize, usize) {
         (200, 8)
@@ -192,8 +198,14 @@ impl<G: Genome, H: RngCore + Probabilities + Happens, A: Fn(f64) -> f64> Scenari
 
 const POPULATION: usize = 100;
 
-fn hook<G: Genome, H: RngCore + Probabilities + Happens>(
-    stats: &mut Stats<'_, G, H>,
+fn hook<H: RngCore + Probabilities + Happens>(
+    stats: &mut Stats<
+        '_,
+        NonBNode,
+        WConnection<NonBNode>,
+        CTRGenome<NonBNode, WConnection<NonBNode>>,
+        H,
+    >,
 ) -> ControlFlow<()> {
     if stats.generation % 10 != 0 {
         ControlFlow::Continue(())
@@ -218,7 +230,13 @@ fn hook<G: Genome, H: RngCore + Probabilities + Happens>(
 fn main() {
     evolve(
         NesTetris {},
-        |(i, o)| population_init::<CTRGenome>(i, o, POPULATION),
+        |(i, o)| {
+            population_init::<
+                NonBNode,
+                WConnection<NonBNode>,
+                CTRGenome<NonBNode, WConnection<NonBNode>>,
+            >(i, o, POPULATION)
+        },
         relu,
         ProbBinding::new(
             ProbStatic::default().with_overrides(&[
