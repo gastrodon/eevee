@@ -7,7 +7,7 @@ use brain::{
     network::ToNetwork,
     random::{default_rng, percent, EvolutionEvent, ProbBinding, ProbStatic},
     scenario::{evolve, EvolutionHooks},
-    specie::population_init,
+    specie::{population_from_files, population_init},
     Connection, Ctrnn, Happens, Network, Node, Probabilities, Scenario, Stats,
 };
 use core::ops::ControlFlow;
@@ -15,6 +15,7 @@ use nes_rust::{
     button::Button, default_audio::DefaultAudio, default_display::DefaultDisplay,
     default_input::DefaultInput, rom::Rom, Nes,
 };
+use std::fs::create_dir_all;
 
 #[rustfmt::skip]
 mod v {
@@ -196,7 +197,7 @@ impl<
     }
 }
 
-const POPULATION: usize = 100;
+const POPULATION: usize = 1000;
 
 fn hook<H: RngCore + Probabilities + Happens>(
     stats: &mut Stats<
@@ -228,14 +229,17 @@ fn hook<H: RngCore + Probabilities + Happens>(
 }
 
 fn main() {
+    type N = NonBNode;
+    type C = WConnection<N>;
+    type G = CTRGenome<N, C>;
+
+    create_dir_all("output/nes-tetris").expect("failed to create genome output");
+
     evolve(
         NesTetris {},
         |(i, o)| {
-            population_init::<
-                NonBNode,
-                WConnection<NonBNode>,
-                CTRGenome<NonBNode, WConnection<NonBNode>>,
-            >(i, o, POPULATION)
+            population_from_files("output/nes-tetris")
+                .unwrap_or_else(|_| population_init::<N, C, G>(i, o, POPULATION))
         },
         relu,
         ProbBinding::new(
