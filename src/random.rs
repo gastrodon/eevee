@@ -5,6 +5,61 @@ use std::{
     io::{self, Read},
 };
 
+pub const fn percent(x: u64) -> u64 {
+    x * (u64::MAX / 100)
+}
+
+pub fn seed_urandom() -> io::Result<u64> {
+    let mut file = File::open("/dev/urandom")?;
+    let mut buffer = [0u8; 8];
+    file.read_exact(&mut buffer)?;
+    Ok(u64::from_le_bytes([
+        buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7],
+    ]))
+}
+
+pub fn default_rng() -> impl RngCore {
+    WyRng::seeded(seed_urandom().unwrap())
+}
+
+pub struct WyRng {
+    state: u64,
+}
+
+impl WyRng {
+    pub fn seeded(state: u64) -> Self {
+        Self { state }
+    }
+}
+
+impl RngCore for WyRng {
+    fn next_u32(&mut self) -> u32 {
+        self.next_u64() as u32
+    }
+
+    fn next_u64(&mut self) -> u64 {
+        const WY_CONST_0: u64 = 0x2d35_8dcc_aa6c_78a5;
+        const WY_CONST_1: u64 = 0x8bb8_4b93_962e_acc9;
+        self.state = self.state.wrapping_add(WY_CONST_0);
+        let t = u128::from(self.state) * u128::from(self.state ^ WY_CONST_1);
+        (t as u64) ^ (t >> 64) as u64
+    }
+
+    // TODO test this
+    fn fill_bytes(&mut self, dst: &mut [u8]) {
+        if dst.is_empty() {
+            return;
+        }
+
+        let mut idx = 0;
+        while idx < dst.len() {
+            let lim = min(8, dst.len() - idx);
+            dst.copy_from_slice(&self.next_u64().to_ne_bytes()[..lim]);
+            idx += lim;
+        }
+    }
+}
+
 pub trait Idx {
     fn idx(&self) -> usize;
 }
@@ -136,10 +191,6 @@ pub enum EvolutionEvent {
     PickLNE,
 }
 
-pub const fn percent(x: u64) -> u64 {
-    x * (u64::MAX / 100)
-}
-
 pub trait Probabilities {
     type Update;
     fn probability(&self, evt: EvolutionEvent) -> u64;
@@ -224,44 +275,6 @@ impl Probabilities for ProbStatic {
     }
 }
 
-pub struct WyRng {
-    state: u64,
-}
-
-impl WyRng {
-    pub fn seeded(state: u64) -> Self {
-        Self { state }
-    }
-}
-
-impl RngCore for WyRng {
-    fn next_u32(&mut self) -> u32 {
-        self.next_u64() as u32
-    }
-
-    fn next_u64(&mut self) -> u64 {
-        const WY_CONST_0: u64 = 0x2d35_8dcc_aa6c_78a5;
-        const WY_CONST_1: u64 = 0x8bb8_4b93_962e_acc9;
-        self.state = self.state.wrapping_add(WY_CONST_0);
-        let t = u128::from(self.state) * u128::from(self.state ^ WY_CONST_1);
-        (t as u64) ^ (t >> 64) as u64
-    }
-
-    // TODO test this
-    fn fill_bytes(&mut self, dst: &mut [u8]) {
-        if dst.is_empty() {
-            return;
-        }
-
-        let mut idx = 0;
-        while idx < dst.len() {
-            let lim = min(8, dst.len() - idx);
-            dst.copy_from_slice(&self.next_u64().to_ne_bytes()[..lim]);
-            idx += lim;
-        }
-    }
-}
-
 pub struct ProbBinding<P: Probabilities, R: RngCore> {
     p: P,
     r: R,
@@ -312,19 +325,6 @@ pub fn with_probabilities<P: Fn(EvolutionEvent) -> u64, R: FnMut() -> u64>(
 ) -> impl FnMut(EvolutionEvent) -> bool {
     let mut next_u64 = rng();
     move |evt| prob(evt) > next_u64()
-}
-
-pub fn seed_urandom() -> io::Result<u64> {
-    let mut file = File::open("/dev/urandom")?;
-    let mut buffer = [0u8; 8];
-    file.read_exact(&mut buffer)?;
-    Ok(u64::from_le_bytes([
-        buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7],
-    ]))
-}
-
-pub fn default_rng() -> impl RngCore {
-    WyRng::seeded(seed_urandom().unwrap())
 }
 
 #[cfg(test)]
