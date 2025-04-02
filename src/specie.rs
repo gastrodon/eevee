@@ -9,9 +9,8 @@ use fxhash::FxHashMap;
 use rand::RngCore;
 use std::{
     collections::HashMap,
-    fs::{read_dir, ReadDir},
+    fs::read_dir,
     hash::{DefaultHasher, Hash, Hasher},
-    io,
     iter::empty,
     marker::PhantomData,
     path::Path,
