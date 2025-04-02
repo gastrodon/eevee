@@ -7,12 +7,12 @@ use brain::{
     network::ToNetwork,
     random::{default_rng, percent, EvolutionEvent, ProbBinding, ProbStatic},
     scenario::{evolve, EvolutionHooks},
-    specie::population_init,
+    specie::{population_from_files, population_init, population_to_files},
     Connection, Ctrnn, Genome, Happens, Network, Node, Probabilities, Scenario, Stats,
 };
 use core::f64;
 use rand::RngCore;
-use std::ops::ControlFlow;
+use std::{fs::create_dir_all, ops::ControlFlow};
 
 const POPULATION: usize = 1000;
 
@@ -146,11 +146,11 @@ fn hook<
     let fittest = stats.fittest().unwrap();
     println!("fittest of gen {}: {:.4}", stats.generation, fittest.1);
 
-    if stats.generation == 100 {
-        fittest
-            .0
-            .to_file(format!("output/sentiment-{}.json", stats.generation))
-            .unwrap();
+    if stats.generation % 10 == 0 {
+        population_to_files("output/sentiment", stats.species).unwrap();
+    }
+
+    if stats.generation == 250 {
         ControlFlow::Break(())
     } else {
         ControlFlow::Continue(())
@@ -165,9 +165,14 @@ fn main() {
     type C = WConnection<N>;
     type G = CTRGenome<N, C>;
 
+    create_dir_all("output/sentiment").expect("failed to create genome output");
+
     evolve(
         Sentiment::new(8, positive, negative),
-        |(i, o)| population_init::<N, C, G>(i, o, POPULATION),
+        |(i, o)| {
+            population_from_files("output/sentiment")
+                .unwrap_or_else(|_| population_init::<N, C, G>(i, o, POPULATION))
+        },
         relu,
         ProbBinding::new(
             ProbStatic::default().with_overrides(&[

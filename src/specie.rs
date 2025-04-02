@@ -9,8 +9,12 @@ use fxhash::FxHashMap;
 use rand::RngCore;
 use std::{
     collections::HashMap,
+    fs::{read_dir, ReadDir},
     hash::{DefaultHasher, Hash, Hasher},
+    io,
+    iter::empty,
     marker::PhantomData,
+    path::Path,
 };
 
 pub struct InnoGen {
@@ -290,6 +294,8 @@ fn population_alloc<'a, N: Node + 'a, C: Connection<N> + 'a, G: Genome<N, C> + '
         .collect()
 }
 
+pub type SpecieGroup<N, C, G> = (Vec<Specie<N, C, G>>, usize);
+
 /// initial population of a single specie consisting of single connection genomes
 /// while it's not necessarily recommended to do an initual mutation, it allows us to mutate a
 /// bisection on any genome without the need to check for existing connections beforehand
@@ -297,7 +303,7 @@ pub fn population_init<N: Node, C: Connection<N>, G: Genome<N, C>>(
     sensory: usize,
     action: usize,
     population: usize,
-) -> (Vec<Specie<N, C, G>>, usize) {
+) -> SpecieGroup<N, C, G> {
     let (genome, inno_head) = G::new(sensory, action);
     (
         vec![Specie {
@@ -306,6 +312,41 @@ pub fn population_init<N: Node, C: Connection<N>, G: Genome<N, C>>(
         }],
         inno_head,
     )
+}
+
+pub fn population_to_files<P: AsRef<Path>, N: Node, C: Connection<N>, G: Genome<N, C>>(
+    path: P,
+    pop: &[Specie<N, C, G>],
+) -> Result<(), Box<dyn Error>> {
+    for (idx, (member, _)) in pop
+        .iter()
+        .flat_map(|specie| specie.members.iter())
+        .enumerate()
+    {
+        member.to_file(path.as_ref().join(format!("{idx}.json")))?;
+    }
+
+    Ok(())
+}
+
+pub fn population_from_files<P: AsRef<Path>, N: Node, C: Connection<N>, G: Genome<N, C>>(
+    path: P,
+) -> Result<SpecieGroup<N, C, G>, Box<dyn Error>> {
+    let pop_flat = read_dir(path)?
+        .map(|fp| Ok::<_, Box<dyn Error>>((G::from_file(fp?.path())?, f64::MIN)))
+        .collect::<Result<Vec<_>, _>>()?;
+
+    if pop_flat.is_empty() {
+        return Err("no genomes".into());
+    }
+
+    let inno_head = pop_flat
+        .iter()
+        .flat_map(|(g, _)| g.connections().iter().map(|c| c.inno()))
+        .max()
+        .unwrap_or(0);
+
+    Ok((speciate(pop_flat.into_iter(), empty()), inno_head))
 }
 
 fn population_allocated<
