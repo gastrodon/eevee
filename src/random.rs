@@ -323,11 +323,6 @@ pub fn seed_urandom() -> io::Result<u64> {
     ]))
 }
 
-pub fn rng_rngcore(rng: impl RngCore) -> impl FnMut() -> u64 {
-    let mut rng = rng;
-    move || rng.next_u64()
-}
-
 pub fn default_rng() -> impl RngCore {
     WyRng::seeded(seed_urandom().unwrap())
 }
