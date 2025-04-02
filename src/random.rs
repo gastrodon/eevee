@@ -5,6 +5,124 @@ use std::{
     io::{self, Read},
 };
 
+pub trait Idx {
+    fn idx(&self) -> usize;
+}
+
+pub trait Breakdown<const PARAMS: usize>: Default + RngCore {
+    type Kind: Idx + Copy;
+
+    fn apply(&mut self, kind: Self::Kind, p: u64);
+    fn choices(&self) -> &[(Self::Kind, u64); PARAMS];
+
+    fn new(probabilities: [(Self::Kind, u64); PARAMS]) -> Self {
+        let mut breakdown = Self::default();
+        let mut t = 0u64;
+        for (kind, p) in probabilities {
+            t = t.checked_add(p).expect("probabilities overflow");
+            breakdown.apply(kind, t);
+        }
+        breakdown
+    }
+
+    fn happens(&mut self) -> Option<Self::Kind> {
+        let roll = self.next_u64();
+        self.choices()
+            .iter()
+            .find_map(|(k, p)| (roll < *p).then_some(*k))
+    }
+}
+
+macro_rules! count {
+    ($_:ident) => {
+        1
+    };
+    ($_:ident, $($remain:ident),+) => {
+        1+count!($($remain),+)
+    };
+}
+
+macro_rules! iota {
+    (@inner $t:ty, $name:ident, $value:expr, $($rest:ident, $new_value:expr),*) => {
+        const $name: $t = $value;
+        iota!(@inner $t, $($rest, $value + 1),*);
+    };
+    (@inner $t:ty, $name:ident, $value:expr) => {
+        const $name: $t = $value;
+    };
+    ($t:ty, $($name:ident,)* $(,)?) => {
+        iota!(@inner $t, $($name, 0),*);
+    };
+}
+
+macro_rules! impl_breakdown {
+    ($scope:ident[$($evt:ident),+]) => {
+        ::paste::paste! {
+            const [<$scope:snake:upper _EVENT_COUNT>]: usize = count!($($evt),+);
+
+            #[derive(Debug, Clone, Copy)]
+            pub enum [<$scope EventKind>] {
+                $($evt,)*
+            }
+
+            impl Idx for [<$scope EventKind>] {
+                fn idx(&self) -> usize {
+                    iota!(usize, $([<$evt:snake:upper _IDX>],)*);
+                    match self {
+                        $(Self::$evt => [<$evt:snake:upper _IDX>]),*
+                    }
+                }
+            }
+
+            pub struct [<$scope Event>]<R: RngCore> {
+                choices: [([<$scope EventKind>], u64); [<$scope:snake:upper _EVENT_COUNT>]],
+                rng: R,
+            }
+
+            impl Default for [<$scope Event>]<WyRng> {
+                fn default() -> Self {
+                    Self {
+                        choices: [$(([<$scope EventKind>]::$evt, 0)),*],
+                        rng:     WyRng::seeded(seed_urandom().unwrap())
+                        ,
+                    }
+                }
+            }
+
+            impl<R: RngCore> RngCore for [<$scope Event>]<R> {
+                fn next_u32(&mut self) -> u32 {
+                    self.rng.next_u32()
+                }
+
+                fn next_u64(&mut self) -> u64 {
+                    self.rng.next_u64()
+                }
+
+                fn fill_bytes(&mut self, dst: &mut [u8]) {
+                    self.rng.fill_bytes(dst)
+                }
+            }
+
+
+            impl Breakdown<[<$scope:snake:upper _EVENT_COUNT>]> for [<$scope Event>]<WyRng> {
+                type Kind = [<$scope EventKind>];
+
+                fn apply(&mut self, kind: Self::Kind, p: u64) {
+                    self.choices[kind.idx()] = (kind, p);
+                }
+
+                fn choices(&self) -> &[(Self::Kind, u64); [<$scope:snake:upper _EVENT_COUNT>]] {
+                    &self.choices
+                }
+            }
+        }
+    };
+}
+
+impl_breakdown!(Genome[NewConnection, AlterConnection, AlterNode]);
+impl_breakdown!(Connection[Bisect, Disable, AlterParam]);
+impl_breakdown!(Param[Perturb, Replace]);
+
 #[derive(Debug, Clone, Copy)]
 pub enum EvolutionEvent {
     MutateConnection,
