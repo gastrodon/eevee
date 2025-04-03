@@ -124,7 +124,7 @@ macro_rules! impl_breakdown {
                 fn idx(&self) -> usize {
                     iota!(usize, $([<$evt:snake:upper _IDX>],)*);
                     match self {
-                        $(Self::$evt => [<$evt:snake:upper _IDX>]),*
+                        $(Self::$evt => [<$evt:snake:upper _IDX>],)*
                     }
                 }
             }
