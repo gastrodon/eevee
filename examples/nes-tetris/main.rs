@@ -7,7 +7,7 @@ use brain::{
     network::ToNetwork,
     random::{default_rng, percent, EvolutionEvent, ProbBinding, ProbStatic},
     scenario::{evolve, EvolutionHooks},
-    specie::{population_from_files, population_init},
+    specie::{population_from_files, population_init, population_to_files},
     Connection, Ctrnn, Happens, Network, Node, Probabilities, Scenario, Stats,
 };
 use core::ops::ControlFlow;
@@ -213,11 +213,9 @@ fn hook<H: RngCore + Probabilities + Happens>(
     } else {
         let fittest = stats.fittest().unwrap();
         println!("gen {} best: {:.3}", stats.generation, fittest.1);
-        if stats.generation % 100 == 0 {
-            fittest
-                .0
-                .to_file(format!("output/nes-tetris-{}.json", stats.generation))
-                .unwrap();
+
+        if stats.generation % 10 == 0 {
+            population_to_files("output/sentiment", stats.species).unwrap();
         }
 
         if stats.generation == 400 {
