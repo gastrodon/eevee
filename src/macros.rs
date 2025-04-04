@@ -83,10 +83,10 @@ macro_rules! assert_some_normalized {
 }
 
 #[macro_export]
-macro_rules! mutate_params {
+macro_rules! mutate_param {
     ($scope:ident[$($evt:ident),+]: [$($prob:expr),+]) => {
         ::paste::paste! {
-            fn mutate_params(&mut self, rng: &mut impl Happens) {
+            fn mutate_param(&mut self, rng: &mut impl Happens) {
                 $crate::events!($scope[$($evt),*]);
                 const PARAM_PROBABILITIES: [u64; [<$scope Event>]::COUNT] = [$($prob),*];
 

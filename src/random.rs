@@ -158,8 +158,8 @@ macro_rules! events {
     };
 }
 
-events!(Genome[NewConnection, BisectConnection, AlterConnection, AlterNode]);
-events!(Connection[Disable, AlterParam]);
+events!(Genome[NewConnection, BisectConnection, MutateConnection, MutateNode]);
+events!(Connection[Disable, MutateParam]);
 
 #[derive(Debug, Clone, Copy)]
 pub enum EvolutionEvent {

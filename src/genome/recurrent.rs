@@ -299,7 +299,7 @@ mod test {
         );
 
         let before = genome.clone();
-        genome.mutate_connection(
+        genome.new_connection(
             &mut ProbBinding::new(ProbStatic::default(), default_rng()),
             &mut inno,
         );
@@ -319,7 +319,7 @@ mod test {
 
         genome.push_connection({
             let mut c = WConnection::<NonBNode>::new(0, 1, &mut inno);
-            c.mutate_params(&mut ProbBinding::new(
+            c.mutate_param(&mut ProbBinding::new(
                 ProbStatic::default().with_overrides(&[(EvolutionEvent::NewWeight, percent(100))]),
                 default_rng(),
             ));
@@ -327,7 +327,7 @@ mod test {
         });
 
         let innogen = &mut InnoGen::new(1);
-        genome.mutate_bisection(
+        genome.bisect_connection(
             &mut ProbBinding::new(ProbStatic::default(), default_rng()),
             innogen,
         );
@@ -366,7 +366,7 @@ mod test {
     #[should_panic]
     fn test_mutate_bisection_empty_genome() {
         let (mut genome, _) = CTRGenome::<NonBNode, WConnection<NonBNode>>::new(0, 0);
-        genome.mutate_bisection(
+        genome.bisect_connection(
             &mut ProbBinding::new(ProbStatic::default(), default_rng()),
             &mut InnoGen::new(0),
         );
@@ -377,7 +377,7 @@ mod test {
     fn test_mutate_bisection_no_connections() {
         let (mut genome, _) = CTRGenome::<NonBNode, WConnection<NonBNode>>::new(2, 2);
         genome.connections = vec![];
-        genome.mutate_bisection(
+        genome.bisect_connection(
             &mut ProbBinding::new(ProbStatic::default(), default_rng()),
             &mut InnoGen::new(0),
         );

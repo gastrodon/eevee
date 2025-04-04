@@ -77,15 +77,15 @@ pub trait Connection<N: Node>:
         self.path().1
     }
 
-    /// mutate connection parameters
-    fn mutate_params(&mut self, rng: &mut impl Happens);
+    /// possibly mutate a single param
+    fn mutate_param(&mut self, rng: &mut impl Happens);
 
     /// mutate a connection
     fn mutate(&mut self, rng: &mut impl Happens) {
         if let Some(evt) = ConnectionEvent::pick(rng, Self::PROBABILITIES) {
             match evt {
                 ConnectionEvent::Disable => self.disable(),
-                ConnectionEvent::AlterParam => self.mutate_params(rng),
+                ConnectionEvent::MutateParam => self.mutate_param(rng),
             }
         }
     }
@@ -128,9 +128,9 @@ pub trait Genome<N: Node, C: Connection<N>>: Serialize + for<'de> Deserialize<'d
     }
 
     /// Perform a ( possible? TODO ) mutation across every weight
-    fn mutate_params(&mut self, rng: &mut impl Happens) {
+    fn mutate_connection(&mut self, rng: &mut impl Happens) {
         for c in self.connections_mut() {
-            c.mutate_params(rng);
+            c.mutate(rng);
         }
     }
 
@@ -140,7 +140,7 @@ pub trait Genome<N: Node, C: Connection<N>>: Serialize + for<'de> Deserialize<'d
 
     /// Generate a new connection between unconnected nodes.
     /// Panics if all possible connections between nodes are saturated
-    fn mutate_connection(&mut self, rng: &mut impl Happens, inno: &mut InnoGen) {
+    fn new_connection(&mut self, rng: &mut impl Happens, inno: &mut InnoGen) {
         if let Some((from, to)) = self.open_path(rng) {
             self.push_connection(C::new(from, to, inno));
         } else {
@@ -149,7 +149,7 @@ pub trait Genome<N: Node, C: Connection<N>>: Serialize + for<'de> Deserialize<'d
     }
 
     /// Bisect an existing connection. Should panic if there are no connections to bisect
-    fn mutate_bisection(&mut self, rng: &mut impl Happens, inno: &mut InnoGen) {
+    fn bisect_connection(&mut self, rng: &mut impl Happens, inno: &mut InnoGen) {
         if self.connections().is_empty() {
             panic!("no connections available to bisect");
         }
@@ -170,14 +170,14 @@ pub trait Genome<N: Node, C: Connection<N>>: Serialize + for<'de> Deserialize<'d
     fn mutate(&mut self, rng: &mut impl Happens, innogen: &mut InnoGen) {
         if let Some(evt) = GenomeEvent::pick(rng, Self::PROBABILITIES) {
             match evt {
-                GenomeEvent::NewConnection => self.mutate_connection(rng, innogen),
+                GenomeEvent::NewConnection => self.new_connection(rng, innogen),
                 GenomeEvent::BisectConnection => {
                     if !self.connections().is_empty() {
-                        self.mutate_bisection(rng, innogen)
+                        self.bisect_connection(rng, innogen)
                     }
                 }
-                GenomeEvent::AlterConnection => self.mutate_params(rng),
-                GenomeEvent::AlterNode => todo!("no method to alter nodes yet"),
+                GenomeEvent::MutateConnection => self.mutate_connection(rng),
+                GenomeEvent::MutateNode => todo!("no method to mutate nodes yet"),
             }
         }
     }

@@ -16,7 +16,7 @@ fn bench_mutate(bench: &mut Criterion) {
         b.iter(|| {
             genome
                 .clone()
-                .mutate_connection(&mut rng, &mut InnoGen::new(300))
+                .new_connection(&mut rng, &mut InnoGen::new(300))
         })
     });
 
@@ -24,7 +24,7 @@ fn bench_mutate(bench: &mut Criterion) {
         b.iter(|| {
             genome
                 .clone()
-                .mutate_bisection(&mut rng, &mut InnoGen::new(300))
+                .bisect_connection(&mut rng, &mut InnoGen::new(300))
         })
     });
 }
