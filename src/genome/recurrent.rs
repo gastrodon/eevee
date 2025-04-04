@@ -1,8 +1,8 @@
 /// A genome describing a Continuous Time Recurrent Neural Network (CTRNN)
 use super::{Connection, Genome, Node, NodeKind};
-use crate::{crossover::crossover, network::FromGenome, Ctrnn, Happens};
+use crate::{crossover::crossover, network::FromGenome, Ctrnn};
 use core::cmp::{max, Ordering};
-use rand::seq::IteratorRandom;
+use rand::{seq::IteratorRandom, RngCore};
 use rulinalg::matrix::Matrix;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::HashSet;
@@ -75,7 +75,7 @@ impl<N: Node, C: Connection<N>> Genome<N, C> for CTRGenome<N, C> {
         self.connections.push(connection);
     }
 
-    fn open_path(&self, rng: &mut impl Happens) -> Option<(usize, usize)> {
+    fn open_path(&self, rng: &mut impl RngCore) -> Option<(usize, usize)> {
         let mut saturated = HashSet::new();
         loop {
             let from = (0..self.nodes.len())
@@ -99,7 +99,7 @@ impl<N: Node, C: Connection<N>> Genome<N, C> for CTRGenome<N, C> {
         }
     }
 
-    fn reproduce_with(&self, other: &Self, self_fit: Ordering, rng: &mut impl Happens) -> Self {
+    fn reproduce_with(&self, other: &Self, self_fit: Ordering, rng: &mut impl RngCore) -> Self {
         let connections = crossover(&self.connections, &other.connections, self_fit, rng);
         let nodes_size = connections
             .iter()
@@ -166,7 +166,7 @@ mod test {
         assert_f64_approx,
         genome::{node::NonBNode, WConnection},
         network::ToNetwork,
-        random::{default_rng, percent, EvolutionEvent, ProbBinding, ProbStatic},
+        random::default_rng,
         specie::InnoGen,
     };
     use rulinalg::matrix::BaseMatrix;
@@ -223,7 +223,7 @@ mod test {
             ],
         };
         for _ in 0..100 {
-            match genome.open_path(&mut ProbBinding::new(ProbStatic::default(), default_rng())) {
+            match genome.open_path(&mut default_rng()) {
                 Some((0, o)) | Some((o, 0)) => assert_eq!(o, 1),
                 Some(p) => unreachable!("invalid pair {p:?} gen'd"),
                 None => unreachable!("no path gen'd"),
@@ -245,10 +245,7 @@ mod test {
             ],
         };
         for _ in 0..100 {
-            assert_eq!(
-                genome.open_path(&mut ProbBinding::new(ProbStatic::default(), default_rng()),),
-                Some((1, 0))
-            );
+            assert_eq!(genome.open_path(&mut default_rng()), Some((1, 0)));
         }
     }
 
@@ -262,7 +259,7 @@ mod test {
                 nodes: vec![],
                 connections: vec![WConnection::<NonBNode>::new(0, 1, &mut inno)],
             }
-            .open_path(&mut ProbBinding::new(ProbStatic::default(), default_rng()),),
+            .open_path(&mut default_rng()),
             None
         );
     }
@@ -288,7 +285,7 @@ mod test {
                     })
                     .collect(),
             }
-            .open_path(&mut ProbBinding::new(ProbStatic::default(), default_rng()),),
+            .open_path(&mut default_rng()),
             None
         )
     }
@@ -303,10 +300,7 @@ mod test {
         );
 
         let before = genome.clone();
-        genome.new_connection(
-            &mut ProbBinding::new(ProbStatic::default(), default_rng()),
-            &mut inno,
-        );
+        genome.new_connection(&mut default_rng(), &mut inno);
 
         assert_eq!(genome.connections().len(), before.connections().len() + 1);
 
@@ -323,18 +317,12 @@ mod test {
 
         genome.push_connection({
             let mut c = WConnection::<NonBNode>::new(0, 1, &mut inno);
-            c.mutate_param(&mut ProbBinding::new(
-                ProbStatic::default().with_overrides(&[(EvolutionEvent::NewWeight, percent(100))]),
-                default_rng(),
-            ));
+            c.mutate_param(&mut default_rng());
             c
         });
 
         let innogen = &mut InnoGen::new(1);
-        genome.bisect_connection(
-            &mut ProbBinding::new(ProbStatic::default(), default_rng()),
-            innogen,
-        );
+        genome.bisect_connection(&mut default_rng(), innogen);
 
         let connections: &[WConnection<NonBNode>] = genome.connections();
         assert!(!connections[0].enabled);
@@ -370,10 +358,7 @@ mod test {
     #[should_panic]
     fn test_mutate_bisection_empty_genome() {
         let (mut genome, _) = CTRGenome::<NonBNode, WConnection<NonBNode>>::new(0, 0);
-        genome.bisect_connection(
-            &mut ProbBinding::new(ProbStatic::default(), default_rng()),
-            &mut InnoGen::new(0),
-        );
+        genome.bisect_connection(&mut default_rng(), &mut InnoGen::new(0));
     }
 
     #[test]
@@ -381,10 +366,7 @@ mod test {
     fn test_mutate_bisection_no_connections() {
         let (mut genome, _) = CTRGenome::<NonBNode, WConnection<NonBNode>>::new(2, 2);
         genome.connections = vec![];
-        genome.bisect_connection(
-            &mut ProbBinding::new(ProbStatic::default(), default_rng()),
-            &mut InnoGen::new(0),
-        );
+        genome.bisect_connection(&mut default_rng(), &mut InnoGen::new(0));
     }
 
     #[test]

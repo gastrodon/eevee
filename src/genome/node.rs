@@ -1,5 +1,6 @@
 use super::{Node, NodeKind};
 use crate::{mutate_param, random::percent};
+use rand::RngCore;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -65,5 +66,5 @@ impl Node for NonBNode {
         }
     }
 
-    fn mutate_param(&mut self, _: &mut impl crate::Happens) {}
+    fn mutate_param(&mut self, _: &mut impl RngCore) {}
 }

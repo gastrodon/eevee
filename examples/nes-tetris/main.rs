@@ -5,10 +5,10 @@ use brain::{
     activate::relu,
     genome::{node::NonBNode, CTRGenome, Genome, WConnection},
     network::ToNetwork,
-    random::{default_rng, percent, EvolutionEvent, ProbBinding, ProbStatic},
+    random::default_rng,
     scenario::{evolve, EvolutionHooks},
     specie::{population_from_files, population_init, population_to_files},
-    Connection, Ctrnn, Happens, Network, Node, Probabilities, Scenario, Stats,
+    Connection, Ctrnn, Network, Node, Scenario, Stats,
 };
 use core::ops::ControlFlow;
 use nes_rust::{
@@ -62,7 +62,6 @@ pub const PIECE_SHAPE: [[(u8, u8); 4]; 19] = [
 ];
 }
 
-use rand::RngCore;
 use v::*;
 fn sense_board(ram: &[u8], sense: &mut [f64; INPUT_SIZE]) {
     *sense = [0.; INPUT_SIZE];
@@ -146,13 +145,8 @@ fn enter_game(nes: &mut Nes) {
 
 struct NesTetris;
 
-impl<
-        N: Node,
-        C: Connection<N>,
-        G: Genome<N, C> + ToNetwork<Ctrnn, N, C>,
-        H: RngCore + Probabilities + Happens,
-        A: Fn(f64) -> f64,
-    > Scenario<N, C, G, H, A> for NesTetris
+impl<N: Node, C: Connection<N>, G: Genome<N, C> + ToNetwork<Ctrnn, N, C>, A: Fn(f64) -> f64>
+    Scenario<N, C, G, A> for NesTetris
 {
     fn io(&self) -> (usize, usize) {
         (200, 8)
@@ -199,13 +193,12 @@ impl<
 
 const POPULATION: usize = 1000;
 
-fn hook<H: RngCore + Probabilities + Happens>(
+fn hook(
     stats: &mut Stats<
         '_,
         NonBNode,
         WConnection<NonBNode>,
         CTRGenome<NonBNode, WConnection<NonBNode>>,
-        H,
     >,
 ) -> ControlFlow<()> {
     if stats.generation % 10 != 0 {
@@ -240,14 +233,7 @@ fn main() {
                 .unwrap_or_else(|_| population_init::<N, C, G>(i, o, POPULATION))
         },
         relu,
-        ProbBinding::new(
-            ProbStatic::default().with_overrides(&[
-                (EvolutionEvent::MutateConnection, percent(20)),
-                (EvolutionEvent::MutateBisection, percent(25)),
-                (EvolutionEvent::MutateWeight, percent(65)),
-            ]),
-            default_rng(),
-        ),
+        default_rng(),
         EvolutionHooks::new(vec![Box::new(hook)]),
     );
 }

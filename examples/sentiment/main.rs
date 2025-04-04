@@ -5,13 +5,12 @@ use brain::{
     activate::relu,
     genome::{node::NonBNode, CTRGenome, WConnection},
     network::ToNetwork,
-    random::{default_rng, percent, EvolutionEvent, ProbBinding, ProbStatic},
+    random::default_rng,
     scenario::{evolve, EvolutionHooks},
     specie::{population_from_files, population_init, population_to_files},
-    Connection, Ctrnn, Genome, Happens, Network, Node, Probabilities, Scenario, Stats,
+    Connection, Ctrnn, Genome, Network, Node, Scenario, Stats,
 };
 use core::f64;
-use rand::RngCore;
 use std::{fs::create_dir_all, ops::ControlFlow};
 
 const POPULATION: usize = 1000;
@@ -104,9 +103,8 @@ impl<
         N: Node,
         C: Connection<N>,
         G: Genome<N, C> + ToNetwork<Ctrnn, N, C>,
-        H: RngCore + Probabilities + Happens,
         A: Fn(f64) -> f64,
-    > Scenario<N, C, G, H, A> for Sentiment<'a>
+    > Scenario<N, C, G, A> for Sentiment<'a>
 {
     fn io(&self) -> (usize, usize) {
         (8 * self.chunk_size, 2)
@@ -135,13 +133,8 @@ impl<
     }
 }
 
-fn hook<
-    N: Node,
-    C: Connection<N>,
-    G: Genome<N, C>,
-    H: RngCore + Probabilities<Update = (brain::random::EvolutionEvent, u64)> + Happens,
->(
-    stats: &mut Stats<'_, N, C, G, H>,
+fn hook<N: Node, C: Connection<N>, G: Genome<N, C>>(
+    stats: &mut Stats<'_, N, C, G>,
 ) -> ControlFlow<()> {
     let fittest = stats.fittest().unwrap();
     println!("fittest of gen {}: {:.4}", stats.generation, fittest.1);
@@ -174,13 +167,7 @@ fn main() {
                 .unwrap_or_else(|_| population_init::<N, C, G>(i, o, POPULATION))
         },
         relu,
-        ProbBinding::new(
-            ProbStatic::default().with_overrides(&[
-                (EvolutionEvent::MutateBisection, percent(15)),
-                (EvolutionEvent::MutateConnection, percent(30)),
-            ]),
-            default_rng(),
-        ),
+        default_rng(),
         EvolutionHooks::new(vec![Box::new(hook)]),
     );
 }

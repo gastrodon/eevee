@@ -86,7 +86,7 @@ macro_rules! assert_some_normalized {
 macro_rules! mutate_param {
     ([$($evt:ident),+]: [$($prob:expr),+]) => {
         ::paste::paste! {
-            fn mutate_param(&mut self, rng: &mut impl $crate::random::Happens) {
+            fn mutate_param(&mut self, rng: &mut impl rand::RngCore) {
                 use $crate::random::EventKind;
                 use rand::Rng;
                 $crate::events!(Param[$($evt),*]);

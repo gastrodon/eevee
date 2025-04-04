@@ -6,11 +6,11 @@ pub use connection::WConnection;
 pub use recurrent::CTRGenome;
 
 use crate::{
-    random::{percent, ConnectionEvent, EventKind, GenomeEvent, Happens},
+    random::{percent, ConnectionEvent, EventKind, GenomeEvent},
     specie::InnoGen,
 };
 use core::{cmp::Ordering, error::Error, fmt::Debug, hash::Hash};
-use rand::Rng;
+use rand::{Rng, RngCore};
 use serde::{Deserialize, Serialize};
 use std::{fs, path::Path};
 
@@ -39,9 +39,9 @@ pub trait Node: Serialize + for<'de> Deserialize<'de> + Clone + Debug + PartialE
     /// The bias of a node, returning 0. for nodes who can't have bias
     fn bias(&self) -> f64;
 
-    fn mutate_param(&mut self, rng: &mut impl Happens);
+    fn mutate_param(&mut self, rng: &mut impl RngCore);
 
-    fn mutate(&mut self, rng: &mut impl Happens) {
+    fn mutate(&mut self, rng: &mut impl RngCore) {
         // this is redundant, but done to retain scaffolding for future non-param mutations
         self.mutate_param(rng);
     }
@@ -57,6 +57,9 @@ pub trait Connection<N: Node>:
     const EXCESS_COEFFICIENT: f64;
     const DISJOINT_COEFFICIENT: f64;
     const PARAM_COEFFICIENT: f64;
+
+    const PROBABILITY_PICK_RL: u64 = percent(50);
+    const PROBABILITY_KEEP_DISABLED: u64 = percent(75);
 
     fn new(from: usize, to: usize, inno: &mut InnoGen) -> Self;
 
@@ -88,10 +91,10 @@ pub trait Connection<N: Node>:
     }
 
     /// possibly mutate a single param
-    fn mutate_param(&mut self, rng: &mut impl Happens);
+    fn mutate_param(&mut self, rng: &mut impl RngCore);
 
     /// mutate a connection
-    fn mutate(&mut self, rng: &mut impl Happens) {
+    fn mutate(&mut self, rng: &mut impl RngCore) {
         if let Some(evt) = ConnectionEvent::pick(rng, Self::PROBABILITIES) {
             match evt {
                 ConnectionEvent::Disable => self.disable(),
@@ -122,7 +125,7 @@ pub trait Genome<N: Node, C: Connection<N>>: Serialize + for<'de> Deserialize<'d
     /// Push a new node onto the genome
     fn push_node(&mut self, node: N);
 
-    fn mutate_node(&mut self, rng: &mut impl Happens) {
+    fn mutate_node(&mut self, rng: &mut impl RngCore) {
         let pick = rng.random_range(0..self.nodes().len());
         self.nodes_mut()[pick].mutate(rng);
     }
@@ -145,18 +148,18 @@ pub trait Genome<N: Node, C: Connection<N>>: Serialize + for<'de> Deserialize<'d
     }
 
     /// Mutate a single connection
-    fn mutate_connection(&mut self, rng: &mut impl Happens) {
+    fn mutate_connection(&mut self, rng: &mut impl RngCore) {
         let pick = rng.random_range(0..self.connections().len());
         self.connections_mut()[pick].mutate(rng);
     }
 
     /// Find some open path ( that is, a path between nodes from -> to )
     /// that no connection is occupying if any exist
-    fn open_path(&self, rng: &mut impl Happens) -> Option<(usize, usize)>;
+    fn open_path(&self, rng: &mut impl RngCore) -> Option<(usize, usize)>;
 
     /// Generate a new connection between unconnected nodes.
     /// Panics if all possible connections between nodes are saturated
-    fn new_connection(&mut self, rng: &mut impl Happens, inno: &mut InnoGen) {
+    fn new_connection(&mut self, rng: &mut impl RngCore, inno: &mut InnoGen) {
         if let Some((from, to)) = self.open_path(rng) {
             self.push_connection(C::new(from, to, inno));
         } else {
@@ -165,7 +168,7 @@ pub trait Genome<N: Node, C: Connection<N>>: Serialize + for<'de> Deserialize<'d
     }
 
     /// Bisect an existing connection. Should panic if there are no connections to bisect
-    fn bisect_connection(&mut self, rng: &mut impl Happens, inno: &mut InnoGen) {
+    fn bisect_connection(&mut self, rng: &mut impl RngCore, inno: &mut InnoGen) {
         if self.connections().is_empty() {
             panic!("no connections available to bisect");
         }
@@ -183,7 +186,7 @@ pub trait Genome<N: Node, C: Connection<N>>: Serialize + for<'de> Deserialize<'d
     }
 
     /// Perform 0 or more mutations on this genome ( should this be the only mutator exposed? TODO )
-    fn mutate(&mut self, rng: &mut impl Happens, innogen: &mut InnoGen) {
+    fn mutate(&mut self, rng: &mut impl RngCore, innogen: &mut InnoGen) {
         if let Some(evt) = GenomeEvent::pick(rng, Self::PROBABILITIES) {
             match evt {
                 GenomeEvent::NewConnection => self.new_connection(rng, innogen),
@@ -203,7 +206,7 @@ pub trait Genome<N: Node, C: Connection<N>>: Serialize + for<'de> Deserialize<'d
     }
 
     /// Perform crossover reproduction with other, where our fitness is `fitness_cmp` compared to other
-    fn reproduce_with(&self, other: &Self, fitness_cmp: Ordering, rng: &mut impl Happens) -> Self;
+    fn reproduce_with(&self, other: &Self, fitness_cmp: Ordering, rng: &mut impl RngCore) -> Self;
 
     fn to_string(&self) -> Result<String, Box<dyn Error>> {
         Ok(serde_json::to_string(self)?)

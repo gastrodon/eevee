@@ -1,8 +1,4 @@
-use crate::{
-    genome::Connection,
-    random::{EvolutionEvent, Happens},
-    Node,
-};
+use crate::{genome::Connection, Node};
 use core::cmp::Ordering;
 use rand::RngCore;
 
@@ -134,14 +130,14 @@ pub fn delta<N: Node, C: Connection<N>>(l: &[C], r: &[C]) -> f64 {
 }
 
 #[inline]
-fn pick_gene<N: Node, C: Connection<N>, H: RngCore + Happens>(
+fn pick_gene<N: Node, C: Connection<N>>(
     base_conn: &C,
     opt_conn: Option<&C>,
-    rng: &mut H,
+    rng: &mut impl RngCore,
 ) -> C {
     let mut conn = if let Some(r_conn) = opt_conn {
         // TODO be able to differentiate PickLEQ and PickLNE
-        if rng.happens(EvolutionEvent::PickLEQ) {
+        if rng.next_u64() < C::PROBABILITY_PICK_RL {
             r_conn
         } else {
             base_conn
@@ -155,7 +151,7 @@ fn pick_gene<N: Node, C: Connection<N>, H: RngCore + Happens>(
     // check KEEP_DISABLED. I wonder if checking RAND_DISABLED first would bypass
     // RAND_DISABLED% of checks that would then check KEEP_DISABLED?
     if (!base_conn.enabled() || opt_conn.is_some_and(|r_conn| !r_conn.enabled()))
-        && rng.happens(EvolutionEvent::KeepDisabled)
+        && rng.next_u64() < C::PROBABILITY_KEEP_DISABLED
     {
         conn.disable();
     }
@@ -164,11 +160,7 @@ fn pick_gene<N: Node, C: Connection<N>, H: RngCore + Happens>(
 }
 
 /// crossover connections where l and r are equally fit
-fn crossover_eq<N: Node, C: Connection<N>, H: RngCore + Happens>(
-    l: &[C],
-    r: &[C],
-    rng: &mut H,
-) -> Vec<C> {
+fn crossover_eq<N: Node, C: Connection<N>>(l: &[C], r: &[C], rng: &mut impl RngCore) -> Vec<C> {
     // TODO I wonder what the actual average case overlap between genomes is?
     // probably pretty close, could we measure this?
     let mut cross = Vec::with_capacity(l.len() + r.len());
@@ -209,11 +201,7 @@ fn crossover_eq<N: Node, C: Connection<N>, H: RngCore + Happens>(
 }
 
 /// crossover connections where l is more fit than r
-fn crossover_ne<N: Node, C: Connection<N>, H: RngCore + Happens>(
-    l: &[C],
-    r: &[C],
-    rng: &mut H,
-) -> Vec<C> {
+fn crossover_ne<N: Node, C: Connection<N>>(l: &[C], r: &[C], rng: &mut impl RngCore) -> Vec<C> {
     // copy l, pick_gene where l.inno() == r.inno()
     let mut cross = Vec::with_capacity(l.len());
     let mut r_idx = 0;
@@ -241,11 +229,11 @@ fn crossover_ne<N: Node, C: Connection<N>, H: RngCore + Happens>(
 
 /// crossover connections
 /// l_fit describes how fit l is compared to r,
-pub fn crossover<N: Node, C: Connection<N>, H: RngCore + Happens>(
+pub fn crossover<N: Node, C: Connection<N>>(
     l: &[C],
     r: &[C],
     l_fit: Ordering,
-    rng: &mut H,
+    rng: &mut impl RngCore,
 ) -> Vec<C> {
     let mut usort = match l_fit {
         Ordering::Equal => crossover_eq(l, r, rng),
@@ -264,7 +252,7 @@ mod test {
         assert_f64_approx, assert_some_normalized,
         genome::{connection::BWConnection, node::NonBNode, WConnection},
         new_t,
-        random::{default_rng, ProbBinding, ProbStatic},
+        random::default_rng,
         test_t,
     };
     use std::collections::{HashMap, HashSet};
@@ -460,7 +448,7 @@ mod test {
                 .cloned()
                 .collect::<HashSet<_>>();
 
-            let mut rng = ProbBinding::new(ProbStatic::default(), default_rng());
+            let mut rng = default_rng();
             for _ in 0..1000 {
                 let lr = crossover_eq(l, r, &mut rng);
                 assert_eq!(inno.len(), lr.len());
@@ -529,7 +517,7 @@ mod test {
             new_t!(inno = 1, from = 1_2),
         ];
         let r = [new_t!(inno = 1, from = 2_1)];
-        let mut rng = ProbBinding::new(ProbStatic::default(), default_rng());
+        let mut rng = default_rng();
         for _ in 0..1000 {
             let lr = crossover_eq(&l, &r, &mut rng);
             assert_eq!(lr.len(), 2);
@@ -546,7 +534,7 @@ mod test {
             new_t!(inno = 0, from = 1_1),
             new_t!(inno = 1, from = 1_2),
         ];
-        let mut rng = ProbBinding::new(ProbStatic::default(), default_rng());
+        let mut rng = default_rng();
         for _ in 0..1000 {
             let lr = crossover_eq(&l, &r, &mut rng);
             assert_eq!(lr.len(), 2);
@@ -566,7 +554,7 @@ mod test {
             new_t!(inno = 0, from = 2_1),
             new_t!(inno = 1, from = 2_2),
         ];
-        let mut rng = ProbBinding::new(ProbStatic::default(), default_rng());
+        let mut rng = default_rng();
         for _ in 0..1000 {
             let lr = crossover_eq(&l, &r, &mut rng);
             assert_eq!(lr.len(), 2);
@@ -586,7 +574,7 @@ mod test {
             new_t!(inno = 0, from = 2_1),
             new_t!(inno = 1, from = 2_2),
         ];
-        let mut rng = ProbBinding::new(ProbStatic::default(), default_rng());
+        let mut rng = default_rng();
         for _ in 0..1000 {
             let lr = crossover_eq(&l, &r, &mut rng);
             assert_eq!(lr.len(), 2);
@@ -605,7 +593,7 @@ mod test {
                 .cloned()
                 .collect::<HashSet<_>>();
 
-            let mut rng = ProbBinding::new(ProbStatic::default(), default_rng());
+            let mut rng = default_rng();
             for _ in 0..1000 {
                 let lr = crossover_ne(l, r, &mut rng);
                 assert_eq!(lr.len(), l.len());
@@ -723,7 +711,7 @@ mod test {
             new_t!(inno = 4, from = 2_4),
         ];
 
-        let mut rng = ProbBinding::new(ProbStatic::default(), default_rng());
+        let mut rng = default_rng();
         assert_crossover_ne(&l, &r);
         for (le, ge) in crossover(&l, &r, Ordering::Less, &mut rng)
             .iter()

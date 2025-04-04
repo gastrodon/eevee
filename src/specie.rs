@@ -1,7 +1,6 @@
 use crate::{
     crossover::delta,
     genome::{Connection, Genome},
-    random::Happens,
     Node,
 };
 use core::{error::Error, f64};
@@ -124,10 +123,10 @@ impl<N: Node, C: Connection<N>, G: Genome<N, C>> Specie<N, C, G> {
     }
 }
 
-fn reproduce_crossover<N: Node, C: Connection<N>, G: Genome<N, C>, H: RngCore + Happens>(
+fn reproduce_crossover<N: Node, C: Connection<N>, G: Genome<N, C>>(
     genomes: &[(G, f64)],
     size: usize,
-    rng: &mut H,
+    rng: &mut impl RngCore,
     innogen: &mut InnoGen,
 ) -> Result<Vec<G>, Box<dyn Error>> {
     if size == 0 {
@@ -180,10 +179,10 @@ fn reproduce_crossover<N: Node, C: Connection<N>, G: Genome<N, C>, H: RngCore + 
         .collect()
 }
 
-fn reproduce_copy<N: Node, C: Connection<N>, G: Genome<N, C>, H: RngCore + Happens>(
+fn reproduce_copy<N: Node, C: Connection<N>, G: Genome<N, C>>(
     genomes: &[(G, f64)],
     size: usize,
-    rng: &mut H,
+    rng: &mut impl RngCore,
     innogen: &mut InnoGen,
 ) -> Result<Vec<G>, Box<dyn Error>> {
     if size == 0 {
@@ -214,11 +213,11 @@ fn reproduce_copy<N: Node, C: Connection<N>, G: Genome<N, C>, H: RngCore + Happe
         .collect()
 }
 
-pub fn reproduce<N: Node, C: Connection<N>, G: Genome<N, C>, H: RngCore + Happens>(
+pub fn reproduce<N: Node, C: Connection<N>, G: Genome<N, C>>(
     genomes: Vec<(G, f64)>,
     size: usize,
     innogen: &mut InnoGen,
-    rng: &mut H,
+    rng: &mut impl RngCore,
 ) -> Result<Vec<G>, Box<dyn Error>> {
     if size == 0 {
         return Ok(vec![]);
@@ -383,11 +382,11 @@ fn population_allocated<
 }
 
 // reproduce a whole speciated population into a non-speciated population
-pub fn population_reproduce<N: Node, C: Connection<N>, G: Genome<N, C>, H: RngCore + Happens>(
+pub fn population_reproduce<N: Node, C: Connection<N>, G: Genome<N, C>>(
     species: &[(Specie<N, C, G>, f64)],
     population: usize,
     inno_head: usize,
-    rng: &mut H,
+    rng: &mut impl RngCore,
 ) -> (Vec<G>, usize) {
     // let species = population_viable(species.into_iter());
     // let species_pop = population_alloc(species, population);
@@ -434,7 +433,7 @@ mod tests {
     use super::*;
     use crate::{
         genome::{node::NonBNode, CTRGenome, WConnection},
-        random::{default_rng, ProbBinding, ProbStatic},
+        random::default_rng,
         test_t,
     };
 
@@ -480,7 +479,7 @@ mod tests {
     });
 
     test_t!(specie_reproduce[T: BasicGenomeCtrnn]() {
-        let mut rng = ProbBinding::new(ProbStatic::default(), default_rng());
+        let mut rng = default_rng();
         let count = 40;
         let (species, inno_head) = population_init::<NonBNode, WConnection<NonBNode>, T>(2, 2, count);
 
