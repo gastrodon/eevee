@@ -3,6 +3,7 @@ use rand::RngCore;
 use std::{
     fs::File,
     io::{self, Read},
+    ops::ControlFlow,
 };
 
 pub const fn percent(x: u64) -> u64 {
@@ -60,31 +61,48 @@ impl RngCore for WyRng {
     }
 }
 
-pub trait Idx {
+pub trait EventKind: Copy {
+    const COUNT: usize;
+    fn variants() -> [Self; Self::COUNT];
     fn idx(&self) -> usize;
+
+    fn pick<R: RngCore>(rng: &mut R, prob: [u64; Self::COUNT]) -> Option<Self> {
+        let roll = rng.next_u64();
+        debug_assert!({
+            prob.iter()
+                .fold(0u64, |acc, next| acc.checked_add(*next).unwrap());
+            true
+        });
+
+        prob.into_iter().enumerate().find_fold(0, |acc, (idx, p)| {
+            if roll < p + acc {
+                ControlFlow::Break(Self::variants()[idx])
+            } else {
+                ControlFlow::Continue(p + acc)
+            }
+        })
+    }
 }
 
-pub trait Breakdown<const PARAMS: usize>: Default + RngCore {
-    type Kind: Idx + Copy;
+trait FindFold<T> {
+    fn find_fold<U, R>(&mut self, init: R, op: impl Fn(R, T) -> ControlFlow<U, R>) -> Option<U>;
+}
 
-    fn apply(&mut self, kind: Self::Kind, p: u64);
-    fn choices(&self) -> &[(Self::Kind, u64); PARAMS];
-
-    fn new(probabilities: [(Self::Kind, u64); PARAMS]) -> Self {
-        let mut breakdown = Self::default();
-        let mut t = 0u64;
-        for (kind, p) in probabilities {
-            t = t.checked_add(p).expect("probabilities overflow");
-            breakdown.apply(kind, t);
+impl<T, I: Iterator<Item = T> + Sized> FindFold<T> for I {
+    fn find_fold<U, R>(
+        &mut self,
+        mut init: R,
+        op: impl Fn(R, T) -> ControlFlow<U, R>,
+    ) -> Option<U> {
+        loop {
+            match self.next() {
+                Some(v) => match op(init, v) {
+                    ControlFlow::Continue(n) => init = n,
+                    ControlFlow::Break(res) => break Some(res),
+                },
+                None => break None,
+            }
         }
-        breakdown
-    }
-
-    fn happens(&mut self) -> Option<Self::Kind> {
-        let roll = self.next_u64();
-        self.choices()
-            .iter()
-            .find_map(|(k, p)| (roll < *p).then_some(*k))
     }
 }
 
@@ -110,17 +128,22 @@ macro_rules! iota {
     };
 }
 
-macro_rules! impl_breakdown {
+#[macro_export]
+macro_rules! events {
     ($scope:ident[$($evt:ident),+]) => {
         ::paste::paste! {
-            const [<$scope:snake:upper _EVENT_COUNT>]: usize = count!($($evt),+);
-
             #[derive(Debug, Clone, Copy)]
-            pub enum [<$scope EventKind>] {
+            pub enum [<$scope Event>] {
                 $($evt,)*
             }
 
-            impl Idx for [<$scope EventKind>] {
+            impl EventKind for [<$scope Event>] {
+                const COUNT: usize = count!($($evt),+);
+
+                fn variants() -> [Self; Self::COUNT] {
+                    [$(Self::$evt),*]
+                }
+
                 fn idx(&self) -> usize {
                     iota!(usize, $([<$evt:snake:upper _IDX>],)*);
                     match self {
@@ -128,55 +151,13 @@ macro_rules! impl_breakdown {
                     }
                 }
             }
-
-            pub struct [<$scope Event>]<R: RngCore> {
-                choices: [([<$scope EventKind>], u64); [<$scope:snake:upper _EVENT_COUNT>]],
-                rng: R,
-            }
-
-            impl Default for [<$scope Event>]<WyRng> {
-                fn default() -> Self {
-                    Self {
-                        choices: [$(([<$scope EventKind>]::$evt, 0)),*],
-                        rng:     WyRng::seeded(seed_urandom().unwrap())
-                        ,
-                    }
-                }
-            }
-
-            impl<R: RngCore> RngCore for [<$scope Event>]<R> {
-                fn next_u32(&mut self) -> u32 {
-                    self.rng.next_u32()
-                }
-
-                fn next_u64(&mut self) -> u64 {
-                    self.rng.next_u64()
-                }
-
-                fn fill_bytes(&mut self, dst: &mut [u8]) {
-                    self.rng.fill_bytes(dst)
-                }
-            }
-
-
-            impl Breakdown<[<$scope:snake:upper _EVENT_COUNT>]> for [<$scope Event>]<WyRng> {
-                type Kind = [<$scope EventKind>];
-
-                fn apply(&mut self, kind: Self::Kind, p: u64) {
-                    self.choices[kind.idx()] = (kind, p);
-                }
-
-                fn choices(&self) -> &[(Self::Kind, u64); [<$scope:snake:upper _EVENT_COUNT>]] {
-                    &self.choices
-                }
-            }
         }
     };
 }
 
-impl_breakdown!(Genome[NewConnection, AlterConnection, AlterNode]);
-impl_breakdown!(Connection[Bisect, Disable, AlterParam]);
-impl_breakdown!(Param[Perturb, Replace]);
+events!(Genome[NewConnection, BisectConnection, AlterConnection, AlterNode]);
+events!(Connection[Disable, AlterParam]);
+events!(Param[Perturb, Replace]);
 
 #[derive(Debug, Clone, Copy)]
 pub enum EvolutionEvent {
