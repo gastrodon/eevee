@@ -1,11 +1,5 @@
 use super::{Connection, Node};
-use crate::{
-    mutate_param,
-    random::{percent, EventKind},
-    specie::InnoGen,
-    Happens,
-};
-use rand::Rng;
+use crate::{mutate_param, random::percent, specie::InnoGen};
 use serde::{Deserialize, Serialize};
 use std::{hash::Hash, marker::PhantomData};
 
@@ -24,7 +18,7 @@ impl<N: Node> Connection<N> for WConnection<N> {
     const DISJOINT_COEFFICIENT: f64 = 1.0;
     const PARAM_COEFFICIENT: f64 = 0.4;
 
-    mutate_param!(WParam[Weight]: [percent(100)]);
+    mutate_param!([Weight]: [percent(100)]);
 
     fn new(from: usize, to: usize, inno: &mut InnoGen) -> Self {
         Self {
@@ -130,7 +124,7 @@ impl<N: Node> Connection<N> for BWConnection<N> {
     const DISJOINT_COEFFICIENT: f64 = 1.0;
     const PARAM_COEFFICIENT: f64 = 0.4;
 
-    mutate_param!(BWParam[Weight, Bias]: [percent(50), percent(50)]);
+    mutate_param!([Weight, Bias]: [percent(50), percent(50)]);
 
     fn new(from: usize, to: usize, inno: &mut InnoGen) -> Self {
         Self {

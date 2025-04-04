@@ -84,17 +84,19 @@ macro_rules! assert_some_normalized {
 
 #[macro_export]
 macro_rules! mutate_param {
-    ($scope:ident[$($evt:ident),+]: [$($prob:expr),+]) => {
+    ([$($evt:ident),+]: [$($prob:expr),+]) => {
         ::paste::paste! {
-            fn mutate_param(&mut self, rng: &mut impl Happens) {
-                $crate::events!($scope[$($evt),*]);
-                const PARAM_PROBABILITIES: [u64; [<$scope Event>]::COUNT] = [$($prob),*];
+            fn mutate_param(&mut self, rng: &mut impl $crate::random::Happens) {
+                use $crate::random::EventKind;
+                use rand::Rng;
+                $crate::events!(Param[$($evt),*]);
+                const PARAM_PROBABILITIES: [u64; ParamEvent::COUNT] = [$($prob),*];
 
-                if let Some(evt) = [<$scope Event>]::pick(rng, PARAM_PROBABILITIES) {
+                if let Some(evt) = ParamEvent::pick(rng, PARAM_PROBABILITIES) {
                     let replace = rng.next_u64() < Self::PARAM_REPLACE_PROBABILITY;
-                    let v: f64 = rng.sample(rand::distr::Uniform::new_inclusive(-3., 3.).expect("distribution of -1. ..= 1. failed"));
+                    let v: f64 = rng.sample(rand::distr::Uniform::new_inclusive(-3., 3.).expect("distribution of -3. ..= 3. failed"));
                     match evt {
-                        $([<$scope Event>]::[<$evt:camel>] => self.[<$evt:lower>] = if replace {
+                        $(ParamEvent::[<$evt:camel>] => self.[<$evt:lower>] = if replace {
                             v
                         } else {
                             self.[<$evt:lower>] + ( Self::PARAM_PERTURB_FAC * v )
