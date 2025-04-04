@@ -130,6 +130,7 @@ macro_rules! iota {
     };
 }
 
+// TODO not pub structs
 #[macro_export]
 macro_rules! events {
     ($scope:ident[$($evt:ident),+]) => {
