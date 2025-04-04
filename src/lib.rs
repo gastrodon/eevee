@@ -1,4 +1,5 @@
 #![feature(associated_type_defaults)]
+#![feature(generic_const_exprs)]
 #![allow(mixed_script_confusables)]
 #![allow(confusable_idents)]
 
