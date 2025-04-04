@@ -127,11 +127,10 @@ pub trait Genome<N: Node, C: Connection<N>>: Serialize + for<'de> Deserialize<'d
         self.push_connection(second);
     }
 
-    /// Perform a ( possible? TODO ) mutation across every weight
+    /// Mutate a single connection
     fn mutate_connection(&mut self, rng: &mut impl Happens) {
-        for c in self.connections_mut() {
-            c.mutate(rng);
-        }
+        let pick = rng.random_range(0..self.connections().len());
+        self.connections_mut()[pick].mutate(rng);
     }
 
     /// Find some open path ( that is, a path between nodes from -> to )
