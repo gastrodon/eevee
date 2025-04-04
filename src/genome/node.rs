@@ -1,4 +1,5 @@
 use super::{Node, NodeKind};
+use crate::{mutate_param, random::percent};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -8,6 +9,8 @@ pub struct BNode {
 }
 
 impl Node for BNode {
+    mutate_param!([Bias]: [percent(100)]);
+
     fn new(kind: NodeKind) -> Self {
         Self {
             bias: if matches!(kind, NodeKind::Static) {
@@ -61,4 +64,6 @@ impl Node for NonBNode {
             _ => 0.,
         }
     }
+
+    fn mutate_param(&mut self, _: &mut impl crate::Happens) {}
 }

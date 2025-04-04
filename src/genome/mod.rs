@@ -23,6 +23,9 @@ pub enum NodeKind {
 }
 
 pub trait Node: Serialize + for<'de> Deserialize<'de> + Clone + Debug + PartialEq {
+    const PARAM_REPLACE_PROBABILITY: u64 = percent(10);
+    const PARAM_PERTURB_FAC: f64 = 0.05;
+
     /// A new node of some kind
     fn new(kind: NodeKind) -> Self;
 
@@ -35,6 +38,13 @@ pub trait Node: Serialize + for<'de> Deserialize<'de> + Clone + Debug + PartialE
 
     /// The bias of a node, returning 0. for nodes who can't have bias
     fn bias(&self) -> f64;
+
+    fn mutate_param(&mut self, rng: &mut impl Happens);
+
+    fn mutate(&mut self, rng: &mut impl Happens) {
+        // this is redundant, but done to retain scaffolding for future non-param mutations
+        self.mutate_param(rng);
+    }
 }
 
 pub trait Connection<N: Node>:
@@ -100,15 +110,22 @@ pub trait Connection<N: Node>:
 
 pub trait Genome<N: Node, C: Connection<N>>: Serialize + for<'de> Deserialize<'de> + Clone {
     const PROBABILITIES: [u64; GenomeEvent::COUNT] =
-        [percent(5), percent(15), percent(80), percent(0)];
+        [percent(5), percent(15), percent(60), percent(20)];
 
     /// A new genome of this type, with a known input and output size
     fn new(sensory: usize, action: usize) -> (Self, usize);
 
     fn nodes(&self) -> &[N];
 
+    fn nodes_mut(&mut self) -> &mut [N];
+
     /// Push a new node onto the genome
     fn push_node(&mut self, node: N);
+
+    fn mutate_node(&mut self, rng: &mut impl Happens) {
+        let pick = rng.random_range(0..self.nodes().len());
+        self.nodes_mut()[pick].mutate(rng);
+    }
 
     /// A collection to the connections comprising this genome
     fn connections(&self) -> &[C];
@@ -180,7 +197,7 @@ pub trait Genome<N: Node, C: Connection<N>>: Serialize + for<'de> Deserialize<'d
                         self.mutate_connection(rng)
                     }
                 }
-                GenomeEvent::MutateNode => todo!("no method to mutate nodes yet"),
+                GenomeEvent::MutateNode => self.mutate_node(rng),
             }
         }
     }

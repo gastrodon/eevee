@@ -55,6 +55,10 @@ impl<N: Node, C: Connection<N>> Genome<N, C> for CTRGenome<N, C> {
         &self.nodes
     }
 
+    fn nodes_mut(&mut self) -> &mut [N] {
+        &mut self.nodes
+    }
+
     fn push_node(&mut self, node: N) {
         self.nodes.push(node);
     }
