@@ -175,7 +175,11 @@ pub trait Genome<N: Node, C: Connection<N>>: Serialize + for<'de> Deserialize<'d
                         self.bisect_connection(rng, innogen)
                     }
                 }
-                GenomeEvent::MutateConnection => self.mutate_connection(rng),
+                GenomeEvent::MutateConnection => {
+                    if !self.connections().is_empty() {
+                        self.mutate_connection(rng)
+                    }
+                }
                 GenomeEvent::MutateNode => todo!("no method to mutate nodes yet"),
             }
         }
