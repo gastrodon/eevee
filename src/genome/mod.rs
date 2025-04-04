@@ -111,7 +111,11 @@ pub trait Genome<N: Node, C: Connection<N>>: Serialize + for<'de> Deserialize<'d
     }
 
     /// Perform a ( possible? TODO ) mutation across every weight
-    fn mutate_params(&mut self, rng: &mut impl Happens);
+    fn mutate_params(&mut self, rng: &mut impl Happens) {
+        for c in self.connections_mut() {
+            c.mutate_params(rng);
+        }
+    }
 
     /// Find some open path ( that is, a path between nodes from -> to )
     /// that no connection is occupying if any exist

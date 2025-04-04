@@ -71,12 +71,6 @@ impl<N: Node, C: Connection<N>> Genome<N, C> for CTRGenome<N, C> {
         self.connections.push(connection);
     }
 
-    fn mutate_params(&mut self, rng: &mut impl Happens) {
-        for conn in self.connections.iter_mut() {
-            conn.mutate_params(rng);
-        }
-    }
-
     fn open_path(&self, rng: &mut impl Happens) -> Option<(usize, usize)> {
         let mut saturated = HashSet::new();
         loop {
