@@ -40,10 +40,13 @@ pub trait Node: Serialize + for<'de> Deserialize<'de> + Clone + Debug + PartialE
 pub trait Connection<N: Node>:
     Serialize + for<'de> Deserialize<'de> + Clone + Hash + PartialEq + Default + Debug
 {
+    const PROBABILITIES: [u64; ConnectionEvent::COUNT] = [percent(1), percent(99)];
+    const PARAM_REPLACE_PROBABILITY: u64 = percent(10);
+    const PARAM_PERTURB_FAC: f64 = 0.05;
+
     const EXCESS_COEFFICIENT: f64;
     const DISJOINT_COEFFICIENT: f64;
     const PARAM_COEFFICIENT: f64;
-    const PROBABILITIES: [u64; ConnectionEvent::COUNT] = [percent(1), percent(99)];
 
     fn new(from: usize, to: usize, inno: &mut InnoGen) -> Self;
 

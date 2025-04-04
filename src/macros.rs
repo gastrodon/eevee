@@ -81,3 +81,27 @@ macro_rules! assert_some_normalized {
   }};
   ($l:expr, [$($r:expr),* $(,)?]; $({.$($norm:tt)+})+) => {$crate::assert_some_normalized!($l, [$($r,)*]; $({.$($norm)* })+, format!("{:?} not in {:?}", $l, [$($r,)*]))};
 }
+
+#[macro_export]
+macro_rules! mutate_params {
+    ($scope:ident[$($evt:ident),+]: [$($prob:expr),+]) => {
+        ::paste::paste! {
+            fn mutate_params(&mut self, rng: &mut impl Happens) {
+                $crate::events!($scope[$($evt),*]);
+                const PARAM_PROBABILITIES: [u64; [<$scope Event>]::COUNT] = [$($prob),*];
+
+                if let Some(evt) = [<$scope Event>]::pick(rng, PARAM_PROBABILITIES) {
+                    let replace = rng.next_u64() < Self::PARAM_REPLACE_PROBABILITY;
+                    let v: f64 = rng.sample(rand::distr::Uniform::new_inclusive(-3., 3.).expect("distribution of -1. ..= 1. failed"));
+                    match evt {
+                        $([<$scope Event>]::[<$evt:camel>] => self.[<$evt:lower>] = if replace {
+                            v
+                        } else {
+                            self.[<$evt:lower>] + ( Self::PARAM_PERTURB_FAC * v )
+                        },)*
+                    }
+                }
+            }
+        }
+    };
+}

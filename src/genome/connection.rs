@@ -1,7 +1,11 @@
 use super::{Connection, Node};
-use crate::{random::EvolutionEvent, specie::InnoGen, Happens};
+use crate::{
+    mutate_params,
+    random::{percent, EventKind},
+    specie::InnoGen,
+    Happens,
+};
 use rand::Rng;
-use rand_distr::StandardNormal;
 use serde::{Deserialize, Serialize};
 use std::{hash::Hash, marker::PhantomData};
 
@@ -15,14 +19,12 @@ pub struct WConnection<N: Node> {
     _phantom: PhantomData<N>,
 }
 
-impl<N: Node> WConnection<N> {
-    const MUTATE_WEIGHT_FAC: f64 = 0.05;
-}
-
 impl<N: Node> Connection<N> for WConnection<N> {
     const EXCESS_COEFFICIENT: f64 = 1.0;
     const DISJOINT_COEFFICIENT: f64 = 1.0;
     const PARAM_COEFFICIENT: f64 = 0.4;
+
+    mutate_params!(WParam[Weight]: [percent(100)]);
 
     fn new(from: usize, to: usize, inno: &mut InnoGen) -> Self {
         Self {
@@ -57,14 +59,6 @@ impl<N: Node> Connection<N> for WConnection<N> {
 
     fn weight(&self) -> f64 {
         self.weight
-    }
-
-    fn mutate_params(&mut self, rng: &mut impl Happens) {
-        if rng.happens(EvolutionEvent::NewWeight) {
-            self.weight = rng.sample(StandardNormal);
-        } else if rng.happens(EvolutionEvent::PerturbWeight) {
-            self.weight += Self::MUTATE_WEIGHT_FAC * rng.sample::<f64, _>(StandardNormal)
-        }
     }
 
     fn bisect(&mut self, center: usize, inno: &mut InnoGen) -> (Self, Self) {
@@ -131,14 +125,12 @@ pub struct BWConnection<N: Node> {
     _phantom: PhantomData<N>,
 }
 
-impl<N: Node> BWConnection<N> {
-    const MUTATE_WEIGHT_FAC: f64 = 0.05;
-}
-
 impl<N: Node> Connection<N> for BWConnection<N> {
     const EXCESS_COEFFICIENT: f64 = 1.0;
     const DISJOINT_COEFFICIENT: f64 = 1.0;
     const PARAM_COEFFICIENT: f64 = 0.4;
+
+    mutate_params!(BWParam[Weight, Bias]: [percent(50), percent(50)]);
 
     fn new(from: usize, to: usize, inno: &mut InnoGen) -> Self {
         Self {
@@ -174,14 +166,6 @@ impl<N: Node> Connection<N> for BWConnection<N> {
 
     fn weight(&self) -> f64 {
         self.weight
-    }
-
-    fn mutate_params(&mut self, rng: &mut impl Happens) {
-        if rng.happens(EvolutionEvent::NewWeight) {
-            self.weight = rng.sample(StandardNormal);
-        } else if rng.happens(EvolutionEvent::PerturbWeight) {
-            self.weight += Self::MUTATE_WEIGHT_FAC * rng.sample::<f64, _>(StandardNormal)
-        }
     }
 
     fn bisect(&mut self, center: usize, inno: &mut InnoGen) -> (Self, Self) {
