@@ -85,6 +85,9 @@ pub trait Connection<N: Node>:
 }
 
 pub trait Genome<N: Node, C: Connection<N>>: Serialize + for<'de> Deserialize<'de> + Clone {
+    const PROBABILITIES: [u64; GenomeEvent::COUNT] =
+        [percent(5), percent(15), percent(80), percent(0)];
+
     /// A new genome of this type, with a known input and output size
     fn new(sensory: usize, action: usize) -> (Self, usize);
 
@@ -151,14 +154,17 @@ pub trait Genome<N: Node, C: Connection<N>>: Serialize + for<'de> Deserialize<'d
 
     /// Perform 0 or more mutations on this genome ( should this be the only mutator exposed? TODO )
     fn mutate(&mut self, rng: &mut impl Happens, innogen: &mut InnoGen) {
-        if rng.happens(EvolutionEvent::MutateWeight) {
-            self.mutate_params(rng);
-        }
-        if rng.happens(EvolutionEvent::MutateConnection) {
-            self.mutate_connection(rng, innogen);
-        }
-        if rng.happens(EvolutionEvent::MutateBisection) && !self.connections().is_empty() {
-            self.mutate_bisection(rng, innogen);
+        if let Some(evt) = GenomeEvent::pick(rng, Self::PROBABILITIES) {
+            match evt {
+                GenomeEvent::NewConnection => self.mutate_connection(rng, innogen),
+                GenomeEvent::BisectConnection => {
+                    if !self.connections().is_empty() {
+                        self.mutate_bisection(rng, innogen)
+                    }
+                }
+                GenomeEvent::AlterConnection => self.mutate_params(rng),
+                GenomeEvent::AlterNode => todo!("no method to alter nodes yet"),
+            }
         }
     }
 
