@@ -6,7 +6,7 @@ pub use connection::WConnection;
 pub use recurrent::CTRGenome;
 
 use crate::{
-    random::{EvolutionEvent, Happens},
+    random::{percent, ConnectionEvent, EventKind, GenomeEvent, Happens},
     specie::InnoGen,
 };
 use core::{cmp::Ordering, error::Error, fmt::Debug, hash::Hash};
@@ -43,6 +43,7 @@ pub trait Connection<N: Node>:
     const EXCESS_COEFFICIENT: f64;
     const DISJOINT_COEFFICIENT: f64;
     const PARAM_COEFFICIENT: f64;
+    const PROBABILITIES: [u64; ConnectionEvent::COUNT] = [percent(1), percent(99)];
 
     fn new(from: usize, to: usize, inno: &mut InnoGen) -> Self;
 
@@ -75,6 +76,16 @@ pub trait Connection<N: Node>:
 
     /// mutate connection parameters
     fn mutate_params(&mut self, rng: &mut impl Happens);
+
+    /// mutate a connection
+    fn mutate(&mut self, rng: &mut impl Happens) {
+        if let Some(evt) = ConnectionEvent::pick(rng, Self::PROBABILITIES) {
+            match evt {
+                ConnectionEvent::Disable => self.disable(),
+                ConnectionEvent::AlterParam => self.mutate_params(rng),
+            }
+        }
+    }
 
     /// bisect this connection; disabling it, and returning the (upper, lower) bisection pair
     fn bisect(&mut self, center: usize, inno: &mut InnoGen) -> (Self, Self);

@@ -154,9 +154,8 @@ fn pick_gene<N: Node, C: Connection<N>, H: RngCore + Happens>(
     // TODO It seems like it will always check RAND_DISABLED, and sometimes
     // check KEEP_DISABLED. I wonder if checking RAND_DISABLED first would bypass
     // RAND_DISABLED% of checks that would then check KEEP_DISABLED?
-    if ((!base_conn.enabled() || opt_conn.is_some_and(|r_conn| !r_conn.enabled()))
-        && rng.happens(EvolutionEvent::KeepDisabled))
-        || rng.happens(EvolutionEvent::NewDisabled)
+    if (!base_conn.enabled() || opt_conn.is_some_and(|r_conn| !r_conn.enabled()))
+        && rng.happens(EvolutionEvent::KeepDisabled)
     {
         conn.disable();
     }
