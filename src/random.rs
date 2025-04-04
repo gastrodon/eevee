@@ -106,25 +106,27 @@ impl<T, I: Iterator<Item = T> + Sized> FindFold<T> for I {
     }
 }
 
+#[macro_export]
 macro_rules! count {
     ($_:ident) => {
         1
     };
     ($_:ident, $($remain:ident),+) => {
-        1+count!($($remain),+)
+        1+$crate::count!($($remain),+)
     };
 }
 
+#[macro_export]
 macro_rules! iota {
     (@inner $t:ty, $name:ident, $value:expr, $($rest:ident, $new_value:expr),*) => {
         const $name: $t = $value;
-        iota!(@inner $t, $($rest, $value + 1),*);
+        $crate::iota!(@inner $t, $($rest, $value + 1),*);
     };
     (@inner $t:ty, $name:ident, $value:expr) => {
         const $name: $t = $value;
     };
     ($t:ty, $($name:ident,)* $(,)?) => {
-        iota!(@inner $t, $($name, 0),*);
+        $crate::iota!(@inner $t, $($name, 0),*);
     };
 }
 
@@ -137,15 +139,15 @@ macro_rules! events {
                 $($evt,)*
             }
 
-            impl EventKind for [<$scope Event>] {
-                const COUNT: usize = count!($($evt),+);
+            impl $crate::random::EventKind for [<$scope Event>] {
+                const COUNT: usize = $crate::count!($($evt),+);
 
                 fn variants() -> [Self; Self::COUNT] {
                     [$(Self::$evt),*]
                 }
 
                 fn idx(&self) -> usize {
-                    iota!(usize, $([<$evt:snake:upper _IDX>],)*);
+                    $crate::iota!(usize, $([<$evt:snake:upper _IDX>],)*);
                     match self {
                         $(Self::$evt => [<$evt:snake:upper _IDX>],)*
                     }
