@@ -8,7 +8,7 @@ use brain::{
     random::{default_rng, percent, EvolutionEvent, ProbBinding, ProbStatic},
     scenario::{evolve, EvolutionHooks},
     specie::{population_from_files, population_init, population_to_files},
-    Connection, Ctrnn, Happens, Network, Node, Probabilities, Scenario, Stats,
+    Connection, Continuous, Happens, Network, Node, Probabilities, Scenario, Stats,
 };
 use core::ops::ControlFlow;
 use nes_rust::{
@@ -149,7 +149,7 @@ struct NesTetris;
 impl<
         N: Node,
         C: Connection<N>,
-        G: Genome<N, C> + ToNetwork<Ctrnn, N, C>,
+        G: Genome<N, C> + ToNetwork<Continuous, N, C>,
         H: RngCore + Probabilities + Happens,
         A: Fn(f64) -> f64,
     > Scenario<N, C, G, H, A> for NesTetris

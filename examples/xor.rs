@@ -10,7 +10,7 @@ use brain::{
     },
     scenario::{evolve, EvolutionHooks},
     specie::population_init,
-    Connection, Ctrnn, Network, Node, Scenario, Stats,
+    Connection, Continuous, Network, Node, Scenario, Stats,
 };
 use core::{f64, ops::ControlFlow};
 use rand::RngCore;
@@ -22,7 +22,7 @@ struct Xor;
 impl<
         N: Node,
         C: Connection<N>,
-        G: Genome<N, C> + ToNetwork<Ctrnn, N, C>,
+        G: Genome<N, C> + ToNetwork<Continuous, N, C>,
         H: RngCore + Probabilities + Happens,
         A: Fn(f64) -> f64,
     > Scenario<N, C, G, H, A> for Xor
