@@ -116,6 +116,8 @@ pub trait Connection<N: Node>:
     fn param_diff(&self, other: &Self) -> f64;
 }
 pub trait Genome<N: Node, C: Connection<N>>: Serialize + for<'de> Deserialize<'de> + Clone {
+    const MUTATE_NODE_PROBABILITY: u64 = percent(20);
+    const MUTATE_CONNECTION_PROBABILITY: u64 = percent(20);
     const PROBABILITIES: [u64; GenomeEvent::COUNT] =
         [percent(5), percent(15), percent(60), percent(20)];
 
@@ -134,8 +136,11 @@ pub trait Genome<N: Node, C: Connection<N>>: Serialize + for<'de> Deserialize<'d
     fn push_node(&mut self, node: N);
 
     fn mutate_node(&mut self, rng: &mut impl RngCore) {
-        let pick = rng.random_range(0..self.nodes().len());
-        self.nodes_mut()[pick].mutate(rng);
+        for n in self.nodes_mut() {
+            if rng.next_u64() < Self::MUTATE_NODE_PROBABILITY {
+                n.mutate(rng);
+            }
+        }
     }
 
     /// A collection to the connections comprising this genome
@@ -157,8 +162,11 @@ pub trait Genome<N: Node, C: Connection<N>>: Serialize + for<'de> Deserialize<'d
 
     /// Mutate a single connection
     fn mutate_connection(&mut self, rng: &mut impl RngCore) {
-        let pick = rng.random_range(0..self.connections().len());
-        self.connections_mut()[pick].mutate(rng);
+        for c in self.connections_mut() {
+            if rng.next_u64() < Self::MUTATE_CONNECTION_PROBABILITY {
+                c.mutate(rng);
+            }
+        }
     }
 
     /// Find some open path ( that is, a path between nodes from -> to )
