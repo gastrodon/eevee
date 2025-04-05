@@ -1,38 +1,9 @@
 use super::{Biased, Node, NodeKind};
-use crate::{mutate_param, random::percent};
+use crate::{node, random::percent};
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct BNode {
-    bias: f64,
-    kind: NodeKind,
-}
-
-impl Node for BNode {
-    mutate_param!([Bias]: [percent(100)]);
-
-    fn new(kind: NodeKind) -> Self {
-        Self {
-            bias: if matches!(kind, NodeKind::Static) {
-                1.
-            } else {
-                0.
-            },
-            kind,
-        }
-    }
-
-    fn kind(&self) -> NodeKind {
-        self.kind
-    }
-}
-
-impl Biased for BNode {
-    fn bias(&self) -> f64 {
-        self.bias
-    }
-}
+node!(BNode, [bias]: [percent(100)]);
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum NonBNode {
