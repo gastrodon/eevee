@@ -1,10 +1,12 @@
-use super::{Recurrent, Stateful};
+use super::{FromGenome, Recurrent, Stateful};
 use crate::{
     serialize::{deserialize_matrix_flat, deserialize_matrix_square, serialize_matrix},
-    Network,
+    Connection, Genome, Network, Node,
 };
 use rulinalg::matrix::{BaseMatrix, BaseMatrixMut, Matrix};
 use serde::{Deserialize, Serialize};
+
+const TAU_DEFAULT: f64 = 1.;
 
 /// A stateful NN who receives input continuously, useful for realtime problems
 /// and genomes whos connections may be recurrent.
@@ -63,6 +65,30 @@ impl Network for Continuous {
 impl Recurrent for Continuous {}
 
 impl Stateful for Continuous {}
+
+impl<N: Node, C: Connection<N>, G: Genome<N, C>> FromGenome<N, C, G> for Continuous {
+    fn from_genome(genome: &G) -> Self {
+        let cols = genome.nodes().len();
+        Self {
+            y: Matrix::zeros(1, cols),
+            θ: Matrix::new(
+                1,
+                cols,
+                genome.nodes().iter().map(|n| n.bias()).collect::<Vec<_>>(),
+            ),
+            τ: Matrix::from_fn(1, cols, |_, _| 1. / TAU_DEFAULT),
+            w: {
+                let mut w = vec![0.; cols * cols];
+                for c in genome.connections().iter().filter(|c| c.enabled()) {
+                    w[c.from() * cols + c.to()] = c.weight();
+                }
+                Matrix::new(cols, cols, w)
+            },
+            sensory: (genome.sensory().start, genome.sensory().end),
+            action: (genome.action().start, genome.action().end),
+        }
+    }
+}
 
 #[cfg(test)]
 mod test {

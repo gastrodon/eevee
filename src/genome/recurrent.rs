@@ -2,13 +2,11 @@
 use super::{Connection, Genome, Node, NodeKind};
 use crate::{
     crossover::crossover,
-    network::{Continuous, FromGenome, NonBias},
     serialize::{deserialize_connections, deserialize_nodes},
     Happens,
 };
 use core::cmp::{max, Ordering};
 use rand::{seq::IteratorRandom, RngCore};
-use rulinalg::matrix::Matrix;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
@@ -141,57 +139,13 @@ impl<N: Node, C: Connection<N>> Genome<N, C> for CTRGenome<N, C> {
     }
 }
 
-const TAU_DEFAULT: f64 = 1.;
-
-impl<N: Node, C: Connection<N>> FromGenome<N, C, CTRGenome<N, C>> for Continuous {
-    fn from_genome(genome: &CTRGenome<N, C>) -> Self {
-        let cols = genome.nodes().len();
-        Self {
-            y: Matrix::zeros(1, cols),
-            θ: Matrix::new(
-                1,
-                cols,
-                genome.nodes().iter().map(|n| n.bias()).collect::<Vec<_>>(),
-            ),
-            τ: Matrix::from_fn(1, cols, |_, _| 1. / TAU_DEFAULT),
-            w: {
-                let mut w = vec![0.; cols * cols];
-                for c in genome.connections().iter().filter(|c| c.enabled()) {
-                    w[c.from() * cols + c.to()] = c.weight();
-                }
-                Matrix::new(cols, cols, w)
-            },
-            sensory: (0, genome.sensory),
-            action: (genome.sensory, genome.sensory + genome.action),
-        }
-    }
-}
-
-impl<N: Node, C: Connection<N>> FromGenome<N, C, CTRGenome<N, C>> for NonBias {
-    fn from_genome(genome: &CTRGenome<N, C>) -> Self {
-        let cols = genome.nodes().len();
-        Self {
-            y: Matrix::zeros(1, cols),
-            w: {
-                let mut w = vec![0.; cols * cols];
-                for c in genome.connections().iter().filter(|c| c.enabled()) {
-                    w[c.from() * cols + c.to()] = c.weight();
-                }
-                Matrix::new(cols, cols, w)
-            },
-            sensory: (0, genome.sensory),
-            action: (genome.sensory, genome.sensory + genome.action),
-        }
-    }
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
     use crate::{
         assert_f64_approx,
         genome::{node::NonBNode, WConnection},
-        network::ToNetwork,
+        network::{Continuous, ToNetwork},
         random::{default_rng, percent, EvolutionEvent, ProbBinding, ProbStatic},
         specie::InnoGen,
     };
