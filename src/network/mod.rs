@@ -1,5 +1,7 @@
 pub mod continuous;
+pub mod non_bias;
 pub use continuous::Continuous;
+pub use non_bias::NonBias;
 
 use crate::{Connection, Genome, Node};
 use core::error::Error;
