@@ -3,7 +3,7 @@ pub mod node;
 pub mod recurrent;
 
 pub use connection::WConnection;
-pub use recurrent::CTRGenome;
+pub use recurrent::Recurrent;
 
 use crate::{
     random::{percent, ConnectionEvent, EventKind, GenomeEvent},

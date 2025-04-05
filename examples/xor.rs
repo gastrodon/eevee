@@ -3,7 +3,7 @@
 
 use brain::{
     activate::relu,
-    genome::{node::NonBNode, CTRGenome, Genome, WConnection},
+    genome::{node::BTNode, Genome, Recurrent, WConnection},
     network::{loss::decay_quadratic, Continuous, ToNetwork},
     random::default_rng,
     scenario::{evolve, EvolutionHooks},
@@ -76,9 +76,9 @@ fn hook<N: Node, C: Connection<N>, G: Genome<N, C>>(
     ControlFlow::Continue(())
 }
 
-type N = NonBNode;
-type C = WConnection<NonBNode>;
-type G = CTRGenome<NonBNode, WConnection<NonBNode>>;
+type N = BTNode;
+type C = WConnection<N>;
+type G = Recurrent<N, WConnection<N>>;
 
 fn main() {
     evolve(

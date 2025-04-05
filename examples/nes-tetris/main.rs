@@ -3,7 +3,7 @@
 
 use brain::{
     activate::relu,
-    genome::{node::NonBNode, CTRGenome, Genome, WConnection},
+    genome::{node::BTNode, Genome, Recurrent, WConnection},
     network::{Continuous, ToNetwork},
     random::default_rng,
     scenario::{evolve, EvolutionHooks},
@@ -198,12 +198,7 @@ impl<
 const POPULATION: usize = 1000;
 
 fn hook(
-    stats: &mut Stats<
-        '_,
-        NonBNode,
-        WConnection<NonBNode>,
-        CTRGenome<NonBNode, WConnection<NonBNode>>,
-    >,
+    stats: &mut Stats<'_, BTNode, WConnection<BTNode>, Recurrent<BTNode, WConnection<BTNode>>>,
 ) -> ControlFlow<()> {
     if stats.generation % 10 != 0 {
         ControlFlow::Continue(())
@@ -224,9 +219,9 @@ fn hook(
 }
 
 fn main() {
-    type N = NonBNode;
+    type N = BTNode;
     type C = WConnection<N>;
-    type G = CTRGenome<N, C>;
+    type G = Recurrent<N, C>;
 
     create_dir_all("output/nes-tetris").expect("failed to create genome output");
 

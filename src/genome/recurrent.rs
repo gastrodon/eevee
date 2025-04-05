@@ -1,4 +1,3 @@
-/// A genome describing a Continuous Time Recurrent Neural Network (CTRNN)
 use super::{Connection, Genome, Node, NodeKind};
 use crate::{
     crossover::crossover,
@@ -9,8 +8,9 @@ use rand::{seq::IteratorRandom, RngCore};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
+/// A genome that allows recurrent connections
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CTRGenome<N: Node, C: Connection<N>> {
+pub struct Recurrent<N: Node, C: Connection<N>> {
     sensory: usize,
     action: usize,
     #[serde(deserialize_with = "deserialize_nodes")]
@@ -19,7 +19,7 @@ pub struct CTRGenome<N: Node, C: Connection<N>> {
     connections: Vec<C>,
 }
 
-impl<N: Node, C: Connection<N>> Genome<N, C> for CTRGenome<N, C> {
+impl<N: Node, C: Connection<N>> Genome<N, C> for Recurrent<N, C> {
     fn new(sensory: usize, action: usize) -> (Self, usize) {
         let mut nodes = Vec::with_capacity(sensory + action + 1);
         for _ in 0..sensory {
@@ -136,7 +136,10 @@ mod test {
     use super::*;
     use crate::{
         assert_f64_approx,
-        genome::{node::NonBNode, WConnection},
+        genome::{
+            node::{BTNode, NonBNode},
+            Biased, WConnection,
+        },
         network::{Continuous, ToNetwork},
         random::default_rng,
         specie::InnoGen,
@@ -145,7 +148,7 @@ mod test {
 
     #[test]
     fn test_genome_creation() {
-        let (genome, inno_head) = CTRGenome::<NonBNode, WConnection<NonBNode>>::new(3, 2);
+        let (genome, inno_head) = Recurrent::<BTNode, WConnection<BTNode>>::new(3, 2);
         assert_eq!(inno_head, 8);
         assert_eq!(genome.sensory, 3);
         assert_eq!(genome.action, 2);
@@ -154,15 +157,14 @@ mod test {
         assert!(matches!(genome.nodes[3], NonBNode::Action));
         assert!(matches!(genome.nodes[5], NonBNode::Static(_)));
 
-        let (genome_empty, inno_head) = CTRGenome::<NonBNode, WConnection<NonBNode>>::new(0, 0);
+        let (genome_empty, inno_head) = Recurrent::<BTNode, WConnection<BTNode>>::new(0, 0);
         assert_eq!(inno_head, 0);
         assert_eq!(genome_empty.sensory, 0);
         assert_eq!(genome_empty.action, 0);
         assert_eq!(genome_empty.nodes.len(), 1);
         assert!(matches!(genome_empty.nodes[0], NonBNode::Static(_)));
 
-        let (genome_only_sensory, inno_head) =
-            CTRGenome::<NonBNode, WConnection<NonBNode>>::new(3, 0);
+        let (genome_only_sensory, inno_head) = Recurrent::<BTNode, WConnection<BTNode>>::new(3, 0);
         assert_eq!(inno_head, 0);
         assert_eq!(genome_only_sensory.sensory, 3);
         assert_eq!(genome_only_sensory.action, 0);
@@ -171,8 +173,7 @@ mod test {
         assert!(matches!(genome_only_sensory.nodes[2], NonBNode::Sensory));
         assert!(matches!(genome_only_sensory.nodes[3], NonBNode::Static(_)));
 
-        let (genome_only_action, inno_head) =
-            CTRGenome::<NonBNode, WConnection<NonBNode>>::new(0, 3);
+        let (genome_only_action, inno_head) = Recurrent::<BTNode, WConnection<BTNode>>::new(0, 3);
         assert_eq!(inno_head, 3);
         assert_eq!(genome_only_action.sensory, 0);
         assert_eq!(genome_only_action.action, 3);
@@ -185,7 +186,7 @@ mod test {
     #[test]
     fn test_gen_connection() {
         let mut inno = InnoGen::new(0);
-        let genome = CTRGenome {
+        let genome = Recurrent {
             sensory: 1,
             action: 1,
             nodes: vec![NonBNode::Sensory, NonBNode::Action],
@@ -206,7 +207,7 @@ mod test {
     #[test]
     fn test_gen_connection_no_dupe() {
         let mut inno = InnoGen::new(0);
-        let genome = CTRGenome {
+        let genome = Recurrent {
             sensory: 1,
             action: 1,
             nodes: vec![NonBNode::Sensory, NonBNode::Action],
@@ -225,7 +226,7 @@ mod test {
     fn test_gen_connection_none_possble() {
         let mut inno = InnoGen::new(0);
         assert_eq!(
-            CTRGenome::<NonBNode, WConnection<NonBNode>> {
+            Recurrent::<NonBNode, WConnection<NonBNode>> {
                 sensory: 0,
                 action: 0,
                 nodes: vec![],
@@ -239,7 +240,7 @@ mod test {
     #[test]
     fn test_gen_connection_saturated() {
         assert_eq!(
-            CTRGenome {
+            Recurrent {
                 sensory: 2,
                 action: 2,
                 nodes: vec![
@@ -264,7 +265,7 @@ mod test {
 
     #[test]
     fn test_mutate_connection() {
-        let (mut genome, _) = CTRGenome::<NonBNode, WConnection<NonBNode>>::new(4, 4);
+        let (mut genome, _) = Recurrent::<NonBNode, WConnection<NonBNode>>::new(4, 4);
         let mut inno = InnoGen::new(0);
         genome.push_2_connections(
             WConnection::<NonBNode>::new(0, 1, &mut inno),
@@ -285,7 +286,7 @@ mod test {
     #[test]
     fn test_mutate_bisection() {
         let mut inno = InnoGen::new(0);
-        let (mut genome, _) = CTRGenome::<NonBNode, WConnection<NonBNode>>::new(0, 1);
+        let (mut genome, _) = Recurrent::<NonBNode, WConnection<NonBNode>>::new(0, 1);
 
         genome.push_connection({
             let mut c = WConnection::<NonBNode>::new(0, 1, &mut inno);
@@ -329,14 +330,14 @@ mod test {
     #[test]
     #[should_panic]
     fn test_mutate_bisection_empty_genome() {
-        let (mut genome, _) = CTRGenome::<NonBNode, WConnection<NonBNode>>::new(0, 0);
+        let (mut genome, _) = Recurrent::<NonBNode, WConnection<NonBNode>>::new(0, 0);
         genome.bisect_connection(&mut default_rng(), &mut InnoGen::new(0));
     }
 
     #[test]
     #[should_panic]
     fn test_mutate_bisection_no_connections() {
-        let (mut genome, _) = CTRGenome::<NonBNode, WConnection<NonBNode>>::new(2, 2);
+        let (mut genome, _) = Recurrent::<NonBNode, WConnection<NonBNode>>::new(2, 2);
         genome.connections = vec![];
         genome.bisect_connection(&mut default_rng(), &mut InnoGen::new(0));
     }
@@ -357,7 +358,7 @@ mod test {
     #[test]
     fn test_ctrgenome_network() {
         let mut inno = InnoGen::new(0);
-        let (mut genome, _) = CTRGenome::<NonBNode, WConnection<NonBNode>>::new(2, 2);
+        let (mut genome, _) = Recurrent::<BTNode, WConnection<BTNode>>::new(2, 2);
         genome.connections = vec![
             WConnection::<NonBNode>::new(0, 3, &mut inno),
             WConnection::<NonBNode>::new(0, 1, &mut inno),

@@ -4,6 +4,7 @@ use rand::RngCore;
 use serde::{Deserialize, Serialize};
 
 node!(BNode, [bias]: [percent(100)]);
+node!(BTNode, [bias, timescale]: [percent(50), percent(50)]);
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum NonBNode {

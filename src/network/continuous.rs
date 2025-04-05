@@ -1,13 +1,11 @@
 use super::{FromGenome, Recurrent, Stateful};
 use crate::{
-    genome::Biased,
+    genome::{Biased, Timescaled},
     serialize::{deserialize_matrix_flat, deserialize_matrix_square, serialize_matrix},
     Connection, Genome, Network, Node,
 };
 use rulinalg::matrix::{BaseMatrix, BaseMatrixMut, Matrix};
 use serde::{Deserialize, Serialize};
-
-const TAU_DEFAULT: f64 = 1.;
 
 /// A stateful NN who receives input continuously, useful for realtime problems
 /// and genomes whos connections may be recurrent.
@@ -67,7 +65,9 @@ impl Recurrent for Continuous {}
 
 impl Stateful for Continuous {}
 
-impl<N: Node + Biased, C: Connection<N>, G: Genome<N, C>> FromGenome<N, C, G> for Continuous {
+impl<N: Node + Biased + Timescaled, C: Connection<N>, G: Genome<N, C>> FromGenome<N, C, G>
+    for Continuous
+{
     fn from_genome(genome: &G) -> Self {
         let cols = genome.nodes().len();
         Self {
@@ -77,7 +77,15 @@ impl<N: Node + Biased, C: Connection<N>, G: Genome<N, C>> FromGenome<N, C, G> fo
                 cols,
                 genome.nodes().iter().map(|n| n.bias()).collect::<Vec<_>>(),
             ),
-            τ: Matrix::from_fn(1, cols, |_, _| 1. / TAU_DEFAULT),
+            τ: Matrix::new(
+                1,
+                cols,
+                genome
+                    .nodes()
+                    .iter()
+                    .map(|n| n.timescale())
+                    .collect::<Vec<_>>(),
+            ),
             w: {
                 let mut w = vec![0.; cols * cols];
                 for c in genome.connections().iter().filter(|c| c.enabled()) {

@@ -3,7 +3,7 @@
 
 use brain::{
     activate::relu,
-    genome::{node::NonBNode, CTRGenome, WConnection},
+    genome::{node::BTNode, Recurrent, WConnection},
     network::{Continuous, ToNetwork},
     random::default_rng,
     scenario::{evolve, EvolutionHooks},
@@ -154,9 +154,9 @@ fn main() {
     let positive = include_str!("data/positive.txt").split('\n').collect();
     let negative = include_str!("data/negative.txt").split('\n').collect();
 
-    type N = NonBNode;
+    type N = BTNode;
     type C = WConnection<N>;
-    type G = CTRGenome<N, C>;
+    type G = Recurrent<N, C>;
 
     create_dir_all("output/sentiment").expect("failed to create genome output");
 

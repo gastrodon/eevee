@@ -432,7 +432,7 @@ pub fn speciate<N: Node, C: Connection<N>, G: Genome<N, C>>(
 mod tests {
     use super::*;
     use crate::{
-        genome::{node::NonBNode, CTRGenome, WConnection},
+        genome::{node::NonBNode, Recurrent, WConnection},
         random::default_rng,
         test_t,
     };
@@ -451,7 +451,7 @@ mod tests {
         assert_eq!(inno2.path((0, 1)), 3);
     }
 
-    type BasicGenomeCtrnn = CTRGenome<NonBNode, WConnection<NonBNode>>;
+    type BasicGenomeCtrnn = Recurrent<NonBNode, WConnection<NonBNode>>;
 
     test_t!(specie_init[T: BasicGenomeCtrnn]() {
         let count = 40;

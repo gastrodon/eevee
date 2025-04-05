@@ -1,5 +1,5 @@
 use brain::{
-    genome::{node::NonBNode, CTRGenome, Connection, Genome, WConnection},
+    genome::{node::NonBNode, Connection, Genome, Recurrent, WConnection},
     random::default_rng,
     specie::{reproduce, InnoGen},
 };
@@ -7,7 +7,7 @@ use criterion::Criterion;
 
 type N = NonBNode;
 type C = WConnection<N>;
-type G = CTRGenome<N, C>;
+type G = Recurrent<N, C>;
 
 fn bench_reproduce(bench: &mut Criterion) {
     let genomes =
