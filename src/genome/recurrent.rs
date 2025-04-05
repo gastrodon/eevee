@@ -130,18 +130,18 @@ const TAU_DEFAULT: f64 = 1.;
 
 impl<N: Node, C: Connection<N>> FromGenome<N, C, CTRGenome<N, C>> for Continuous {
     fn from_genome(genome: &CTRGenome<N, C>) -> Self {
-        let cols = genome.nodes.len();
+        let cols = genome.nodes().len();
         Self {
             y: Matrix::zeros(1, cols),
             θ: Matrix::new(
                 1,
                 cols,
-                genome.nodes.iter().map(|n| n.bias()).collect::<Vec<_>>(),
+                genome.nodes().iter().map(|n| n.bias()).collect::<Vec<_>>(),
             ),
             τ: Matrix::from_fn(1, cols, |_, _| 1. / TAU_DEFAULT),
             w: {
                 let mut w = vec![0.; cols * cols];
-                for c in genome.connections.iter().filter(|c| c.enabled()) {
+                for c in genome.connections().iter().filter(|c| c.enabled()) {
                     w[c.from() * cols + c.to()] = c.weight();
                 }
                 Matrix::new(cols, cols, w)
