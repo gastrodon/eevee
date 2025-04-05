@@ -44,6 +44,14 @@ impl<N: Node, C: Connection<N>> Genome<N, C> for CTRGenome<N, C> {
         )
     }
 
+    fn sensory(&self) -> std::ops::Range<usize> {
+        0..self.sensory
+    }
+
+    fn action(&self) -> std::ops::Range<usize> {
+        self.sensory..self.sensory + self.action
+    }
+
     fn nodes(&self) -> &[N] {
         &self.nodes
     }
