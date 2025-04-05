@@ -1,7 +1,7 @@
 #![allow(mixed_script_confusables)]
 #![allow(confusable_idents)]
 
-use brain::{activate::relu, Continuous, Network};
+use brain::{activate::relu, network::Continuous, Network};
 use criterion::Criterion;
 
 fn bench_nn(bench: &mut Criterion) {

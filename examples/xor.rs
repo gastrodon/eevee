@@ -4,11 +4,11 @@
 use brain::{
     activate::relu,
     genome::{node::NonBNode, CTRGenome, Genome, WConnection},
-    network::{loss::decay_quadratic, ToNetwork},
+    network::{loss::decay_quadratic, Continuous, ToNetwork},
     random::default_rng,
     scenario::{evolve, EvolutionHooks},
     specie::population_init,
-    Connection, Continuous, Network, Node, Scenario, Stats,
+    Connection, Network, Node, Scenario, Stats,
 };
 use core::{f64, ops::ControlFlow};
 

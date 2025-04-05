@@ -2,9 +2,8 @@
 use super::{Connection, Genome, Node, NodeKind};
 use crate::{
     crossover::crossover,
-    network::FromGenome,
+    network::{Continuous, FromGenome},
     serialize::{deserialize_connections, deserialize_nodes},
-    Continuous,
 };
 use core::cmp::{max, Ordering};
 use rand::{seq::IteratorRandom, RngCore};
@@ -158,10 +157,9 @@ mod test {
     use crate::{
         assert_f64_approx,
         genome::{node::NonBNode, WConnection},
-        network::ToNetwork,
+        network::{Continuous, ToNetwork},
         random::default_rng,
         specie::InnoGen,
-        Continuous,
     };
     use rulinalg::matrix::BaseMatrix;
 

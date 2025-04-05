@@ -4,11 +4,11 @@
 use brain::{
     activate::relu,
     genome::{node::NonBNode, CTRGenome, WConnection},
-    network::ToNetwork,
+    network::{Continuous, ToNetwork},
     random::default_rng,
     scenario::{evolve, EvolutionHooks},
     specie::{population_from_files, population_init, population_to_files},
-    Connection, Continuous, Genome, Network, Node, Scenario, Stats,
+    Connection, Genome, Network, Node, Scenario, Stats,
 };
 use core::f64;
 use std::{fs::create_dir_all, ops::ControlFlow};

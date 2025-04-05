@@ -4,11 +4,11 @@
 use brain::{
     activate::relu,
     genome::{node::NonBNode, CTRGenome, Genome, WConnection},
-    network::ToNetwork,
+    network::{Continuous, ToNetwork},
     random::default_rng,
     scenario::{evolve, EvolutionHooks},
     specie::{population_from_files, population_init, population_to_files},
-    Connection, Continuous, Network, Node, Scenario, Stats,
+    Connection, Network, Node, Scenario, Stats,
 };
 use core::ops::ControlFlow;
 use nes_rust::{
