@@ -4,11 +4,11 @@
 use brain::{
     activate::relu,
     genome::{node::NonBNode, CTRGenome, WConnection},
-    network::ToNetwork,
+    network::{Continuous, ToNetwork},
     random::{default_rng, percent, EvolutionEvent, ProbBinding, ProbStatic},
     scenario::{evolve, EvolutionHooks},
     specie::{population_from_files, population_init, population_to_files},
-    Connection, Continuous, Genome, Happens, Network, Node, Probabilities, Scenario, Stats,
+    Connection, Genome, Happens, Network, Node, Probabilities, Scenario, Stats,
 };
 use core::f64;
 use rand::RngCore;

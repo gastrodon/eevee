@@ -2,9 +2,9 @@
 use super::{Connection, Genome, Node, NodeKind};
 use crate::{
     crossover::crossover,
-    network::FromGenome,
+    network::{Continuous, FromGenome},
     serialize::{deserialize_connections, deserialize_nodes},
-    Continuous, Happens,
+    Happens,
 };
 use core::cmp::{max, Ordering};
 use rand::{seq::IteratorRandom, RngCore};
