@@ -8,7 +8,7 @@ use brain::{
     random::default_rng,
     scenario::{evolve, EvolutionHooks},
     specie::population_init,
-    Connection, Ctrnn, Network, Node, Scenario, Stats,
+    Connection, Continuous, Network, Node, Scenario, Stats,
 };
 use core::{f64, ops::ControlFlow};
 
@@ -16,8 +16,12 @@ const POPULATION: usize = 100;
 
 struct Xor;
 
-impl<N: Node, C: Connection<N>, G: Genome<N, C> + ToNetwork<Ctrnn, N, C>, A: Fn(f64) -> f64>
-    Scenario<N, C, G, A> for Xor
+impl<
+        N: Node,
+        C: Connection<N>,
+        G: Genome<N, C> + ToNetwork<Continuous, N, C>,
+        A: Fn(f64) -> f64,
+    > Scenario<N, C, G, A> for Xor
 {
     fn io(&self) -> (usize, usize) {
         (2, 1)

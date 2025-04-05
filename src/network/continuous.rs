@@ -7,8 +7,14 @@ use serde::{Deserialize, Serialize};
 
 use super::{Recurrent, Stateful};
 
+/// A stateful NN who receives input continuously, useful for realtime problems
+/// and genomes whos connections may be recurrent.
+///
+/// Implementation based on the network described by
+/// on the dynamics of small continuous-time recurrent neural networks (beer 1995)
+/// and with some code stolen from [TLmaK0's neat implentation](https://github.com/TLmaK0/rustneat)
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Ctrnn {
+pub struct Continuous {
     #[serde(serialize_with = "serialize", deserialize_with = "deserialize_flat")]
     pub y: Matrix<f64>, // 1d state of neurons 0-N
     #[serde(serialize_with = "serialize", deserialize_with = "deserialize_flat")]
@@ -17,11 +23,11 @@ pub struct Ctrnn {
     pub τ: Matrix<f64>, // 1d membrane resistance time constant (\u3c4)
     #[serde(serialize_with = "serialize", deserialize_with = "deserialize_square")]
     pub w: Matrix<f64>, // Nd weights between neurons, indexed as [from, to]
-    pub sensory: (usize, usize),
-    pub action: (usize, usize),
+    pub sensory: (usize, usize), // Range of input neurons, indexing into y
+    pub action: (usize, usize),  // Range of output neurons, indexing into y
 }
 
-impl Network for Ctrnn {
+impl Network for Continuous {
     fn step<F: Fn(f64) -> f64>(&mut self, prec: usize, input: &[f64], σ: F) {
         let mut m_input = Matrix::zeros(1, self.y.cols());
         m_input.mut_data()[self.sensory.0..self.sensory.1].copy_from_slice(input);
@@ -43,9 +49,9 @@ impl Network for Ctrnn {
     }
 }
 
-impl Recurrent for Ctrnn {}
+impl Recurrent for Continuous {}
 
-impl Stateful for Ctrnn {}
+impl Stateful for Continuous {}
 
 #[cfg(test)]
 mod test {
@@ -77,7 +83,7 @@ mod test {
             }
         }
 
-        let original = Ctrnn {
+        let original = Continuous {
             y: Matrix::new(1, n_neurons, y_data),
             θ: Matrix::new(1, n_neurons, theta_data),
             τ: Matrix::new(1, n_neurons, tau_data),
@@ -88,7 +94,7 @@ mod test {
 
         let serialized = original.to_string().expect("Failed to serialize");
 
-        let deserialized = Ctrnn::from_str(&serialized).expect("Failed to deserialize");
+        let deserialized = Continuous::from_str(&serialized).expect("Failed to deserialize");
 
         assert_matrix_approx!(original.y.data(), deserialized.y.data());
         assert_matrix_approx!(original.θ.data(), deserialized.θ.data());
@@ -120,7 +126,7 @@ mod test {
             }
         }
 
-        let mut original = Ctrnn {
+        let mut original = Continuous {
             y: Matrix::new(1, n_neurons, y_data),
             θ: Matrix::new(1, n_neurons, θ_data),
             τ: Matrix::new(1, n_neurons, τ_data),
@@ -129,8 +135,9 @@ mod test {
             action: (3, 5),
         };
 
-        let mut deserialized = Ctrnn::from_str(&original.to_string().expect("Failed to serialize"))
-            .expect("Failed to deserialize");
+        let mut deserialized =
+            Continuous::from_str(&original.to_string().expect("Failed to serialize"))
+                .expect("Failed to deserialize");
 
         let precision = 10;
         let n_steps = 500;

@@ -8,7 +8,7 @@ use brain::{
     random::default_rng,
     scenario::{evolve, EvolutionHooks},
     specie::{population_from_files, population_init, population_to_files},
-    Connection, Ctrnn, Network, Node, Scenario, Stats,
+    Connection, Continuous, Network, Node, Scenario, Stats,
 };
 use core::ops::ControlFlow;
 use nes_rust::{
@@ -145,8 +145,12 @@ fn enter_game(nes: &mut Nes) {
 
 struct NesTetris;
 
-impl<N: Node, C: Connection<N>, G: Genome<N, C> + ToNetwork<Ctrnn, N, C>, A: Fn(f64) -> f64>
-    Scenario<N, C, G, A> for NesTetris
+impl<
+        N: Node,
+        C: Connection<N>,
+        G: Genome<N, C> + ToNetwork<Continuous, N, C>,
+        A: Fn(f64) -> f64,
+    > Scenario<N, C, G, A> for NesTetris
 {
     fn io(&self) -> (usize, usize) {
         (200, 8)

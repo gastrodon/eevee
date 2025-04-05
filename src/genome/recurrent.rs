@@ -1,6 +1,6 @@
 /// A genome describing a Continuous Time Recurrent Neural Network (CTRNN)
 use super::{Connection, Genome, Node, NodeKind};
-use crate::{crossover::crossover, network::FromGenome, Ctrnn};
+use crate::{crossover::crossover, network::FromGenome, Continuous};
 use core::cmp::{max, Ordering};
 use rand::{seq::IteratorRandom, RngCore};
 use rulinalg::matrix::Matrix;
@@ -135,10 +135,10 @@ impl<N: Node, C: Connection<N>> Genome<N, C> for CTRGenome<N, C> {
 
 const TAU_DEFAULT: f64 = 1.;
 
-impl<N: Node, C: Connection<N>> FromGenome<N, C, CTRGenome<N, C>> for Ctrnn {
+impl<N: Node, C: Connection<N>> FromGenome<N, C, CTRGenome<N, C>> for Continuous {
     fn from_genome(genome: &CTRGenome<N, C>) -> Self {
         let cols = genome.nodes.len();
-        Ctrnn {
+        Continuous {
             y: Matrix::zeros(1, cols),
             θ: Matrix::new(
                 1,
@@ -392,7 +392,7 @@ mod test {
             WConnection::<NonBNode>::new(0, 1, &mut inno),
         ];
 
-        let nn: Ctrnn = genome.network();
+        let nn: Continuous = genome.network();
         unsafe {
             for WConnection::<NonBNode> {
                 from, to, weight, ..

@@ -1,6 +1,6 @@
-pub mod recurrent;
+pub mod continuous;
 pub mod serialize;
-pub use recurrent::Ctrnn;
+pub use continuous::Continuous;
 
 use crate::{Connection, Genome, Node};
 use core::error::Error;

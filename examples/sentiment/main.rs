@@ -8,7 +8,7 @@ use brain::{
     random::default_rng,
     scenario::{evolve, EvolutionHooks},
     specie::{population_from_files, population_init, population_to_files},
-    Connection, Ctrnn, Genome, Network, Node, Scenario, Stats,
+    Connection, Continuous, Genome, Network, Node, Scenario, Stats,
 };
 use core::f64;
 use std::{fs::create_dir_all, ops::ControlFlow};
@@ -102,7 +102,7 @@ impl<
         'a,
         N: Node,
         C: Connection<N>,
-        G: Genome<N, C> + ToNetwork<Ctrnn, N, C>,
+        G: Genome<N, C> + ToNetwork<Continuous, N, C>,
         A: Fn(f64) -> f64,
     > Scenario<N, C, G, A> for Sentiment<'a>
 {
