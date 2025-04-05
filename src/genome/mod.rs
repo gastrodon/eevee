@@ -36,15 +36,20 @@ pub trait Node: Serialize + for<'de> Deserialize<'de> + Clone + Debug + PartialE
     /// - static is a hidden node, but unaffected by input, yielding a static value
     fn kind(&self) -> NodeKind;
 
-    /// The bias of a node, returning 0. for nodes who can't have bias
-    fn bias(&self) -> f64;
-
     fn mutate_param(&mut self, rng: &mut impl RngCore);
 
     fn mutate(&mut self, rng: &mut impl RngCore) {
         // this is redundant, but done to retain scaffolding for future non-param mutations
         self.mutate_param(rng);
     }
+}
+
+pub trait Biased: Node {
+    fn bias(&self) -> f64;
+}
+
+pub trait Timescaled: Node {
+    fn timescale(&self) -> f64;
 }
 
 pub trait Connection<N: Node>:

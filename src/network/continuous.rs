@@ -1,5 +1,6 @@
 use super::{FromGenome, Recurrent, Stateful};
 use crate::{
+    genome::Biased,
     serialize::{deserialize_matrix_flat, deserialize_matrix_square, serialize_matrix},
     Connection, Genome, Network, Node,
 };
@@ -66,7 +67,7 @@ impl Recurrent for Continuous {}
 
 impl Stateful for Continuous {}
 
-impl<N: Node, C: Connection<N>, G: Genome<N, C>> FromGenome<N, C, G> for Continuous {
+impl<N: Node + Biased, C: Connection<N>, G: Genome<N, C>> FromGenome<N, C, G> for Continuous {
     fn from_genome(genome: &G) -> Self {
         let cols = genome.nodes().len();
         Self {
