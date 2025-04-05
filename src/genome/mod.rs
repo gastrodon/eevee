@@ -9,7 +9,7 @@ use crate::{
     random::{percent, ConnectionEvent, EventKind, GenomeEvent},
     specie::InnoGen,
 };
-use core::{cmp::Ordering, error::Error, fmt::Debug, hash::Hash};
+use core::{cmp::Ordering, error::Error, fmt::Debug, hash::Hash, ops::Range};
 use rand::{Rng, RngCore};
 use serde::{Deserialize, Serialize};
 use std::{fs, path::Path};
@@ -110,13 +110,16 @@ pub trait Connection<N: Node>:
     /// between this and another connection with the same innovation id
     fn param_diff(&self, other: &Self) -> f64;
 }
-
 pub trait Genome<N: Node, C: Connection<N>>: Serialize + for<'de> Deserialize<'de> + Clone {
     const PROBABILITIES: [u64; GenomeEvent::COUNT] =
         [percent(5), percent(15), percent(60), percent(20)];
 
     /// A new genome of this type, with a known input and output size
     fn new(sensory: usize, action: usize) -> (Self, usize);
+
+    fn sensory(&self) -> Range<usize>;
+
+    fn action(&self) -> Range<usize>;
 
     fn nodes(&self) -> &[N];
 

@@ -1,5 +1,8 @@
-use super::{Network, Recurrent, Stateful};
-use crate::serialize::{deserialize_matrix_flat, deserialize_matrix_square, serialize_matrix};
+use super::{FromGenome, Network, Recurrent, Stateful};
+use crate::{
+    serialize::{deserialize_matrix_flat, deserialize_matrix_square, serialize_matrix},
+    Connection, Genome, Node,
+};
 use rulinalg::matrix::{BaseMatrix, BaseMatrixMut, Matrix};
 use serde::{Deserialize, Serialize};
 
@@ -42,3 +45,21 @@ impl Network for NonBias {
 impl Recurrent for NonBias {}
 
 impl Stateful for NonBias {}
+
+impl<N: Node, C: Connection<N>, G: Genome<N, C>> FromGenome<N, C, G> for NonBias {
+    fn from_genome(genome: &G) -> Self {
+        let cols = genome.nodes().len();
+        Self {
+            y: Matrix::zeros(1, cols),
+            w: {
+                let mut w = vec![0.; cols * cols];
+                for c in genome.connections().iter().filter(|c| c.enabled()) {
+                    w[c.from() * cols + c.to()] = c.weight();
+                }
+                Matrix::new(cols, cols, w)
+            },
+            sensory: (genome.sensory().start, genome.sensory().end),
+            action: (genome.action().start, genome.action().end),
+        }
+    }
+}
