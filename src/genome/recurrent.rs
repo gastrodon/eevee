@@ -1,23 +1,16 @@
 /// A genome describing a Continuous Time Recurrent Neural Network (CTRNN)
 use super::{Connection, Genome, Node, NodeKind};
-use crate::{crossover::crossover, network::FromGenome, Continuous};
+use crate::{
+    crossover::crossover,
+    network::FromGenome,
+    serialize::{deserialize_connections, deserialize_nodes},
+    Continuous,
+};
 use core::cmp::{max, Ordering};
 use rand::{seq::IteratorRandom, RngCore};
 use rulinalg::matrix::Matrix;
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-
-pub fn deserialize_nodes<'de, N: Node, D: Deserializer<'de>>(
-    deserializer: D,
-) -> Result<Vec<N>, D::Error> {
-    Vec::<N>::deserialize(deserializer)
-}
-
-pub fn deserialize_connections<'de, N: Node, C: Connection<N>, D: Deserializer<'de>>(
-    deserializer: D,
-) -> Result<Vec<C>, D::Error> {
-    Vec::<C>::deserialize(deserializer)
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CTRGenome<N: Node, C: Connection<N>> {
@@ -168,6 +161,7 @@ mod test {
         network::ToNetwork,
         random::default_rng,
         specie::InnoGen,
+        Continuous,
     };
     use rulinalg::matrix::BaseMatrix;
 
