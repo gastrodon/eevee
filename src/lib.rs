@@ -8,6 +8,7 @@ pub mod macros;
 pub mod network;
 pub mod random;
 pub mod scenario;
+pub mod serialize;
 pub mod specie;
 
 pub use genome::{Connection, Genome, Node};

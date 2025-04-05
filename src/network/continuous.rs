@@ -1,11 +1,10 @@
+use super::{Recurrent, Stateful};
 use crate::{
-    network::serialize::{deserialize_flat, deserialize_square, serialize},
+    serialize::{deserialize_matrix_flat, deserialize_matrix_square, serialize_matrix},
     Network,
 };
 use rulinalg::matrix::{BaseMatrix, BaseMatrixMut, Matrix};
 use serde::{Deserialize, Serialize};
-
-use super::{Recurrent, Stateful};
 
 /// A stateful NN who receives input continuously, useful for realtime problems
 /// and genomes whos connections may be recurrent.
@@ -15,13 +14,25 @@ use super::{Recurrent, Stateful};
 /// and with some code stolen from [TLmaK0's neat implentation](https://github.com/TLmaK0/rustneat)
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Continuous {
-    #[serde(serialize_with = "serialize", deserialize_with = "deserialize_flat")]
+    #[serde(
+        serialize_with = "serialize_matrix",
+        deserialize_with = "deserialize_matrix_flat"
+    )]
     pub y: Matrix<f64>, // 1d state of neurons 0-N
-    #[serde(serialize_with = "serialize", deserialize_with = "deserialize_flat")]
+    #[serde(
+        serialize_with = "serialize_matrix",
+        deserialize_with = "deserialize_matrix_flat"
+    )]
     pub θ: Matrix<f64>, // 1d bias of neurons 0-N               (\u3b8)
-    #[serde(serialize_with = "serialize", deserialize_with = "deserialize_flat")]
+    #[serde(
+        serialize_with = "serialize_matrix",
+        deserialize_with = "deserialize_matrix_flat"
+    )]
     pub τ: Matrix<f64>, // 1d membrane resistance time constant (\u3c4)
-    #[serde(serialize_with = "serialize", deserialize_with = "deserialize_square")]
+    #[serde(
+        serialize_with = "serialize_matrix",
+        deserialize_with = "deserialize_matrix_square"
+    )]
     pub w: Matrix<f64>, // Nd weights between neurons, indexed as [from, to]
     pub sensory: (usize, usize), // Range of input neurons, indexing into y
     pub action: (usize, usize),  // Range of output neurons, indexing into y

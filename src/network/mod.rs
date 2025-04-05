@@ -1,5 +1,4 @@
 pub mod continuous;
-pub mod serialize;
 pub use continuous::Continuous;
 
 use crate::{Connection, Genome, Node};
