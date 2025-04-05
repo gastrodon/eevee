@@ -138,7 +138,7 @@ const TAU_DEFAULT: f64 = 1.;
 impl<N: Node, C: Connection<N>> FromGenome<N, C, CTRGenome<N, C>> for Continuous {
     fn from_genome(genome: &CTRGenome<N, C>) -> Self {
         let cols = genome.nodes.len();
-        Continuous {
+        Self {
             y: Matrix::zeros(1, cols),
             θ: Matrix::new(
                 1,
