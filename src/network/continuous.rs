@@ -23,12 +23,12 @@ pub struct Continuous {
         serialize_with = "serialize_matrix",
         deserialize_with = "deserialize_matrix_flat"
     )]
-    pub θ: Matrix<f64>, // 1d bias of neurons 0-N               (\u3b8)
+    pub θ: Matrix<f64>, // 1d bias of neurons 0-N
     #[serde(
         serialize_with = "serialize_matrix",
         deserialize_with = "deserialize_matrix_flat"
     )]
-    pub τ: Matrix<f64>, // 1d membrane resistance time constant (\u3c4)
+    pub τ: Matrix<f64>, // 1d membrane resistance time constant
     #[serde(
         serialize_with = "serialize_matrix",
         deserialize_with = "deserialize_matrix_square"
