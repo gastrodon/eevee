@@ -54,7 +54,12 @@ fn hook<N: Node, C: Connection<N>, G: Genome<N, C>>(
 ) -> ControlFlow<()> {
     if stats.generation % 10 == 1 {
         let (_, f) = stats.fittest().unwrap();
-        println!("fittest of gen {}: {:.4}", stats.generation, f);
+        println!(
+            "fittest of gen {}: {:.4} (of {} species",
+            stats.generation,
+            f,
+            stats.species.len()
+        );
     }
 
     if stats.any_fitter_than(0.749999) {
