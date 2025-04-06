@@ -135,16 +135,13 @@ impl<N: Node, C: Connection<N>> Genome<N, C> for Recurrent<N, C> {
 mod test {
     use super::*;
     use crate::{
-        assert_f64_approx,
         genome::{
             node::{BTNode, NonBNode},
             Biased, WConnection,
         },
-        network::{Continuous, ToNetwork},
         random::default_rng,
         specie::InnoGen,
     };
-    use rulinalg::matrix::BaseMatrix;
 
     #[test]
     fn test_genome_creation() {
@@ -340,50 +337,5 @@ mod test {
         let (mut genome, _) = Recurrent::<NonBNode, WConnection<NonBNode>>::new(2, 2);
         genome.connections = vec![];
         genome.bisect_connection(&mut default_rng(), &mut InnoGen::new(0));
-    }
-
-    #[test]
-    fn test_ctrgenome_network() {
-        let mut inno = InnoGen::new(0);
-        let (mut genome, _) = Recurrent::<BTNode, WConnection<BTNode>>::new(2, 2);
-        genome.connections = vec![
-            WConnection::<NonBNode>::new(0, 3, &mut inno),
-            WConnection::<NonBNode>::new(0, 1, &mut inno),
-            WConnection::<NonBNode>::new(0, 1, &mut inno),
-        ];
-
-        let nn: Continuous = genome.network();
-        unsafe {
-            for WConnection::<NonBNode> {
-                from, to, weight, ..
-            } in genome.connections.iter().filter(|c| c.enabled)
-            {
-                assert_f64_approx!(nn.w.get_unchecked([*from, *to]), weight);
-            }
-
-            for (i, node) in genome.nodes.iter().enumerate() {
-                assert_f64_approx!(
-                    nn.θ.get_unchecked([0, i]),
-                    if let NonBNode::Static(b) = node {
-                        b
-                    } else {
-                        &0.
-                    }
-                )
-            }
-        }
-
-        for i in nn.sensory.0..nn.sensory.1 {
-            assert!(genome
-                .nodes
-                .get(i)
-                .is_some_and(|n| matches!(n, NonBNode::Sensory)))
-        }
-        for i in nn.action.0..nn.action.1 {
-            assert!(genome
-                .nodes
-                .get(i)
-                .is_some_and(|n| matches!(n, NonBNode::Action)))
-        }
     }
 }

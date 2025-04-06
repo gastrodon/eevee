@@ -102,7 +102,12 @@ impl<N: Node + Biased + Timescaled, C: Connection<N>, G: Genome<N, C>> FromGenom
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{activate, assert_matrix_approx, random::default_rng};
+    use crate::{
+        activate, assert_f64_approx, assert_matrix_approx,
+        genome::{self, node::BTNode, NodeKind, WConnection},
+        random::default_rng,
+        specie::InnoGen,
+    };
     use rand_distr::{num_traits::Float, Distribution, Uniform};
     use rulinalg::matrix::Matrix;
 
@@ -198,6 +203,44 @@ mod test {
             let deserialized_output = deserialized.output();
 
             assert_matrix_approx!(original_output, deserialized_output);
+        }
+    }
+
+    #[test]
+    fn test_from_genome() {
+        type N = BTNode;
+        type C = WConnection<N>;
+
+        let mut inno = InnoGen::new(0);
+        let (mut genome, _) = genome::Recurrent::<N, C>::new(2, 2);
+        genome.push_connection(C::new(0, 3, &mut inno));
+        genome.push_connection(C::new(0, 1, &mut inno));
+        genome.push_connection(C::new(0, 1, &mut inno));
+
+        let nn = Continuous::from_genome(&genome);
+        unsafe {
+            for c in genome.connections() {
+                if c.enabled() {
+                    assert_f64_approx!(nn.w.get_unchecked([c.from(), c.to()]), c.weight());
+                }
+            }
+
+            for (i, node) in genome.nodes().iter().enumerate() {
+                assert_f64_approx!(nn.θ.get_unchecked([0, i]), node.bias())
+            }
+        }
+
+        for i in nn.sensory.0..nn.sensory.1 {
+            assert!(genome
+                .nodes()
+                .get(i)
+                .is_some_and(|n| matches!(n.kind(), NodeKind::Sensory)))
+        }
+        for i in nn.action.0..nn.action.1 {
+            assert!(genome
+                .nodes()
+                .get(i)
+                .is_some_and(|n| matches!(n.kind(), NodeKind::Action)))
         }
     }
 }
