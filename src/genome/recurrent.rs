@@ -343,19 +343,6 @@ mod test {
     }
 
     #[test]
-    fn test_state_head() {
-        let mut state = vec![0.; 5];
-        {
-            let size = 3;
-            let state: &mut [f64] = &mut state;
-            assert!(state.len() >= size);
-            &mut state[0..size]
-        }
-        .clone_from_slice(&[1., 2., 3.]);
-        assert_eq!(state, vec![1., 2., 3., 0., 0.])
-    }
-
-    #[test]
     fn test_ctrgenome_network() {
         let mut inno = InnoGen::new(0);
         let (mut genome, _) = Recurrent::<BTNode, WConnection<BTNode>>::new(2, 2);
