@@ -202,7 +202,7 @@ mod test {
         assert!(matches!(genome.nodes()[3].kind(), NodeKind::Static));
     });
 
-    test_t!( // TODO fixme: we are allowing connectinons to sensory + from bias
+    test_t!(
     test_gen_connection[T: RecurrentContinuous]() {
         let (mut genome, _ ) = T::new(1, 1);
 
@@ -220,7 +220,7 @@ mod test {
         }
     });
 
-    test_t!( // TODO fixme: we are allowing connections to sensory
+    test_t!(
     test_gen_connection_none_possible[T: RecurrentContinuous]() {
         let (genome, _) = T::new(0, 0);
         assert_eq!(
