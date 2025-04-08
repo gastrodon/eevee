@@ -80,8 +80,13 @@ impl<N: Node, C: Connection<N>> Genome<N, C> for CTRGenome<N, C> {
     fn open_path(&self, rng: &mut (impl RngCore + Happens)) -> Option<(usize, usize)> {
         let mut saturated = HashSet::new();
         loop {
-            let from = (0..self.nodes.len())
-                .filter(|from| !saturated.contains(from))
+            let (from, _) = self
+                .nodes()
+                .iter()
+                .enumerate()
+                .filter(|(from, node)| {
+                    !matches!(node.kind(), NodeKind::Action) && !saturated.contains(from)
+                })
                 .choose(rng)?;
 
             let exclude = self
@@ -90,8 +95,14 @@ impl<N: Node, C: Connection<N>> Genome<N, C> for CTRGenome<N, C> {
                 .filter_map(|c| (c.from() == from).then_some(c.to()))
                 .collect::<HashSet<_>>();
 
-            if let Some(to) = (0..self.nodes.len())
-                .filter(|to| !exclude.contains(to))
+            if let Some((to, _)) = self
+                .nodes()
+                .iter()
+                .enumerate()
+                .filter(|(to, node)| {
+                    !matches!(node.kind(), NodeKind::Static | NodeKind::Sensory)
+                        && !exclude.contains(to)
+                })
                 .choose(rng)
             {
                 break Some((from, to));
@@ -245,16 +256,12 @@ mod test {
             sensory: 1,
             action: 1,
             nodes: vec![NonBNode::Sensory, NonBNode::Action],
-            connections: vec![
-                WConnection::<NonBNode>::new(0, 0, &mut inno),
-                WConnection::<NonBNode>::new(0, 1, &mut inno),
-                WConnection::<NonBNode>::new(1, 1, &mut inno),
-            ],
+            connections: vec![WConnection::<NonBNode>::new(0, 1, &mut inno)],
         };
         for _ in 0..100 {
             assert_eq!(
                 genome.open_path(&mut ProbBinding::new(ProbStatic::default(), default_rng()),),
-                Some((1, 0))
+                None
             );
         }
     }
