@@ -78,7 +78,7 @@ fn hook<N: Node, C: Connection<N>, G: Genome<N, C>>(
 
 type N = BTNode;
 type C = WConnection<N>;
-type G = Recurrent<N, WConnection<N>>;
+type G = Recurrent<N, C>;
 
 fn main() {
     evolve(
