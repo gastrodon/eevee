@@ -204,53 +204,27 @@ mod test {
 
     test_t!( // TODO fixme: we are allowing connectinons to sensory + from bias
     test_gen_connection[T: RecurrentContinuous]() {
-        let mut inno = InnoGen::new(0);
-        let genome = T {
-            sensory: 1,
-            action: 1,
-            nodes: vec![N::new(NodeKind::Sensory), N::new(NodeKind::Action)],
-            connections: vec![
-                C::new(0, 0, &mut inno),
-                C::new(1, 1, &mut inno),
-            ],
-        };
+        let (mut genome, _ ) = T::new(1, 1);
+
         for _ in 0..100 {
             match genome.open_path(&mut default_rng()) {
-                Some((0, o)) | Some((o, 0)) => assert_eq!(o, 1),
+                Some((0, 1)) | Some((2, 1)) => {}, // sensory -> action, bias -> action
                 Some(p) => unreachable!("invalid pair {p:?} gen'd"),
                 None => unreachable!("no path gen'd"),
             }
         }
-    });
 
-    test_t!( // TODO fixme: we are allowing connections to sensory
-    test_gen_connection_no_dupe[T: RecurrentContinuous]() {
-        let mut inno = InnoGen::new(0);
-        let genome = T {
-            sensory: 1,
-            action: 1,
-            nodes: vec![N::new(NodeKind::Sensory), N::new(NodeKind::Action)],
-            connections: vec![
-                C::new(0, 0, &mut inno),
-                C::new(0, 1, &mut inno),
-                C::new(1, 1, &mut inno),
-            ],
-        };
+        genome.push_connection(C::new(2, 1, &mut InnoGen::new(0)));
         for _ in 0..100 {
-            assert_eq!(genome.open_path(&mut default_rng()), Some((1, 0)));
+            assert_eq!(genome.open_path(&mut default_rng()), Some((0, 1)));
         }
     });
 
     test_t!( // TODO fixme: we are allowing connections to sensory
     test_gen_connection_none_possible[T: RecurrentContinuous]() {
-        let mut inno = InnoGen::new(0);
+        let (genome, _) = T::new(0, 0);
         assert_eq!(
-            T {
-                sensory: 0,
-                action: 0,
-                nodes: vec![],
-                connections: vec![C::new(0, 1, &mut inno)],
-            }
+            genome
             .open_path(&mut default_rng()),
             None
         );
