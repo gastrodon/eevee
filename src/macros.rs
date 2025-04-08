@@ -24,7 +24,7 @@ macro_rules! test_t {
   ($name:ident[T: $($impl:ty)|*]() $body:tt ) => {$(
       ::paste::paste! {
           #[test]
-          fn [<test_ $name _ $impl:snake>]() {
+          fn [<$name _ $impl:snake>]() {
             type T=$impl;
             $body
           }
