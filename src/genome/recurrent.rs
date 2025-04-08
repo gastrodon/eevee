@@ -76,8 +76,13 @@ impl<N: Node, C: Connection<N>> Genome<N, C> for Recurrent<N, C> {
     fn open_path(&self, rng: &mut impl RngCore) -> Option<(usize, usize)> {
         let mut saturated = HashSet::new();
         loop {
-            let from = (0..self.nodes.len())
-                .filter(|from| !saturated.contains(from))
+            let (from, _) = self
+                .nodes()
+                .iter()
+                .enumerate()
+                .filter(|(from, node)| {
+                    !matches!(node.kind(), NodeKind::Action) && !saturated.contains(from)
+                })
                 .choose(rng)?;
 
             let exclude = self
@@ -86,8 +91,14 @@ impl<N: Node, C: Connection<N>> Genome<N, C> for Recurrent<N, C> {
                 .filter_map(|c| (c.from() == from).then_some(c.to()))
                 .collect::<HashSet<_>>();
 
-            if let Some(to) = (0..self.nodes.len())
-                .filter(|to| !exclude.contains(to))
+            if let Some((to, _)) = self
+                .nodes()
+                .iter()
+                .enumerate()
+                .filter(|(to, node)| {
+                    !matches!(node.kind(), NodeKind::Static | NodeKind::Sensory)
+                        && !exclude.contains(to)
+                })
                 .choose(rng)
             {
                 break Some((from, to));
