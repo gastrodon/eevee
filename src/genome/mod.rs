@@ -90,12 +90,12 @@ pub trait Connection:
         self.path().0
     }
 
-    fn weight(&self) -> f64;
-
     /// path destination
     fn to(&self) -> usize {
         self.path().1
     }
+
+    fn weight(&self) -> f64;
 
     /// difference of connection parameters ( for example, weight )
     /// between this and another connection with the same innovation id
