@@ -12,7 +12,7 @@ pub mod scenario;
 pub mod serialize;
 pub mod specie;
 
-pub use genome::{Connection, Genome, Node};
+pub use genome::{Connection, Genome};
 pub use network::{activate, Network};
 pub use scenario::{Hook, Scenario, Stats};
 pub use specie::Specie;

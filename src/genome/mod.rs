@@ -1,5 +1,4 @@
 pub mod connection;
-pub mod node;
 pub mod recurrent;
 
 pub use connection::WConnection;
@@ -20,30 +19,6 @@ pub enum NodeKind {
     Action,
     Internal,
     Static,
-}
-
-pub trait Node: Serialize + for<'de> Deserialize<'de> + Clone + Debug + PartialEq {
-    const PARAM_REPLACE_PROBABILITY: u64 = percent(10);
-    const PARAM_PERTURB_FAC: f64 = 0.05;
-
-    /// A new node of some kind
-    fn new(kind: NodeKind) -> Self;
-
-    /// The cond of node this is, where
-    /// - sensory reads input to a network
-    /// - action describes output from a network
-    /// - internal is a hidden node of a network
-    /// - static is a hidden node, but unaffected by input, yielding a static value
-    fn kind(&self) -> NodeKind;
-
-    fn param_diff(&self, other: &Self) -> f64;
-
-    fn mutate_param(&mut self, rng: &mut impl RngCore);
-
-    fn mutate(&mut self, rng: &mut impl RngCore) {
-        // this is redundant, but done to retain scaffolding for future non-param mutations
-        self.mutate_param(rng);
-    }
 }
 
 pub trait Connection:
