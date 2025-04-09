@@ -14,12 +14,6 @@ use rand::{Rng, RngCore};
 use serde::{Deserialize, Serialize};
 use std::{fs, path::Path};
 
-pub trait Parameterized {
-    /// difference of connection parameters ( for example, weight )
-    /// between this and another connection with the same innovation id
-    fn param_diff(&self, other: &Self) -> f64;
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum NodeKind {
     Sensory,
@@ -28,9 +22,7 @@ pub enum NodeKind {
     Static,
 }
 
-pub trait Node:
-    Serialize + for<'de> Deserialize<'de> + Clone + Debug + PartialEq + Parameterized
-{
+pub trait Node: Serialize + for<'de> Deserialize<'de> + Clone + Debug + PartialEq {
     const PARAM_REPLACE_PROBABILITY: u64 = percent(10);
     const PARAM_PERTURB_FAC: f64 = 0.05;
 
@@ -43,6 +35,8 @@ pub trait Node:
     /// - internal is a hidden node of a network
     /// - static is a hidden node, but unaffected by input, yielding a static value
     fn kind(&self) -> NodeKind;
+
+    fn param_diff(&self, other: &Self) -> f64;
 
     fn mutate_param(&mut self, rng: &mut impl RngCore);
 
@@ -61,7 +55,7 @@ pub trait Timescaled: Node {
 }
 
 pub trait Connection:
-    Serialize + for<'de> Deserialize<'de> + Clone + Hash + PartialEq + Default + Debug + Parameterized
+    Serialize + for<'de> Deserialize<'de> + Clone + Hash + PartialEq + Default + Debug
 {
     const PROBABILITIES: [u64; ConnectionEvent::COUNT] = [percent(1), percent(99)];
     const PARAM_REPLACE_PROBABILITY: u64 = percent(10);
@@ -102,6 +96,10 @@ pub trait Connection:
     fn to(&self) -> usize {
         self.path().1
     }
+
+    /// difference of connection parameters ( for example, weight )
+    /// between this and another connection with the same innovation id
+    fn param_diff(&self, other: &Self) -> f64;
 
     /// possibly mutate a single param
     fn mutate_param(&mut self, rng: &mut impl RngCore);

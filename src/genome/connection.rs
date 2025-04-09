@@ -1,4 +1,4 @@
-use super::{Connection, Parameterized};
+use super::Connection;
 use crate::{mutate_param, random::percent, specie::InnoGen};
 use core::hash::Hash;
 use serde::{Deserialize, Serialize};
@@ -10,12 +10,6 @@ pub struct WConnection {
     pub to: usize,
     pub weight: f64,
     pub enabled: bool,
-}
-
-impl Parameterized for WConnection {
-    fn param_diff(&self, other: &Self) -> f64 {
-        (self.weight - other.weight).abs()
-    }
 }
 
 impl Connection for WConnection {
@@ -111,12 +105,6 @@ pub struct BWConnection {
     pub bias: f64,
     pub weight: f64,
     pub enabled: bool,
-}
-
-impl Parameterized for BWConnection {
-    fn param_diff(&self, other: &Self) -> f64 {
-        (self.bias - other.bias).abs() + (self.weight - other.weight).abs()
-    }
 }
 
 impl Connection for BWConnection {

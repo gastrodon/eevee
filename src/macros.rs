@@ -104,6 +104,10 @@ macro_rules! mutate_param {
                     }
                 }
             }
+
+            fn param_diff(&self, other: &Self) -> f64 {
+                [$((self.[<$evt:lower>] - other.[<$evt:lower>])),*].iter().sum()
+            }
         }
     };
 }
@@ -154,12 +158,6 @@ macro_rules! node {
                 }
 
                 $crate::mutate_param!([$([<$field:camel>]),*]: [$($prob),*]);
-            }
-
-            impl $crate::genome::Parameterized for $name {
-                fn param_diff(&self, other: &Self) -> f64 {
-                    [$((self.$field - other.$field)),*].iter().sum()
-                }
             }
 
             $($crate::node!(@impl $name, $field: f64);)*

@@ -1,4 +1,4 @@
-use super::{Biased, Node, NodeKind, Parameterized};
+use super::{Biased, Node, NodeKind};
 use crate::{node, random::percent};
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
@@ -33,13 +33,11 @@ impl Node for NonBNode {
         }
     }
 
-    fn mutate_param(&mut self, _: &mut impl RngCore) {}
-}
-
-impl Parameterized for NonBNode {
     fn param_diff(&self, _: &Self) -> f64 {
         0.
     }
+
+    fn mutate_param(&mut self, _: &mut impl RngCore) {}
 }
 
 /// while this seems contradictory, we treat the static component of a nodes as its bias
