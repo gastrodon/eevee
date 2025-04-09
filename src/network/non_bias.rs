@@ -46,7 +46,7 @@ impl Recurrent for NonBias {}
 
 impl Stateful for NonBias {}
 
-impl<N: Node, C: Connection<N>, G: Genome<N, C>> FromGenome<N, C, G> for NonBias {
+impl<N: Node, C: Connection, G: Genome<N, C>> FromGenome<N, C, G> for NonBias {
     fn from_genome(genome: &G) -> Self {
         let cols = genome.nodes().len();
         Self {

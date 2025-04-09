@@ -1,13 +1,8 @@
-use brain::{
-    crossover::crossover,
-    genome::{node::NonBNode, WConnection},
-    random::default_rng,
-};
+use brain::{crossover::crossover, genome::WConnection, random::default_rng};
 use core::cmp::Ordering;
 use criterion::Criterion;
 
-type N = NonBNode;
-type C = WConnection<N>;
+type C = WConnection;
 
 fn bench_crossover(bench: &mut Criterion) {
     let l_conn =

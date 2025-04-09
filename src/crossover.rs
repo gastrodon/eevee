@@ -1,8 +1,8 @@
-use crate::{genome::Connection, Node};
+use crate::genome::Connection;
 use core::cmp::Ordering;
 use rand::RngCore;
 
-pub fn disjoint_excess_count<N: Node, C: Connection<N>>(l: &[C], r: &[C]) -> (f64, f64) {
+pub fn disjoint_excess_count<C: Connection>(l: &[C], r: &[C]) -> (f64, f64) {
     let mut l_iter = l.iter();
     let mut r_iter = r.iter();
 
@@ -54,7 +54,7 @@ pub fn disjoint_excess_count<N: Node, C: Connection<N>>(l: &[C], r: &[C]) -> (f6
 }
 
 /// if genomes share no overlapping weights, their average diff should be 0
-pub fn avg_param_diff<N: Node, C: Connection<N>>(l: &[C], r: &[C]) -> f64 {
+pub fn avg_param_diff<C: Connection>(l: &[C], r: &[C]) -> f64 {
     let mut diff = 0.;
     let mut count = 0.;
     let mut l_iter = l.iter();
@@ -108,7 +108,7 @@ pub fn avg_param_diff<N: Node, C: Connection<N>>(l: &[C], r: &[C]) -> f64 {
     }
 }
 
-pub fn delta<N: Node, C: Connection<N>>(l: &[C], r: &[C]) -> f64 {
+pub fn delta<C: Connection>(l: &[C], r: &[C]) -> f64 {
     let l_size = l.len() as f64;
     let r_size = r.len() as f64;
     let fac = {
@@ -130,11 +130,7 @@ pub fn delta<N: Node, C: Connection<N>>(l: &[C], r: &[C]) -> f64 {
 }
 
 #[inline]
-fn pick_gene<N: Node, C: Connection<N>>(
-    base_conn: &C,
-    opt_conn: Option<&C>,
-    rng: &mut impl RngCore,
-) -> C {
+fn pick_gene<C: Connection>(base_conn: &C, opt_conn: Option<&C>, rng: &mut impl RngCore) -> C {
     let mut conn = if let Some(r_conn) = opt_conn {
         // TODO be able to differentiate PickLEQ and PickLNE
         if rng.next_u64() < C::PROBABILITY_PICK_RL {
@@ -160,7 +156,7 @@ fn pick_gene<N: Node, C: Connection<N>>(
 }
 
 /// crossover connections where l and r are equally fit
-fn crossover_eq<N: Node, C: Connection<N>>(l: &[C], r: &[C], rng: &mut impl RngCore) -> Vec<C> {
+fn crossover_eq<C: Connection>(l: &[C], r: &[C], rng: &mut impl RngCore) -> Vec<C> {
     // TODO I wonder what the actual average case overlap between genomes is?
     // probably pretty close, could we measure this?
     let mut cross = Vec::with_capacity(l.len() + r.len());
@@ -201,7 +197,7 @@ fn crossover_eq<N: Node, C: Connection<N>>(l: &[C], r: &[C], rng: &mut impl RngC
 }
 
 /// crossover connections where l is more fit than r
-fn crossover_ne<N: Node, C: Connection<N>>(l: &[C], r: &[C], rng: &mut impl RngCore) -> Vec<C> {
+fn crossover_ne<C: Connection>(l: &[C], r: &[C], rng: &mut impl RngCore) -> Vec<C> {
     // copy l, pick_gene where l.inno() == r.inno()
     let mut cross = Vec::with_capacity(l.len());
     let mut r_idx = 0;
@@ -229,7 +225,7 @@ fn crossover_ne<N: Node, C: Connection<N>>(l: &[C], r: &[C], rng: &mut impl RngC
 
 /// crossover connections
 /// l_fit describes how fit l is compared to r,
-pub fn crossover<N: Node, C: Connection<N>>(
+pub fn crossover<C: Connection>(
     l: &[C],
     r: &[C],
     l_fit: Ordering,
@@ -250,20 +246,15 @@ mod test {
     use super::*;
     use crate::{
         assert_f64_approx, assert_some_normalized,
-        genome::{connection::BWConnection, node::NonBNode, WConnection},
+        genome::{connection::BWConnection, WConnection},
         new_t,
         random::default_rng,
         test_t,
     };
     use std::collections::{HashMap, HashSet};
 
-    #[allow(non_camel_case_types)]
-    type WConnection_B = WConnection<NonBNode>;
-    #[allow(non_camel_case_types)]
-    type BWConnection_B = BWConnection<NonBNode>;
-
     test_t!(
-    test_avg_param_diff[T: WConnection_B]() {
+    test_avg_param_diff[T: WConnection]() {
         let diff = avg_param_diff(
             &[
                 new_t!(inno = 1, weight = 0.5,),
@@ -280,7 +271,7 @@ mod test {
     });
 
     test_t!(
-    test_avg_param_diff[T: BWConnection_B]() {
+    test_avg_param_diff[T: BWConnection]() {
         let diff = avg_param_diff(
             &[
                 new_t!(inno = 1, weight = 0.5, bias = 1.),
@@ -299,7 +290,7 @@ mod test {
     });
 
     test_t!(
-    test_avg_param_diff_empty[T: WConnection_B | BWConnection_B]() {
+    test_avg_param_diff_empty[T: WConnection | BWConnection]() {
         let full = vec![
             new_t!(inno = 1, weight = 0.0,),
             new_t!(inno = 2, weight = -1.0,),
@@ -312,12 +303,12 @@ mod test {
         let diff = avg_param_diff(&[], &full);
         assert_f64_approx!(diff, 0.0, "diff ne: {diff}, 0.");
 
-        let diff = avg_param_diff::<NonBNode, T>(&[], &[]);
+        let diff = avg_param_diff::<T>(&[], &[]);
         assert_f64_approx!(diff, 0.0, "diff ne: {diff}, 0.");
     });
 
     test_t!(
-    test_avg_param_diff_no_overlap[T: WConnection_B | BWConnection_B]() {
+    test_avg_param_diff_no_overlap[T: WConnection | BWConnection]() {
         let diff = avg_param_diff(
             &[
                 new_t!(inno = 1, weight = 0.5,),
@@ -333,7 +324,7 @@ mod test {
     });
 
     test_t!(
-    test_avg_param_diff_no_diff[T: WConnection_B | BWConnection_B]() {
+    test_avg_param_diff_no_diff[T: WConnection | BWConnection]() {
         let diff = avg_param_diff(
             &[
                 new_t!(inno = 1, weight = 0.5,),
@@ -350,7 +341,7 @@ mod test {
     });
 
     test_t!(
-    test_disjoint_excess_count[T: WConnection_B | BWConnection_B]() {
+    test_disjoint_excess_count[T: WConnection | BWConnection]() {
         assert_eq!(
             (4.0, 2.0),
             disjoint_excess_count(
@@ -371,7 +362,7 @@ mod test {
     });
 
     test_t!(
-    test_disjoint_excess_count_symmetrical[T: WConnection_B | BWConnection_B]() {
+    test_disjoint_excess_count_symmetrical[T: WConnection | BWConnection]() {
         let l = vec![
             new_t!(inno = 1),
             new_t!(inno = 2),
@@ -388,15 +379,15 @@ mod test {
     });
 
     test_t!(
-    test_disjoint_excess_count_empty[T: WConnection_B | BWConnection_B]() {
+    test_disjoint_excess_count_empty[T: WConnection | BWConnection]() {
         let full = vec![new_t!(inno = 1), new_t!(inno = 2)];
         assert_eq!((0.0, 2.0), disjoint_excess_count(&full, &[]));
         assert_eq!((0.0, 2.0), disjoint_excess_count(&[], &full));
-        assert_eq!((0.0, 0.0), disjoint_excess_count::<NonBNode, T>(&[], &[]));
+        assert_eq!((0.0, 0.0), disjoint_excess_count::<T>(&[], &[]));
     });
 
     test_t!(
-    test_disjoint_excess_count_hanging_l[T: WConnection_B | BWConnection_B]() {
+    test_disjoint_excess_count_hanging_l[T: WConnection | BWConnection]() {
         assert_eq!(
             (0.0, 1.0),
             disjoint_excess_count(
@@ -411,7 +402,7 @@ mod test {
     });
 
     test_t!(
-    test_disjoint_excess_count_no_overlap[T: WConnection_B | BWConnection_B]() {
+    test_disjoint_excess_count_no_overlap[T: WConnection | BWConnection]() {
         assert_eq!(
             (2.0, 2.0),
             disjoint_excess_count(
@@ -422,7 +413,7 @@ mod test {
     });
 
     test_t!(
-    test_disjoint_excess_count_short_larger_inno[T: WConnection_B | BWConnection_B]() {
+    test_disjoint_excess_count_short_larger_inno[T: WConnection | BWConnection]() {
         assert_eq!(
             (3.0, 1.0),
             disjoint_excess_count(
@@ -436,7 +427,7 @@ mod test {
         );
     });
 
-    fn assert_crossover_eq<N: Node, C: Connection<N>>(l: &[C], r: &[C]) {
+    fn assert_crossover_eq<C: Connection>(l: &[C], r: &[C]) {
         for (l, r) in [(l, r), (r, l)] {
             let l_map = l.iter().map(|c| (c.inno(), c)).collect::<HashMap<_, &_>>();
             let r_map = r.iter().map(|c| (c.inno(), c)).collect::<HashMap<_, &_>>();
@@ -473,7 +464,7 @@ mod test {
     }
 
     test_t!(
-    test_crossover_eq[T: WConnection_B | BWConnection_B]() {
+    test_crossover_eq[T: WConnection | BWConnection]() {
         let l = [
             new_t!(inno = 0, from = 1_1),
             new_t!(inno = 1, from = 1_2),
@@ -489,15 +480,15 @@ mod test {
     });
 
     test_t!(
-    test_crossover_eq_empty[T: WConnection_B | BWConnection_B]() {
+    test_crossover_eq_empty[T: WConnection | BWConnection]() {
         let l = [new_t!(inno = 2, from = 1)];
 
         assert_crossover_eq(&l, &[]);
-        assert_crossover_eq::<NonBNode, T>(&[], &[]);
+        assert_crossover_eq::<T>(&[], &[]);
     });
 
     test_t!(
-    test_crossover_eq_overflow[T: WConnection_B | BWConnection_B]() {
+    test_crossover_eq_overflow[T: WConnection | BWConnection]() {
         let l = [new_t!(inno = 0, from = 1_1)];
         let r = [new_t!(inno = 1, from = 2_1)];
 
@@ -511,7 +502,7 @@ mod test {
 
     test_t!(
     #[should_panic(expected = "not from r_0")]
-    test_crossover_eq_catchup_l[T: WConnection_B | BWConnection_B]() {
+    test_crossover_eq_catchup_l[T: WConnection | BWConnection]() {
         let l = [
             new_t!(inno = 0, from = 1_1),
             new_t!(inno = 1, from = 1_2),
@@ -528,7 +519,7 @@ mod test {
 
     test_t!(
     #[should_panic(expected = "not from l_0")]
-    test_crossover_eq_catchup_r[T: WConnection_B | BWConnection_B]() {
+    test_crossover_eq_catchup_r[T: WConnection | BWConnection]() {
         let l = [new_t!(inno = 1, from = 2_1)];
         let r = [
             new_t!(inno = 0, from = 1_1),
@@ -545,7 +536,7 @@ mod test {
 
     test_t!(
     #[should_panic(expected = "not from l_1")]
-    test_crossover_eq_both_step_l[T: WConnection_B | BWConnection_B]() {
+    test_crossover_eq_both_step_l[T: WConnection | BWConnection]() {
         let l = [
             new_t!(inno = 0, from = 1_1),
             new_t!(inno = 1, from = 1_2),
@@ -565,7 +556,7 @@ mod test {
 
     test_t!(
     #[should_panic(expected = "not from r_1")]
-    test_crossover_eq_both_step_r[T: WConnection_B | BWConnection_B]() {
+    test_crossover_eq_both_step_r[T: WConnection | BWConnection]() {
         let l = [
             new_t!(inno = 0, from = 1_1),
             new_t!(inno = 1, from = 1_2),
@@ -583,7 +574,7 @@ mod test {
         }
     });
 
-    fn assert_crossover_ne<N: Node, C: Connection<N>>(l: &[C], r: &[C]) {
+    fn assert_crossover_ne<C: Connection>(l: &[C], r: &[C]) {
         for (l, r) in [(l, r), (r, l)] {
             let l_map = l.iter().map(|c| (c.inno(), c)).collect::<HashMap<_, &_>>();
             let r_map = r.iter().map(|c| (c.inno(), c)).collect::<HashMap<_, &_>>();
@@ -620,7 +611,7 @@ mod test {
     }
 
     test_t!(
-    test_crossover_ne[T: WConnection_B | BWConnection_B]() {
+    test_crossover_ne[T: WConnection | BWConnection]() {
         let l = [
             new_t!(inno = 0, from = 1_1),
             new_t!(inno = 1, from = 1_2),
@@ -639,15 +630,15 @@ mod test {
     });
 
     test_t!(
-    test_crossover_ne_empty[T: WConnection_B | BWConnection_B]() {
+    test_crossover_ne_empty[T: WConnection | BWConnection]() {
         let l = [new_t!(inno = 0, from = 1_1)];
 
         assert_crossover_ne(&l, &[]);
-        assert_crossover_ne::<NonBNode, T>(&[], &[]);
+        assert_crossover_ne::<T>(&[], &[]);
     });
 
     test_t!(
-    test_crossover_ne_no_overlap[T: WConnection_B | BWConnection_B]() {
+    test_crossover_ne_no_overlap[T: WConnection | BWConnection]() {
         let l = [
             new_t!(inno = 1, from = 1_1),
             new_t!(inno = 3, from = 1_2),
@@ -663,7 +654,7 @@ mod test {
     });
 
     test_t!(
-    test_crossover_ne_full_overlap[T: WConnection_B | BWConnection_B]() {
+    test_crossover_ne_full_overlap[T: WConnection | BWConnection]() {
         let l = [
             new_t!(inno = 1, from = 1_1),
             new_t!(inno = 2, from = 1_2),
@@ -679,7 +670,7 @@ mod test {
     });
 
     test_t!(
-    test_crossover_ne_overflow[T: WConnection_B | BWConnection_B]() {
+    test_crossover_ne_overflow[T: WConnection | BWConnection]() {
         let l = [new_t!(inno = 10, from = 1_1)];
         let r = [
             new_t!(inno = 1, from = 2_1),
@@ -690,7 +681,7 @@ mod test {
     });
 
     test_t!(
-    test_crossover_ne_no_lt[T: WConnection_B | BWConnection_B]() {
+    test_crossover_ne_no_lt[T: WConnection | BWConnection]() {
         let l = [new_t!(inno = 0, from = 1_1)];
         let r = [new_t!(inno = 10, from = 2_1)];
 
@@ -698,7 +689,7 @@ mod test {
     });
 
     test_t!(
-    test_crossover_lt[T: WConnection_B | BWConnection_B]() {
+    test_crossover_lt[T: WConnection | BWConnection]() {
         let l = [
             new_t!(inno = 0, from = 1_1),
             new_t!(inno = 1, from = 1_2),

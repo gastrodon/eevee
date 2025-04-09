@@ -43,7 +43,7 @@ pub fn deserialize_nodes<'de, N: Node, D: Deserializer<'de>>(
     Vec::<N>::deserialize(deserializer)
 }
 
-pub fn deserialize_connections<'de, N: Node, C: Connection<N>, D: Deserializer<'de>>(
+pub fn deserialize_connections<'de, C: Connection, D: Deserializer<'de>>(
     deserializer: D,
 ) -> Result<Vec<C>, D::Error> {
     Vec::<C>::deserialize(deserializer)

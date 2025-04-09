@@ -145,12 +145,8 @@ fn enter_game(nes: &mut Nes) {
 
 struct NesTetris;
 
-impl<
-        N: Node,
-        C: Connection<N>,
-        G: Genome<N, C> + ToNetwork<Continuous, N, C>,
-        A: Fn(f64) -> f64,
-    > Scenario<N, C, G, A> for NesTetris
+impl<N: Node, C: Connection, G: Genome<N, C> + ToNetwork<Continuous, N, C>, A: Fn(f64) -> f64>
+    Scenario<N, C, G, A> for NesTetris
 {
     fn io(&self) -> (usize, usize) {
         (200, 8)
@@ -198,7 +194,7 @@ impl<
 const POPULATION: usize = 1000;
 
 fn hook(
-    stats: &mut Stats<'_, BTNode, WConnection<BTNode>, Recurrent<BTNode, WConnection<BTNode>>>,
+    stats: &mut Stats<'_, BTNode, WConnection, Recurrent<BTNode, WConnection>>,
 ) -> ControlFlow<()> {
     if stats.generation % 10 != 0 {
         ControlFlow::Continue(())
@@ -220,7 +216,7 @@ fn hook(
 
 fn main() {
     type N = BTNode;
-    type C = WConnection<N>;
+    type C = WConnection;
     type G = Recurrent<N, C>;
 
     create_dir_all("output/nes-tetris").expect("failed to create genome output");

@@ -6,7 +6,7 @@ use brain::{
 use criterion::Criterion;
 
 type N = NonBNode;
-type C = WConnection<N>;
+type C = WConnection;
 type G = Recurrent<N, C>;
 
 fn bench_reproduce(bench: &mut Criterion) {

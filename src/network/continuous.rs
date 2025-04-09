@@ -65,7 +65,7 @@ impl Recurrent for Continuous {}
 
 impl Stateful for Continuous {}
 
-impl<N: Node + Biased + Timescaled, C: Connection<N>, G: Genome<N, C>> FromGenome<N, C, G>
+impl<N: Node + Biased + Timescaled, C: Connection, G: Genome<N, C>> FromGenome<N, C, G>
     for Continuous
 {
     fn from_genome(genome: &G) -> Self {
@@ -209,7 +209,7 @@ mod test {
     #[test]
     fn test_from_genome() {
         type N = BTNode;
-        type C = WConnection<N>;
+        type C = WConnection;
 
         let mut inno = InnoGen::new(0);
         let (mut genome, _) = genome::Recurrent::<N, C>::new(2, 2);

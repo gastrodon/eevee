@@ -74,15 +74,15 @@ pub trait Stateful: Network {}
 /// A network that doesn't retain state between calls to step
 pub trait Stateless: Network {}
 
-pub trait FromGenome<N: Node, C: Connection<N>, G: Genome<N, C>>: Network {
+pub trait FromGenome<N: Node, C: Connection, G: Genome<N, C>>: Network {
     fn from_genome(genome: &G) -> Self;
 }
 
-pub trait ToNetwork<NN: Network, N: Node, C: Connection<N>>: Genome<N, C> {
+pub trait ToNetwork<NN: Network, N: Node, C: Connection>: Genome<N, C> {
     fn network(&self) -> NN;
 }
 
-impl<NN: Network, N: Node, C: Connection<N>, G: Genome<N, C>> ToNetwork<NN, N, C> for G
+impl<NN: Network, N: Node, C: Connection, G: Genome<N, C>> ToNetwork<NN, N, C> for G
 where
     NN: FromGenome<N, C, G>,
 {

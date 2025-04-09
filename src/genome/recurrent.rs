@@ -10,7 +10,7 @@ use std::collections::HashSet;
 
 /// A genome that allows recurrent connections
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Recurrent<N: Node, C: Connection<N>> {
+pub struct Recurrent<N: Node, C: Connection> {
     sensory: usize,
     action: usize,
     #[serde(deserialize_with = "deserialize_nodes")]
@@ -19,7 +19,7 @@ pub struct Recurrent<N: Node, C: Connection<N>> {
     connections: Vec<C>,
 }
 
-impl<N: Node, C: Connection<N>> Genome<N, C> for Recurrent<N, C> {
+impl<N: Node, C: Connection> Genome<N, C> for Recurrent<N, C> {
     fn new(sensory: usize, action: usize) -> (Self, usize) {
         let mut nodes = Vec::with_capacity(sensory + action + 1);
         for _ in 0..sensory {
@@ -153,7 +153,7 @@ mod test {
     };
 
     type N = BTNode;
-    type C = WConnection<N>;
+    type C = WConnection;
     type RecurrentContinuous = Recurrent<N, C>;
 
     test_t!(

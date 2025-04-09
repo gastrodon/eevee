@@ -10,16 +10,16 @@ use rayon::{
     iter::{IntoParallelIterator, ParallelIterator},
     ThreadPoolBuilder,
 };
-use std::collections::HashMap;
+use std::{collections::HashMap, marker::PhantomData};
 
 const NO_IMPROVEMENT_TRUNCATE: usize = 10;
 
-pub struct Stats<'a, N: Node, C: Connection<N>, G: Genome<N, C>> {
+pub struct Stats<'a, N: Node, C: Connection, G: Genome<N, C>> {
     pub generation: usize,
     pub species: &'a [Specie<N, C, G>],
 }
 
-impl<N: Node, C: Connection<N>, G: Genome<N, C>> Stats<'_, N, C, G> {
+impl<N: Node, C: Connection, G: Genome<N, C>> Stats<'_, N, C, G> {
     pub fn any_fitter_than(&self, target: f64) -> bool {
         self.species
             .iter()
@@ -39,11 +39,11 @@ impl<N: Node, C: Connection<N>, G: Genome<N, C>> Stats<'_, N, C, G> {
 
 pub type Hook<N, C, G> = Box<dyn Fn(&mut Stats<'_, N, C, G>) -> ControlFlow<()>>;
 
-pub struct EvolutionHooks<N: Node, C: Connection<N>, G: Genome<N, C>> {
+pub struct EvolutionHooks<N: Node, C: Connection, G: Genome<N, C>> {
     hooks: Vec<Hook<N, C, G>>,
 }
 
-impl<N: Node, C: Connection<N>, G: Genome<N, C>> EvolutionHooks<N, C, G> {
+impl<N: Node, C: Connection, G: Genome<N, C>> EvolutionHooks<N, C, G> {
     pub fn new(hooks: Vec<Hook<N, C, G>>) -> Self {
         Self { hooks }
     }
@@ -59,14 +59,14 @@ impl<N: Node, C: Connection<N>, G: Genome<N, C>> EvolutionHooks<N, C, G> {
     }
 }
 
-pub trait Scenario<N: Node, C: Connection<N>, G: Genome<N, C>, A: Fn(f64) -> f64> {
+pub trait Scenario<N: Node, C: Connection, G: Genome<N, C>, A: Fn(f64) -> f64> {
     fn io(&self) -> (usize, usize);
     fn eval(&self, genome: &G, σ: &A) -> f64;
 }
 
 pub fn evolve<
     N: Node,
-    C: Connection<N>,
+    C: Connection,
     #[cfg(not(feature = "parallel"))] G: Genome<N, C>,
     #[cfg(feature = "parallel")] G: Genome<N, C> + Send,
     I: FnOnce((usize, usize)) -> (Vec<Specie<N, C, G>>, usize),
@@ -96,7 +96,7 @@ pub fn evolve<
     let thread_pool = ThreadPoolBuilder::new().build().unwrap();
     let population_lim = pop_flat.len();
 
-    let mut scores: HashMap<SpecieRepr<N, C>, _> = HashMap::new();
+    let mut scores: HashMap<SpecieRepr<C>, _> = HashMap::new();
     let mut gen_idx = 0;
     loop {
         let species = {
@@ -141,7 +141,7 @@ pub fn evolve<
         let scores_prev = scores;
         scores = species
             .iter()
-            .filter_map(|Specie { repr, members }| {
+            .filter_map(|Specie { repr, members, .. }| {
                 let gen_max = members.iter().max_by(|(_, l), (_, r)| {
                     l.partial_cmp(r)
                         .unwrap_or_else(|| panic!("cannot partial_cmp {l} and {r}"))
@@ -180,6 +180,7 @@ pub fn evolve<
                                 });
                                 trunc[..2].to_vec()
                             },
+                            phantom: PhantomData,
                         },
                         f64::MIN,
                     )

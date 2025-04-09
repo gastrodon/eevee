@@ -14,6 +14,12 @@ use rand::{Rng, RngCore};
 use serde::{Deserialize, Serialize};
 use std::{fs, path::Path};
 
+pub trait Parameterized {
+    /// difference of connection parameters ( for example, weight )
+    /// between this and another connection with the same innovation id
+    fn param_diff(&self, other: &Self) -> f64;
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum NodeKind {
     Sensory,
@@ -22,7 +28,9 @@ pub enum NodeKind {
     Static,
 }
 
-pub trait Node: Serialize + for<'de> Deserialize<'de> + Clone + Debug + PartialEq {
+pub trait Node:
+    Serialize + for<'de> Deserialize<'de> + Clone + Debug + PartialEq + Parameterized
+{
     const PARAM_REPLACE_PROBABILITY: u64 = percent(10);
     const PARAM_PERTURB_FAC: f64 = 0.05;
 
@@ -52,8 +60,8 @@ pub trait Timescaled: Node {
     fn timescale(&self) -> f64;
 }
 
-pub trait Connection<N: Node>:
-    Serialize + for<'de> Deserialize<'de> + Clone + Hash + PartialEq + Default + Debug
+pub trait Connection:
+    Serialize + for<'de> Deserialize<'de> + Clone + Hash + PartialEq + Default + Debug + Parameterized
 {
     const PROBABILITIES: [u64; ConnectionEvent::COUNT] = [percent(1), percent(99)];
     const PARAM_REPLACE_PROBABILITY: u64 = percent(10);
@@ -110,12 +118,8 @@ pub trait Connection<N: Node>:
 
     /// bisect this connection; disabling it, and returning the (upper, lower) bisection pair
     fn bisect(&mut self, center: usize, inno: &mut InnoGen) -> (Self, Self);
-
-    /// difference of connection parameters ( for example, weight )
-    /// between this and another connection with the same innovation id
-    fn param_diff(&self, other: &Self) -> f64;
 }
-pub trait Genome<N: Node, C: Connection<N>>: Serialize + for<'de> Deserialize<'de> + Clone {
+pub trait Genome<N: Node, C: Connection>: Serialize + for<'de> Deserialize<'de> + Clone {
     const MUTATE_NODE_PROBABILITY: u64 = percent(20);
     const MUTATE_CONNECTION_PROBABILITY: u64 = percent(20);
     const PROBABILITIES: [u64; GenomeEvent::COUNT] =

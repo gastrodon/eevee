@@ -101,7 +101,7 @@ fn chunked(chunk_size: usize, data: &str) -> Vec<Vec<f64>> {
 impl<
         'a,
         N: Node,
-        C: Connection<N>,
+        C: Connection,
         G: Genome<N, C> + ToNetwork<Continuous, N, C>,
         A: Fn(f64) -> f64,
     > Scenario<N, C, G, A> for Sentiment<'a>
@@ -133,7 +133,7 @@ impl<
     }
 }
 
-fn hook<N: Node, C: Connection<N>, G: Genome<N, C>>(
+fn hook<N: Node, C: Connection, G: Genome<N, C>>(
     stats: &mut Stats<'_, N, C, G>,
 ) -> ControlFlow<()> {
     let fittest = stats.fittest().unwrap();
@@ -155,7 +155,7 @@ fn main() {
     let negative = include_str!("data/negative.txt").split('\n').collect();
 
     type N = BTNode;
-    type C = WConnection<N>;
+    type C = WConnection;
     type G = Recurrent<N, C>;
 
     create_dir_all("output/sentiment").expect("failed to create genome output");

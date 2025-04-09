@@ -16,12 +16,8 @@ const POPULATION: usize = 100;
 
 struct Xor;
 
-impl<
-        N: Node,
-        C: Connection<N>,
-        G: Genome<N, C> + ToNetwork<Continuous, N, C>,
-        A: Fn(f64) -> f64,
-    > Scenario<N, C, G, A> for Xor
+impl<N: Node, C: Connection, G: Genome<N, C> + ToNetwork<Continuous, N, C>, A: Fn(f64) -> f64>
+    Scenario<N, C, G, A> for Xor
 {
     fn io(&self) -> (usize, usize) {
         (2, 1)
@@ -49,7 +45,7 @@ impl<
     }
 }
 
-fn hook<N: Node, C: Connection<N>, G: Genome<N, C>>(
+fn hook<N: Node, C: Connection, G: Genome<N, C>>(
     stats: &mut Stats<'_, N, C, G>,
 ) -> ControlFlow<()> {
     if stats.generation % 10 == 1 {
@@ -77,7 +73,7 @@ fn hook<N: Node, C: Connection<N>, G: Genome<N, C>>(
 }
 
 type N = BTNode;
-type C = WConnection<N>;
+type C = WConnection;
 type G = Recurrent<N, C>;
 
 fn main() {
