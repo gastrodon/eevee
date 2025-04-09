@@ -1,4 +1,4 @@
-use super::{Biased, Node, NodeKind};
+use super::{Node, NodeKind};
 use crate::{node, random::percent};
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
@@ -38,15 +38,4 @@ impl Node for NonBNode {
     }
 
     fn mutate_param(&mut self, _: &mut impl RngCore) {}
-}
-
-/// while this seems contradictory, we treat the static component of a nodes as its bias
-/// the rest of the nodes always have a bias of 0, being non-biased
-impl Biased for NonBNode {
-    fn bias(&self) -> f64 {
-        match self {
-            Self::Static(b) => *b,
-            _ => 0.,
-        }
-    }
 }

@@ -46,14 +46,6 @@ pub trait Node: Serialize + for<'de> Deserialize<'de> + Clone + Debug + PartialE
     }
 }
 
-pub trait Biased: Node {
-    fn bias(&self) -> f64;
-}
-
-pub trait Timescaled: Node {
-    fn timescale(&self) -> f64;
-}
-
 pub trait Connection:
     Serialize + for<'de> Deserialize<'de> + Clone + Hash + PartialEq + Default + Debug
 {

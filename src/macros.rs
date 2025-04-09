@@ -123,20 +123,7 @@ macro_rules! node {
     (@new($_:ident) $__:ident: $t:ty) => {
         <$t>::default()
     };
-    (@impl $name:ident, bias: $t:ty) => {
-        impl $crate::genome::Biased for $name {
-            fn bias(&self) -> $t {
-                self.bias
-            }
-        }
-    };
-    (@impl $name:ident, timescale: $t:ty) => {
-        impl $crate::genome::Timescaled for $name {
-            fn timescale(&self) -> $t {
-                self.timescale
-            }
-        }
-    };
+
     ($name:ident, [$($field:ident),*]: [$($prob:expr),*]) => {
         ::paste::paste!{
             #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -159,8 +146,6 @@ macro_rules! node {
 
                 $crate::mutate_param!([$([<$field:camel>]),*]: [$($prob),*]);
             }
-
-            $($crate::node!(@impl $name, $field: f64);)*
         }
     };
 }
