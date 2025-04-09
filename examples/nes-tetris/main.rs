@@ -17,6 +17,7 @@ use nes_rust::{
 };
 use std::fs::create_dir_all;
 
+#[allow(dead_code)]
 #[rustfmt::skip]
 mod v {
 pub const ID: usize           = 0x42;
