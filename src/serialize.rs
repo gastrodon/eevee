@@ -1,7 +1,6 @@
+use crate::{genome::NodeKind, Connection};
 use rulinalg::matrix::Matrix;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
-use crate::{Connection, Node};
 
 pub fn serialize_matrix<S: Serializer>(
     matrix: &Matrix<f64>,
@@ -37,10 +36,10 @@ pub fn deserialize_matrix_square<'de, D: Deserializer<'de>>(
     })
 }
 
-pub fn deserialize_nodes<'de, N: Node, D: Deserializer<'de>>(
+pub fn deserialize_nodes<'de, D: Deserializer<'de>>(
     deserializer: D,
-) -> Result<Vec<N>, D::Error> {
-    Vec::<N>::deserialize(deserializer)
+) -> Result<Vec<NodeKind>, D::Error> {
+    Vec::<NodeKind>::deserialize(deserializer)
 }
 
 pub fn deserialize_connections<'de, C: Connection, D: Deserializer<'de>>(

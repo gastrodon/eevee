@@ -1,8 +1,8 @@
 use super::{FromGenome, Recurrent, Stateful};
 use crate::{
-    genome::{Biased, Timescaled},
+    genome::NodeKind,
     serialize::{deserialize_matrix_flat, deserialize_matrix_square, serialize_matrix},
-    Connection, Genome, Network, Node,
+    Connection, Genome, Network,
 };
 use rulinalg::matrix::{BaseMatrix, BaseMatrixMut, Matrix};
 use serde::{Deserialize, Serialize};
@@ -65,9 +65,7 @@ impl Recurrent for Continuous {}
 
 impl Stateful for Continuous {}
 
-impl<N: Node + Biased + Timescaled, C: Connection, G: Genome<N, C>> FromGenome<N, C, G>
-    for Continuous
-{
+impl<C: Connection, G: Genome<C>> FromGenome<C, G> for Continuous {
     fn from_genome(genome: &G) -> Self {
         let cols = genome.nodes().len();
         Self {
@@ -75,17 +73,19 @@ impl<N: Node + Biased + Timescaled, C: Connection, G: Genome<N, C>> FromGenome<N
             θ: Matrix::new(
                 1,
                 cols,
-                genome.nodes().iter().map(|n| n.bias()).collect::<Vec<_>>(),
-            ),
-            τ: Matrix::new(
-                1,
-                cols,
                 genome
                     .nodes()
                     .iter()
-                    .map(|n| n.timescale())
+                    .map(|n| {
+                        if matches!(n, NodeKind::Static) {
+                            1.
+                        } else {
+                            0.
+                        }
+                    })
                     .collect::<Vec<_>>(),
             ),
+            τ: Matrix::new(1, cols, vec![0.1; cols]),
             w: {
                 let mut w = vec![0.; cols * cols];
                 for c in genome.connections().iter().filter(|c| c.enabled()) {
@@ -104,7 +104,7 @@ mod test {
     use super::*;
     use crate::{
         activate, assert_f64_approx, assert_matrix_approx,
-        genome::{self, node::BTNode, NodeKind, WConnection},
+        genome::{self, NodeKind, WConnection},
         random::default_rng,
         specie::InnoGen,
     };
@@ -208,11 +208,10 @@ mod test {
 
     #[test]
     fn test_from_genome() {
-        type N = BTNode;
         type C = WConnection;
 
         let mut inno = InnoGen::new(0);
-        let (mut genome, _) = genome::Recurrent::<N, C>::new(2, 2);
+        let (mut genome, _) = genome::Recurrent::<C>::new(2, 2);
         genome.push_connection(C::new(0, 3, &mut inno));
         genome.push_connection(C::new(0, 1, &mut inno));
         genome.push_connection(C::new(0, 1, &mut inno));
@@ -226,7 +225,14 @@ mod test {
             }
 
             for (i, node) in genome.nodes().iter().enumerate() {
-                assert_f64_approx!(nn.θ.get_unchecked([0, i]), node.bias())
+                assert_f64_approx!(
+                    nn.θ.get_unchecked([0, i]),
+                    if matches!(node, NodeKind::Static) {
+                        1.
+                    } else {
+                        0.
+                    }
+                )
             }
         }
 
@@ -234,13 +240,13 @@ mod test {
             assert!(genome
                 .nodes()
                 .get(i)
-                .is_some_and(|n| matches!(n.kind(), NodeKind::Sensory)))
+                .is_some_and(|n| matches!(n, NodeKind::Sensory)))
         }
         for i in nn.action.0..nn.action.1 {
             assert!(genome
                 .nodes()
                 .get(i)
-                .is_some_and(|n| matches!(n.kind(), NodeKind::Action)))
+                .is_some_and(|n| matches!(n, NodeKind::Action)))
         }
     }
 }

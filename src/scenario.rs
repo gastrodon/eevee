@@ -1,7 +1,7 @@
 use crate::{
     genome::Genome,
     specie::{population_reproduce, speciate, Specie, SpecieRepr},
-    Connection, Node,
+    Connection,
 };
 use core::{f64, ops::ControlFlow};
 use rand::RngCore;
@@ -10,16 +10,16 @@ use rayon::{
     iter::{IntoParallelIterator, ParallelIterator},
     ThreadPoolBuilder,
 };
-use std::{collections::HashMap, marker::PhantomData};
+use std::collections::HashMap;
 
 const NO_IMPROVEMENT_TRUNCATE: usize = 10;
 
-pub struct Stats<'a, N: Node, C: Connection, G: Genome<N, C>> {
+pub struct Stats<'a, C: Connection, G: Genome<C>> {
     pub generation: usize,
-    pub species: &'a [Specie<N, C, G>],
+    pub species: &'a [Specie<C, G>],
 }
 
-impl<N: Node, C: Connection, G: Genome<N, C>> Stats<'_, N, C, G> {
+impl<C: Connection, G: Genome<C>> Stats<'_, C, G> {
     pub fn any_fitter_than(&self, target: f64) -> bool {
         self.species
             .iter()
@@ -37,18 +37,18 @@ impl<N: Node, C: Connection, G: Genome<N, C>> Stats<'_, N, C, G> {
     }
 }
 
-pub type Hook<N, C, G> = Box<dyn Fn(&mut Stats<'_, N, C, G>) -> ControlFlow<()>>;
+pub type Hook<C, G> = Box<dyn Fn(&mut Stats<'_, C, G>) -> ControlFlow<()>>;
 
-pub struct EvolutionHooks<N: Node, C: Connection, G: Genome<N, C>> {
-    hooks: Vec<Hook<N, C, G>>,
+pub struct EvolutionHooks<C: Connection, G: Genome<C>> {
+    hooks: Vec<Hook<C, G>>,
 }
 
-impl<N: Node, C: Connection, G: Genome<N, C>> EvolutionHooks<N, C, G> {
-    pub fn new(hooks: Vec<Hook<N, C, G>>) -> Self {
+impl<C: Connection, G: Genome<C>> EvolutionHooks<C, G> {
+    pub fn new(hooks: Vec<Hook<C, G>>) -> Self {
         Self { hooks }
     }
 
-    fn fire(&self, mut stats: Stats<N, C, G>) -> ControlFlow<()> {
+    fn fire(&self, mut stats: Stats<C, G>) -> ControlFlow<()> {
         for hook in self.hooks.iter() {
             if hook(&mut stats).is_break() {
                 return ControlFlow::Break(());
@@ -59,28 +59,27 @@ impl<N: Node, C: Connection, G: Genome<N, C>> EvolutionHooks<N, C, G> {
     }
 }
 
-pub trait Scenario<N: Node, C: Connection, G: Genome<N, C>, A: Fn(f64) -> f64> {
+pub trait Scenario<C: Connection, G: Genome<C>, A: Fn(f64) -> f64> {
     fn io(&self) -> (usize, usize);
     fn eval(&self, genome: &G, σ: &A) -> f64;
 }
 
 pub fn evolve<
-    N: Node,
     C: Connection,
-    #[cfg(not(feature = "parallel"))] G: Genome<N, C>,
-    #[cfg(feature = "parallel")] G: Genome<N, C> + Send,
-    I: FnOnce((usize, usize)) -> (Vec<Specie<N, C, G>>, usize),
+    #[cfg(not(feature = "parallel"))] G: Genome<C>,
+    #[cfg(feature = "parallel")] G: Genome<C> + Send,
+    I: FnOnce((usize, usize)) -> (Vec<Specie<C, G>>, usize),
     #[cfg(not(feature = "parallel"))] A: Fn(f64) -> f64,
     #[cfg(feature = "parallel")] A: Fn(f64) -> f64 + Sync,
-    #[cfg(not(feature = "parallel"))] S: Scenario<N, C, G, A>,
-    #[cfg(feature = "parallel")] S: Scenario<N, C, G, A> + Sync,
+    #[cfg(not(feature = "parallel"))] S: Scenario<C, G, A>,
+    #[cfg(feature = "parallel")] S: Scenario<C, G, A> + Sync,
 >(
     scenario: S,
     init: I,
     σ: A,
     mut rng: impl RngCore,
-    hooks: EvolutionHooks<N, C, G>,
-) -> (Vec<Specie<N, C, G>>, usize) {
+    hooks: EvolutionHooks<C, G>,
+) -> (Vec<Specie<C, G>>, usize) {
     let (mut pop_flat, mut inno_head) = {
         let (species, inno_head) = init(scenario.io());
         (
@@ -180,7 +179,6 @@ pub fn evolve<
                                 });
                                 trunc[..2].to_vec()
                             },
-                            phantom: PhantomData,
                         },
                         f64::MIN,
                     )

@@ -1,7 +1,7 @@
 use super::{FromGenome, Network, Recurrent, Stateful};
 use crate::{
     serialize::{deserialize_matrix_flat, deserialize_matrix_square, serialize_matrix},
-    Connection, Genome, Node,
+    Connection, Genome,
 };
 use rulinalg::matrix::{BaseMatrix, BaseMatrixMut, Matrix};
 use serde::{Deserialize, Serialize};
@@ -46,7 +46,7 @@ impl Recurrent for NonBias {}
 
 impl Stateful for NonBias {}
 
-impl<N: Node, C: Connection, G: Genome<N, C>> FromGenome<N, C, G> for NonBias {
+impl<C: Connection, G: Genome<C>> FromGenome<C, G> for NonBias {
     fn from_genome(genome: &G) -> Self {
         let cols = genome.nodes().len();
         Self {

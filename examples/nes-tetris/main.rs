@@ -3,12 +3,12 @@
 
 use brain::{
     activate::relu,
-    genome::{node::BTNode, Genome, Recurrent, WConnection},
+    genome::{Genome, Recurrent, WConnection},
     network::{Continuous, ToNetwork},
     random::default_rng,
     scenario::{evolve, EvolutionHooks},
     specie::{population_from_files, population_init, population_to_files},
-    Connection, Network, Node, Scenario, Stats,
+    Connection, Network, Scenario, Stats,
 };
 use core::ops::ControlFlow;
 use nes_rust::{
@@ -145,8 +145,8 @@ fn enter_game(nes: &mut Nes) {
 
 struct NesTetris;
 
-impl<N: Node, C: Connection, G: Genome<N, C> + ToNetwork<Continuous, N, C>, A: Fn(f64) -> f64>
-    Scenario<N, C, G, A> for NesTetris
+impl<C: Connection, G: Genome<C> + ToNetwork<Continuous, C>, A: Fn(f64) -> f64> Scenario<C, G, A>
+    for NesTetris
 {
     fn io(&self) -> (usize, usize) {
         (200, 8)
@@ -193,9 +193,7 @@ impl<N: Node, C: Connection, G: Genome<N, C> + ToNetwork<Continuous, N, C>, A: F
 
 const POPULATION: usize = 1000;
 
-fn hook(
-    stats: &mut Stats<'_, BTNode, WConnection, Recurrent<BTNode, WConnection>>,
-) -> ControlFlow<()> {
+fn hook(stats: &mut Stats<'_, WConnection, Recurrent<WConnection>>) -> ControlFlow<()> {
     if stats.generation % 10 != 0 {
         ControlFlow::Continue(())
     } else {
@@ -215,9 +213,8 @@ fn hook(
 }
 
 fn main() {
-    type N = BTNode;
     type C = WConnection;
-    type G = Recurrent<N, C>;
+    type G = Recurrent<C>;
 
     create_dir_all("output/nes-tetris").expect("failed to create genome output");
 
@@ -225,7 +222,7 @@ fn main() {
         NesTetris {},
         |(i, o)| {
             population_from_files("output/nes-tetris")
-                .unwrap_or_else(|_| population_init::<N, C, G>(i, o, POPULATION))
+                .unwrap_or_else(|_| population_init::<C, G>(i, o, POPULATION))
         },
         relu,
         default_rng(),

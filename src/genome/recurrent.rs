@@ -1,4 +1,4 @@
-use super::{Connection, Genome, Node, NodeKind};
+use super::{Connection, Genome, NodeKind};
 use crate::{
     crossover::crossover,
     serialize::{deserialize_connections, deserialize_nodes},
@@ -10,25 +10,25 @@ use std::collections::HashSet;
 
 /// A genome that allows recurrent connections
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Recurrent<N: Node, C: Connection> {
+pub struct Recurrent<C: Connection> {
     sensory: usize,
     action: usize,
     #[serde(deserialize_with = "deserialize_nodes")]
-    nodes: Vec<N>,
+    nodes: Vec<NodeKind>,
     #[serde(deserialize_with = "deserialize_connections")]
     connections: Vec<C>,
 }
 
-impl<N: Node, C: Connection> Genome<N, C> for Recurrent<N, C> {
+impl<C: Connection> Genome<C> for Recurrent<C> {
     fn new(sensory: usize, action: usize) -> (Self, usize) {
         let mut nodes = Vec::with_capacity(sensory + action + 1);
         for _ in 0..sensory {
-            nodes.push(N::new(NodeKind::Sensory));
+            nodes.push(NodeKind::Sensory);
         }
         for _ in sensory..sensory + action {
-            nodes.push(N::new(NodeKind::Action));
+            nodes.push(NodeKind::Action);
         }
-        nodes.push(N::new(NodeKind::Static));
+        nodes.push(NodeKind::Static);
 
         (
             Self {
@@ -49,15 +49,15 @@ impl<N: Node, C: Connection> Genome<N, C> for Recurrent<N, C> {
         self.sensory..self.sensory + self.action
     }
 
-    fn nodes(&self) -> &[N] {
+    fn nodes(&self) -> &[NodeKind] {
         &self.nodes
     }
 
-    fn nodes_mut(&mut self) -> &mut [N] {
+    fn nodes_mut(&mut self) -> &mut [NodeKind] {
         &mut self.nodes
     }
 
-    fn push_node(&mut self, node: N) {
+    fn push_node(&mut self, node: NodeKind) {
         self.nodes.push(node);
     }
 
@@ -81,7 +81,7 @@ impl<N: Node, C: Connection> Genome<N, C> for Recurrent<N, C> {
                 .iter()
                 .enumerate()
                 .filter(|(from, node)| {
-                    !matches!(node.kind(), NodeKind::Action) && !saturated.contains(from)
+                    !matches!(node, NodeKind::Action) && !saturated.contains(from)
                 })
                 .choose(rng)?;
 
@@ -96,8 +96,7 @@ impl<N: Node, C: Connection> Genome<N, C> for Recurrent<N, C> {
                 .iter()
                 .enumerate()
                 .filter(|(to, node)| {
-                    !matches!(node.kind(), NodeKind::Static | NodeKind::Sensory)
-                        && !exclude.contains(to)
+                    !matches!(node, NodeKind::Static | NodeKind::Sensory) && !exclude.contains(to)
                 })
                 .choose(rng)
             {
@@ -116,14 +115,14 @@ impl<N: Node, C: Connection> Genome<N, C> for Recurrent<N, C> {
 
         let mut nodes = Vec::with_capacity(self.sensory + self.action + 1);
         for _ in 0..self.sensory {
-            nodes.push(N::new(NodeKind::Sensory));
+            nodes.push(NodeKind::Sensory);
         }
         for _ in self.sensory..self.sensory + self.action {
-            nodes.push(N::new(NodeKind::Action));
+            nodes.push(NodeKind::Action);
         }
-        nodes.push(N::new(NodeKind::Static));
+        nodes.push(NodeKind::Static);
         for _ in self.sensory + self.action..nodes_size {
-            nodes.push(N::new(NodeKind::Internal));
+            nodes.push(NodeKind::Internal);
         }
 
         debug_assert!(
@@ -145,16 +144,10 @@ impl<N: Node, C: Connection> Genome<N, C> for Recurrent<N, C> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{
-        genome::{node::BTNode, WConnection},
-        random::default_rng,
-        specie::InnoGen,
-        test_t,
-    };
+    use crate::{genome::WConnection, random::default_rng, specie::InnoGen, test_t};
 
-    type N = BTNode;
     type C = WConnection;
-    type RecurrentContinuous = Recurrent<N, C>;
+    type RecurrentContinuous = Recurrent<C>;
 
     test_t!(
     test_genome_creation[T: RecurrentContinuous]() {
@@ -163,9 +156,9 @@ mod test {
         assert_eq!(genome.sensory().len(), 3);
         assert_eq!(genome.action().len(), 2);
         assert_eq!(genome.nodes().len(), 6);
-        assert!(matches!(genome.nodes[0].kind(), NodeKind::Sensory));
-        assert!(matches!(genome.nodes[3].kind(), NodeKind::Action));
-        assert!(matches!(genome.nodes[5].kind(), NodeKind::Static));
+        assert!(matches!(genome.nodes[0], NodeKind::Sensory));
+        assert!(matches!(genome.nodes[3], NodeKind::Action));
+        assert!(matches!(genome.nodes[5], NodeKind::Static));
     });
 
     test_t!(
@@ -175,7 +168,7 @@ mod test {
         assert_eq!(genome.sensory().len(), 0);
         assert_eq!(genome.action().len(), 0);
         assert_eq!(genome.nodes().len(), 1);
-        assert!(matches!(genome.nodes()[0].kind(), NodeKind::Static));
+        assert!(matches!(genome.nodes()[0], NodeKind::Static));
     });
 
     test_t!(
@@ -185,9 +178,9 @@ mod test {
         assert_eq!(genome.sensory().len(), 3);
         assert_eq!(genome.action().len(), 0);
         assert_eq!(genome.nodes().len(), 4);
-        assert!(matches!(genome.nodes()[0].kind(), NodeKind::Sensory));
-        assert!(matches!(genome.nodes()[2].kind(), NodeKind::Sensory));
-        assert!(matches!(genome.nodes()[3].kind(), NodeKind::Static));
+        assert!(matches!(genome.nodes()[0], NodeKind::Sensory));
+        assert!(matches!(genome.nodes()[2], NodeKind::Sensory));
+        assert!(matches!(genome.nodes()[3], NodeKind::Static));
     });
 
     test_t!(
@@ -197,9 +190,9 @@ mod test {
         assert_eq!(genome.sensory().len(), 0);
         assert_eq!(genome.action().len(), 3);
         assert_eq!(genome.nodes().len(), 4);
-        assert!(matches!(genome.nodes()[0].kind(), NodeKind::Action));
-        assert!(matches!(genome.nodes()[2].kind(), NodeKind::Action));
-        assert!(matches!(genome.nodes()[3].kind(), NodeKind::Static));
+        assert!(matches!(genome.nodes()[0], NodeKind::Action));
+        assert!(matches!(genome.nodes()[2], NodeKind::Action));
+        assert!(matches!(genome.nodes()[3], NodeKind::Static));
     });
 
     test_t!(

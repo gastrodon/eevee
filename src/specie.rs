@@ -1,7 +1,6 @@
 use crate::{
     crossover::delta,
     genome::{Connection, Genome},
-    Node,
 };
 use core::{error::Error, f64};
 use fxhash::FxHashMap;
@@ -11,7 +10,6 @@ use std::{
     fs::read_dir,
     hash::{DefaultHasher, Hash, Hasher},
     iter::empty,
-    marker::PhantomData,
     path::Path,
 };
 
@@ -88,13 +86,12 @@ impl<C: Connection> AsRef<[C]> for SpecieRepr<C> {
 }
 
 #[derive(Debug)]
-pub struct Specie<N: Node, C: Connection, G: Genome<N, C>> {
+pub struct Specie<C: Connection, G: Genome<C>> {
     pub repr: SpecieRepr<C>,
     pub members: Vec<(G, f64)>,
-    pub phantom: PhantomData<N>,
 }
 
-impl<N: Node, C: Connection, G: Genome<N, C>> Specie<N, C, G> {
+impl<C: Connection, G: Genome<C>> Specie<C, G> {
     #[inline]
     pub fn len(&self) -> usize {
         self.members.len()
@@ -124,7 +121,7 @@ impl<N: Node, C: Connection, G: Genome<N, C>> Specie<N, C, G> {
     }
 }
 
-fn reproduce_crossover<N: Node, C: Connection, G: Genome<N, C>>(
+fn reproduce_crossover<C: Connection, G: Genome<C>>(
     genomes: &[(G, f64)],
     size: usize,
     rng: &mut impl RngCore,
@@ -180,7 +177,7 @@ fn reproduce_crossover<N: Node, C: Connection, G: Genome<N, C>>(
         .collect()
 }
 
-fn reproduce_copy<N: Node, C: Connection, G: Genome<N, C>>(
+fn reproduce_copy<C: Connection, G: Genome<C>>(
     genomes: &[(G, f64)],
     size: usize,
     rng: &mut impl RngCore,
@@ -214,7 +211,7 @@ fn reproduce_copy<N: Node, C: Connection, G: Genome<N, C>>(
         .collect()
 }
 
-pub fn reproduce<N: Node, C: Connection, G: Genome<N, C>>(
+pub fn reproduce<C: Connection, G: Genome<C>>(
     genomes: Vec<(G, f64)>,
     size: usize,
     innogen: &mut InnoGen,
@@ -272,8 +269,8 @@ pub fn reproduce<N: Node, C: Connection, G: Genome<N, C>>(
 }
 
 /// allocate a target population for every specie in an existing population
-fn population_alloc<'a, N: Node + 'a, C: Connection + 'a, G: Genome<N, C> + 'a>(
-    species: impl Iterator<Item = &'a Specie<N, C, G>>,
+fn population_alloc<'a, C: Connection + 'a, G: Genome<C> + 'a>(
+    species: impl Iterator<Item = &'a Specie<C, G>>,
     population: usize,
 ) -> HashMap<SpecieRepr<C>, usize> {
     let species_fitted = species
@@ -293,30 +290,29 @@ fn population_alloc<'a, N: Node + 'a, C: Connection + 'a, G: Genome<N, C> + 'a>(
         .collect()
 }
 
-pub type SpecieGroup<N, C, G> = (Vec<Specie<N, C, G>>, usize);
+pub type SpecieGroup<C, G> = (Vec<Specie<C, G>>, usize);
 
 /// initial population of a single specie consisting of single connection genomes
 /// while it's not necessarily recommended to do an initual mutation, it allows us to mutate a
 /// bisection on any genome without the need to check for existing connections beforehand
-pub fn population_init<N: Node, C: Connection, G: Genome<N, C>>(
+pub fn population_init<C: Connection, G: Genome<C>>(
     sensory: usize,
     action: usize,
     population: usize,
-) -> SpecieGroup<N, C, G> {
+) -> SpecieGroup<C, G> {
     let (genome, inno_head) = G::new(sensory, action);
     (
         vec![Specie {
             repr: SpecieRepr::new(genome.connections().to_vec()),
             members: vec![(genome, f64::MIN); population],
-            phantom: PhantomData,
         }],
         inno_head,
     )
 }
 
-pub fn population_to_files<P: AsRef<Path>, N: Node, C: Connection, G: Genome<N, C>>(
+pub fn population_to_files<P: AsRef<Path>, C: Connection, G: Genome<C>>(
     path: P,
-    pop: &[Specie<N, C, G>],
+    pop: &[Specie<C, G>],
 ) -> Result<(), Box<dyn Error>> {
     for (idx, (member, _)) in pop
         .iter()
@@ -329,9 +325,9 @@ pub fn population_to_files<P: AsRef<Path>, N: Node, C: Connection, G: Genome<N, 
     Ok(())
 }
 
-pub fn population_from_files<P: AsRef<Path>, N: Node, C: Connection, G: Genome<N, C>>(
+pub fn population_from_files<P: AsRef<Path>, C: Connection, G: Genome<C>>(
     path: P,
-) -> Result<SpecieGroup<N, C, G>, Box<dyn Error>> {
+) -> Result<SpecieGroup<C, G>, Box<dyn Error>> {
     let pop_flat = read_dir(path)?
         .map(|fp| Ok::<_, Box<dyn Error>>((G::from_file(fp?.path())?, f64::MIN)))
         .collect::<Result<Vec<_>, _>>()?;
@@ -351,10 +347,9 @@ pub fn population_from_files<P: AsRef<Path>, N: Node, C: Connection, G: Genome<N
 
 fn population_allocated<
     'a,
-    N: Node + 'a,
     C: Connection + 'a,
-    G: Genome<N, C> + 'a,
-    T: Iterator<Item = &'a (Specie<N, C, G>, f64)>,
+    G: Genome<C> + 'a,
+    T: Iterator<Item = &'a (Specie<C, G>, f64)>,
 >(
     species: T,
     population: usize,
@@ -372,7 +367,6 @@ fn population_allocated<
             (!viable.is_empty()).then(|| Specie {
                 repr: specie.repr.clone(),
                 members: viable,
-                phantom: PhantomData,
             })
         })
         .collect::<Vec<_>>();
@@ -385,8 +379,8 @@ fn population_allocated<
 }
 
 // reproduce a whole speciated population into a non-speciated population
-pub fn population_reproduce<N: Node, C: Connection, G: Genome<N, C>>(
-    species: &[(Specie<N, C, G>, f64)],
+pub fn population_reproduce<C: Connection, G: Genome<C>>(
+    species: &[(Specie<C, G>, f64)],
     population: usize,
     inno_head: usize,
     rng: &mut impl RngCore,
@@ -404,14 +398,13 @@ pub fn population_reproduce<N: Node, C: Connection, G: Genome<N, C>>(
 
 const SPECIE_THRESHOLD: f64 = 4.;
 
-pub fn speciate<N: Node, C: Connection, G: Genome<N, C>>(
+pub fn speciate<C: Connection, G: Genome<C>>(
     genomes: impl Iterator<Item = (G, f64)>,
     reprs: impl Iterator<Item = SpecieRepr<C>>,
-) -> Vec<Specie<N, C, G>> {
+) -> Vec<Specie<C, G>> {
     let mut sp = Vec::from_iter(reprs.map(|repr| Specie {
         repr,
         members: Vec::new(),
-        phantom: PhantomData,
     }));
 
     for (genome, fitness) in genomes {
@@ -424,7 +417,6 @@ pub fn speciate<N: Node, C: Connection, G: Genome<N, C>>(
                 sp.push(Specie {
                     repr: SpecieRepr::new(genome.connections().to_vec()),
                     members: vec![(genome, fitness)],
-                    phantom: PhantomData,
                 });
             }
         }
@@ -437,7 +429,7 @@ pub fn speciate<N: Node, C: Connection, G: Genome<N, C>>(
 mod tests {
     use super::*;
     use crate::{
-        genome::{node::NonBNode, Recurrent, WConnection},
+        genome::{Recurrent, WConnection},
         random::default_rng,
         test_t,
     };
@@ -456,11 +448,11 @@ mod tests {
         assert_eq!(inno2.path((0, 1)), 3);
     }
 
-    type BasicGenomeCtrnn = Recurrent<NonBNode, WConnection>;
+    type BasicGenomeCtrnn = Recurrent<WConnection>;
 
     test_t!(specie_init[T: BasicGenomeCtrnn]() {
         let count = 40;
-        let (species, inno_head) = population_init::<NonBNode, WConnection, T>(2, 2, count);
+        let (species, inno_head) = population_init::<WConnection, T>(2, 2, count);
         assert_eq!(
             count,
             species
@@ -486,7 +478,7 @@ mod tests {
     test_t!(specie_reproduce[T: BasicGenomeCtrnn]() {
         let mut rng = default_rng();
         let count = 40;
-        let (species, inno_head) = population_init::<NonBNode, WConnection, T>(2, 2, count);
+        let (species, inno_head) = population_init::<WConnection, T>(2, 2, count);
 
         for specie in species {
             for i in [0, 1, count, count * 10] {

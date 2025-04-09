@@ -1,13 +1,12 @@
 use brain::{
-    genome::{node::NonBNode, Genome, Recurrent, WConnection},
+    genome::{Genome, Recurrent, WConnection},
     random::default_rng,
     specie::InnoGen,
 };
 use criterion::Criterion;
 
-type N = NonBNode;
 type C = WConnection;
-type G = Recurrent<N, C>;
+type G = Recurrent<C>;
 
 fn bench_mutate(bench: &mut Criterion) {
     let genome = G::from_str(include_str!("data/ctr-genome-rand-100.json")).unwrap();

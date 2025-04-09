@@ -3,12 +3,12 @@
 
 use brain::{
     activate::relu,
-    genome::{node::BTNode, Genome, Recurrent, WConnection},
-    network::{loss::decay_quadratic, Continuous, ToNetwork},
+    genome::{Genome, Recurrent, WConnection},
+    network::{loss::decay_quadratic, Continuous, Network, ToNetwork},
     random::default_rng,
     scenario::{evolve, EvolutionHooks},
     specie::population_init,
-    Connection, Network, Node, Scenario, Stats,
+    Connection, Scenario, Stats,
 };
 use core::{f64, ops::ControlFlow};
 
@@ -16,8 +16,8 @@ const POPULATION: usize = 100;
 
 struct Xor;
 
-impl<N: Node, C: Connection, G: Genome<N, C> + ToNetwork<Continuous, N, C>, A: Fn(f64) -> f64>
-    Scenario<N, C, G, A> for Xor
+impl<C: Connection, G: Genome<C> + ToNetwork<Continuous, C>, A: Fn(f64) -> f64> Scenario<C, G, A>
+    for Xor
 {
     fn io(&self) -> (usize, usize) {
         (2, 1)
@@ -45,9 +45,7 @@ impl<N: Node, C: Connection, G: Genome<N, C> + ToNetwork<Continuous, N, C>, A: F
     }
 }
 
-fn hook<N: Node, C: Connection, G: Genome<N, C>>(
-    stats: &mut Stats<'_, N, C, G>,
-) -> ControlFlow<()> {
+fn hook<C: Connection, G: Genome<C>>(stats: &mut Stats<'_, C, G>) -> ControlFlow<()> {
     if stats.generation % 10 == 1 {
         let (_, f) = stats.fittest().unwrap();
         println!(
@@ -72,14 +70,13 @@ fn hook<N: Node, C: Connection, G: Genome<N, C>>(
     ControlFlow::Continue(())
 }
 
-type N = BTNode;
 type C = WConnection;
-type G = Recurrent<N, C>;
+type G = Recurrent<C>;
 
 fn main() {
     evolve(
         Xor {},
-        |(i, o)| population_init::<N, C, G>(i, o, POPULATION),
+        |(i, o)| population_init::<C, G>(i, o, POPULATION),
         relu,
         default_rng(),
         EvolutionHooks::new(vec![Box::new(hook)]),

@@ -3,12 +3,12 @@
 
 use brain::{
     activate::relu,
-    genome::{node::BTNode, Recurrent, WConnection},
+    genome::{Recurrent, WConnection},
     network::{Continuous, ToNetwork},
     random::default_rng,
     scenario::{evolve, EvolutionHooks},
     specie::{population_from_files, population_init, population_to_files},
-    Connection, Genome, Network, Node, Scenario, Stats,
+    Connection, Genome, Network, Scenario, Stats,
 };
 use core::f64;
 use std::{fs::create_dir_all, ops::ControlFlow};
@@ -98,13 +98,8 @@ fn chunked(chunk_size: usize, data: &str) -> Vec<Vec<f64>> {
         .collect::<Vec<Vec<_>>>()
 }
 
-impl<
-        'a,
-        N: Node,
-        C: Connection,
-        G: Genome<N, C> + ToNetwork<Continuous, N, C>,
-        A: Fn(f64) -> f64,
-    > Scenario<N, C, G, A> for Sentiment<'a>
+impl<'a, C: Connection, G: Genome<C> + ToNetwork<Continuous, C>, A: Fn(f64) -> f64>
+    Scenario<C, G, A> for Sentiment<'a>
 {
     fn io(&self) -> (usize, usize) {
         (8 * self.chunk_size, 2)
@@ -133,9 +128,7 @@ impl<
     }
 }
 
-fn hook<N: Node, C: Connection, G: Genome<N, C>>(
-    stats: &mut Stats<'_, N, C, G>,
-) -> ControlFlow<()> {
+fn hook<C: Connection, G: Genome<C>>(stats: &mut Stats<'_, C, G>) -> ControlFlow<()> {
     let fittest = stats.fittest().unwrap();
     println!("fittest of gen {}: {:.4}", stats.generation, fittest.1);
 
@@ -154,9 +147,8 @@ fn main() {
     let positive = include_str!("data/positive.txt").split('\n').collect();
     let negative = include_str!("data/negative.txt").split('\n').collect();
 
-    type N = BTNode;
     type C = WConnection;
-    type G = Recurrent<N, C>;
+    type G = Recurrent<C>;
 
     create_dir_all("output/sentiment").expect("failed to create genome output");
 
@@ -164,7 +156,7 @@ fn main() {
         Sentiment::new(8, positive, negative),
         |(i, o)| {
             population_from_files("output/sentiment")
-                .unwrap_or_else(|_| population_init::<N, C, G>(i, o, POPULATION))
+                .unwrap_or_else(|_| population_init::<C, G>(i, o, POPULATION))
         },
         relu,
         default_rng(),

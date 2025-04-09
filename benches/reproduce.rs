@@ -1,13 +1,12 @@
 use brain::{
-    genome::{node::NonBNode, Connection, Genome, Recurrent, WConnection},
+    genome::{Connection, Genome, Recurrent, WConnection},
     random::default_rng,
     specie::{reproduce, InnoGen},
 };
 use criterion::Criterion;
 
-type N = NonBNode;
 type C = WConnection;
-type G = Recurrent<N, C>;
+type G = Recurrent<C>;
 
 fn bench_reproduce(bench: &mut Criterion) {
     let genomes =

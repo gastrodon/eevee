@@ -119,11 +119,11 @@ pub trait Connection:
     /// bisect this connection; disabling it, and returning the (upper, lower) bisection pair
     fn bisect(&mut self, center: usize, inno: &mut InnoGen) -> (Self, Self);
 }
-pub trait Genome<N: Node, C: Connection>: Serialize + for<'de> Deserialize<'de> + Clone {
+pub trait Genome<C: Connection>: Serialize + for<'de> Deserialize<'de> + Clone {
     const MUTATE_NODE_PROBABILITY: u64 = percent(20);
     const MUTATE_CONNECTION_PROBABILITY: u64 = percent(20);
     const PROBABILITIES: [u64; GenomeEvent::COUNT] =
-        [percent(5), percent(15), percent(60), percent(20)];
+        [percent(5), percent(15), percent(80), percent(0)];
 
     /// A new genome of this type, with a known input and output size
     fn new(sensory: usize, action: usize) -> (Self, usize);
@@ -132,20 +132,12 @@ pub trait Genome<N: Node, C: Connection>: Serialize + for<'de> Deserialize<'de> 
 
     fn action(&self) -> Range<usize>;
 
-    fn nodes(&self) -> &[N];
+    fn nodes(&self) -> &[NodeKind];
 
-    fn nodes_mut(&mut self) -> &mut [N];
+    fn nodes_mut(&mut self) -> &mut [NodeKind];
 
     /// Push a new node onto the genome
-    fn push_node(&mut self, node: N);
-
-    fn mutate_node(&mut self, rng: &mut impl RngCore) {
-        for n in self.nodes_mut() {
-            if rng.next_u64() < Self::MUTATE_NODE_PROBABILITY {
-                n.mutate(rng);
-            }
-        }
-    }
+    fn push_node(&mut self, node: NodeKind);
 
     /// A collection to the connections comprising this genome
     fn connections(&self) -> &[C];
@@ -201,7 +193,7 @@ pub trait Genome<N: Node, C: Connection>: Serialize + for<'de> Deserialize<'de> 
             .unwrap()
             .bisect(center, inno);
 
-        self.push_node(N::new(NodeKind::Internal));
+        self.push_node(NodeKind::Internal);
         self.push_2_connections(lower, upper);
     }
 
@@ -220,7 +212,7 @@ pub trait Genome<N: Node, C: Connection>: Serialize + for<'de> Deserialize<'de> 
                         self.mutate_connection(rng)
                     }
                 }
-                GenomeEvent::MutateNode => self.mutate_node(rng),
+                GenomeEvent::MutateNode => unreachable!("nodes may not be mutated"),
             }
         }
     }
