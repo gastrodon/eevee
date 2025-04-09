@@ -348,6 +348,24 @@ pub fn population_from_files<P: AsRef<Path>, N: Node, C: Connection<N>, G: Genom
     Ok((speciate(pop_flat.into_iter(), empty()), inno_head))
 }
 
+pub fn population_from_genome<P: AsRef<Path>, N: Node, C: Connection<N>, G: Genome<N, C>>(
+    path: P,
+    population: usize,
+) -> Result<SpecieGroup<N, C, G>, Box<dyn Error>> {
+    let muse = G::from_file(path)?;
+    let inno_head = muse
+        .connections()
+        .iter()
+        .map(|c| c.inno())
+        .max()
+        .unwrap_or(0);
+
+    Ok((
+        speciate(vec![(muse, f64::MIN); population].into_iter(), empty()),
+        inno_head,
+    ))
+}
+
 fn population_allocated<
     'a,
     N: Node + 'a,
