@@ -1,6 +1,7 @@
 use crate::{
     genome::Genome,
-    specie::{population_reproduce, speciate, Specie, SpecieRepr},
+    population::{speciate, Specie, SpecieRepr},
+    reproduce::population_reproduce,
     Connection,
 };
 use core::{f64, ops::ControlFlow};

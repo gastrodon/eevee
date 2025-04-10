@@ -4,24 +4,16 @@
 use brain::{
     activate::relu,
     genome::{Recurrent, WConnection},
-    network::{Continuous, ToNetwork},
+    network::{loss::decay_linear, Continuous, ToNetwork},
+    population::{population_from_files, population_init, population_to_files},
     random::default_rng,
     scenario::{evolve, EvolutionHooks},
-    specie::{population_from_files, population_init, population_to_files},
     Connection, Genome, Network, Scenario, Stats,
 };
 use core::f64;
 use std::{fs::create_dir_all, ops::ControlFlow};
 
 const POPULATION: usize = 1000;
-
-fn decay_linear(want: f64, have: f64) -> f64 {
-    if have.is_nan() {
-        f64::MIN
-    } else {
-        0. - (want - have).abs()
-    }
-}
 
 #[derive(Debug)]
 enum SentimentKind {

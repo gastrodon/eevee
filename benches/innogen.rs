@@ -1,4 +1,4 @@
-use brain::{random::default_rng, specie::InnoGen};
+use brain::{genome::InnoGen, random::default_rng};
 use criterion::Criterion;
 use rand::Rng;
 

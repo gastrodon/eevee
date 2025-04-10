@@ -5,9 +5,9 @@ use brain::{
     activate::relu,
     genome::{Genome, Recurrent, WConnection},
     network::{Continuous, ToNetwork},
+    population::{population_from_files, population_init, population_to_files},
     random::default_rng,
     scenario::{evolve, EvolutionHooks},
-    specie::{population_from_files, population_init, population_to_files},
     Connection, Network, Scenario, Stats,
 };
 use core::ops::ControlFlow;

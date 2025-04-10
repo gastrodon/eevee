@@ -1,5 +1,5 @@
-use super::Connection;
-use crate::{mutate_param, random::percent, specie::InnoGen};
+use super::{Connection, InnoGen};
+use crate::{mutate_param, random::percent};
 use core::hash::Hash;
 use serde::{Deserialize, Serialize};
 
