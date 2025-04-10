@@ -1,6 +1,7 @@
 //! Functions and structs related to RNG, random events, and mutation probabilities.
 
 use core::cmp::min;
+use find_fold::FindFold;
 use rand::RngCore;
 use std::{
     fs::File,
@@ -110,28 +111,6 @@ pub trait EventKind: Copy {
                 ControlFlow::Continue(p + acc)
             }
         })
-    }
-}
-
-trait FindFold<T> {
-    fn find_fold<U, R>(&mut self, init: R, op: impl Fn(R, T) -> ControlFlow<U, R>) -> Option<U>;
-}
-
-impl<T, I: Iterator<Item = T> + Sized> FindFold<T> for I {
-    fn find_fold<U, R>(
-        &mut self,
-        mut init: R,
-        op: impl Fn(R, T) -> ControlFlow<U, R>,
-    ) -> Option<U> {
-        loop {
-            match self.next() {
-                Some(v) => match op(init, v) {
-                    ControlFlow::Continue(n) => init = n,
-                    ControlFlow::Break(res) => break Some(res),
-                },
-                None => break None,
-            }
-        }
     }
 }
 

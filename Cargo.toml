@@ -19,6 +19,7 @@ fxhash = "0.2.1"
 rayon = { version = "1.10.0", optional = true }
 paste = "1.0.15"
 approx = { version = "0.5.1", optional = true }
+find-fold = "0.1.0"
 
 [features]
 approx = ["dep:approx"]
