@@ -345,10 +345,10 @@ pub fn population_from_files<P: AsRef<Path>, C: Connection, G: Genome<C>>(
     Ok((speciate(pop_flat.into_iter(), empty()), inno_head))
 }
 
-pub fn population_from_genome<P: AsRef<Path>, N: Node, C: Connection<N>, G: Genome<N, C>>(
+pub fn population_from_genome<P: AsRef<Path>, C: Connection, G: Genome<C>>(
     path: P,
     population: usize,
-) -> Result<SpecieGroup<N, C, G>, Box<dyn Error>> {
+) -> Result<SpecieGroup<C, G>, Box<dyn Error>> {
     let muse = G::from_file(path)?;
     let inno_head = muse
         .connections()
