@@ -1,4 +1,6 @@
-//! Neural Networks who may be constructed from [Genome]s in order to
+//! Traits and impls for Neural Networks derived from [Genome]s.
+//!
+//! Neural Networks who may be constructed from Genomes in order to
 //! express their behaviour. The NEAT paper calls for a recurrent network with no per-connection
 //! bias, though maybe we can do more than that here. The code inside is quite experimental.
 

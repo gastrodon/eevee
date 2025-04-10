@@ -1,3 +1,5 @@
+//! Functions related to reproducing on the specie and global population scale.
+
 use crate::{
     genome::{Connection, Genome, InnoGen},
     population::SpecieRepr,

@@ -1,3 +1,5 @@
+//! Functions and structs related to RNG, random events, and mutation probabilities.
+
 use core::cmp::min;
 use rand::RngCore;
 use std::{

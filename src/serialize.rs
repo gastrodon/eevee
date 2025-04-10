@@ -1,3 +1,5 @@
+//! Helpers for de/serializing NeuroEvoluiton components
+
 use crate::{genome::NodeKind, Connection};
 use rulinalg::matrix::Matrix;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};

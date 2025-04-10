@@ -1,3 +1,5 @@
+//! Macros for when it's nice to write less code.
+
 /// A macro for instantiating a [Default]-able something, and then assigning some values to it.
 #[macro_export]
 macro_rules! new_t {

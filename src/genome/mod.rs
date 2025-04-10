@@ -1,4 +1,4 @@
-//! Traits for Genomes and their Connections.
+//! Traits and impls for Genomes and their Connections.
 //!
 //! A [Genome] descirbes some discrete structure which may be mutated, evaluated, and be
 //! comprised of a collection of connectionss who describe some network structure. Genomes may

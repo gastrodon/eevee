@@ -1,3 +1,5 @@
+//! Traits related to evaluation, fitting, and evolution of genomes for specific tasks.
+
 use crate::{
     genome::Genome,
     population::{speciate, Specie, SpecieRepr},

@@ -1,3 +1,5 @@
+//! Functions and structs related to managing genomes at the specie and global population scale.
+
 use crate::{
     crossover::delta,
     genome::{Connection, Genome},

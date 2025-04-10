@@ -1,3 +1,6 @@
+//! Functions related to performing measuring compatability for and performing crossover
+//! reproduction.
+
 use crate::genome::Connection;
 use core::cmp::Ordering;
 use rand::RngCore;
