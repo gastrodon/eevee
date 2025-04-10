@@ -104,9 +104,9 @@ mod test {
     use super::*;
     use crate::{
         activate, assert_f64_approx, assert_matrix_approx,
+        genome::InnoGen,
         genome::{self, NodeKind, WConnection},
         random::default_rng,
-        specie::InnoGen,
     };
     use rand_distr::{num_traits::Float, Distribution, Uniform};
     use rulinalg::matrix::Matrix;

@@ -1,7 +1,10 @@
 pub mod continuous;
 pub mod non_bias;
+pub mod simple;
+
 pub use continuous::Continuous;
 pub use non_bias::NonBias;
+pub use simple::Simple;
 
 use crate::{Connection, Genome};
 use core::error::Error;
@@ -27,6 +30,14 @@ pub mod activate {
 pub mod loss {
     pub fn decay_quadratic(want: f64, x: f64) -> f64 {
         1. - (want - x).abs().powf(2.)
+    }
+
+    pub fn decay_linear(want: f64, have: f64) -> f64 {
+        if have.is_nan() {
+            f64::MIN
+        } else {
+            want - (want - have).abs()
+        }
     }
 }
 

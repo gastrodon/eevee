@@ -144,7 +144,7 @@ impl<C: Connection> Genome<C> for Recurrent<C> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{genome::WConnection, random::default_rng, specie::InnoGen, test_t};
+    use crate::{genome::InnoGen, genome::WConnection, random::default_rng, test_t};
 
     type C = WConnection;
     type RecurrentContinuous = Recurrent<C>;

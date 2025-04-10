@@ -1,22 +1,38 @@
 #![allow(mixed_script_confusables)]
 #![allow(confusable_idents)]
 
+use approx::relative_eq;
 use brain::{
     activate::relu,
     genome::{Genome, Recurrent, WConnection},
-    network::{loss::decay_quadratic, Continuous, Network, ToNetwork},
+    network::{Network, Simple, ToNetwork},
+    population::population_init,
     random::default_rng,
     scenario::{evolve, EvolutionHooks},
-    specie::population_init,
     Connection, Scenario, Stats,
 };
 use core::{f64, ops::ControlFlow};
 
-const POPULATION: usize = 100;
+const POPULATION: usize = 1000;
 
 struct Xor;
 
-impl<C: Connection, G: Genome<C> + ToNetwork<Continuous, C>, A: Fn(f64) -> f64> Scenario<C, G, A>
+macro_rules! eval_pair {
+    ($pair:expr, $want:expr, ($network:ident $fit:ident $σ:ident)) => {{
+        $network.step(2, &$pair, $σ);
+        let v = $network.output()[0];
+        if relative_eq!(v, $want, epsilon = 0.05) {
+            $fit += 100.;
+        } else if (-1. ..=2.).contains(&v) {
+            $fit -= ($want - v).abs();
+        } else {
+            $fit -= v.abs() * v.abs();
+        }
+        $network.flush();
+    }};
+}
+
+impl<C: Connection, G: Genome<C> + ToNetwork<Simple<C>, C>, A: Fn(f64) -> f64> Scenario<C, G, A>
     for Xor
 {
     fn io(&self) -> (usize, usize) {
@@ -26,27 +42,18 @@ impl<C: Connection, G: Genome<C> + ToNetwork<Continuous, C>, A: Fn(f64) -> f64> 
     fn eval(&self, genome: &G, σ: &A) -> f64 {
         let mut network = genome.network();
         let mut fit = 0.;
-        network.step(2, &[0., 0.], σ);
-        fit += decay_quadratic(1., network.output()[0]);
-        network.flush();
 
-        network.step(2, &[1., 1.], σ);
-        fit += decay_quadratic(1., network.output()[0]);
-        network.flush();
+        eval_pair!([0., 0.], 1., (network fit σ));
+        eval_pair!([1., 1.], 1., (network fit σ));
+        eval_pair!([1., 0.], 0., (network fit σ));
+        eval_pair!([0., 1.], 0., (network fit σ));
 
-        network.step(2, &[0., 1.], σ);
-        fit += decay_quadratic(0., network.output()[0]);
-        network.flush();
-
-        network.step(2, &[1., 0.], σ);
-        fit += decay_quadratic(0., network.output()[0]);
-
-        fit / 4.
+        fit
     }
 }
 
 fn hook<C: Connection, G: Genome<C>>(stats: &mut Stats<'_, C, G>) -> ControlFlow<()> {
-    if stats.generation % 10 == 1 {
+    if stats.generation % 100 == 1 {
         let (_, f) = stats.fittest().unwrap();
         println!(
             "fittest of gen {}: {:.4} (of {} species",
@@ -56,7 +63,7 @@ fn hook<C: Connection, G: Genome<C>>(stats: &mut Stats<'_, C, G>) -> ControlFlow
         );
     }
 
-    if stats.any_fitter_than(0.749999) {
+    if stats.any_fitter_than(400. - f64::EPSILON) {
         let fittest = stats.fittest().unwrap();
         println!("target met in gen {}: {:.4}", stats.generation, fittest.1);
         fittest

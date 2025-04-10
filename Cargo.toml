@@ -16,6 +16,7 @@ serde_json = { version = "1.0.139", features = ["preserve_order"] }
 fxhash = "0.2.1"
 rayon = { version = "1.10.0", optional = true }
 paste = "1.0.15"
+approx = "0.5.1"
 
 [features]
 smol_bench = []

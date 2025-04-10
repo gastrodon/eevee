@@ -7,12 +7,13 @@ pub mod crossover;
 pub mod genome;
 pub mod macros;
 pub mod network;
+pub mod population;
 pub mod random;
+pub mod reproduce;
 pub mod scenario;
 pub mod serialize;
-pub mod specie;
 
 pub use genome::{Connection, Genome};
 pub use network::{activate, Network};
+pub use population::Specie;
 pub use scenario::{Hook, Scenario, Stats};
-pub use specie::Specie;

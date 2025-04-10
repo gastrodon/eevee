@@ -4,14 +4,38 @@ pub mod recurrent;
 pub use connection::WConnection;
 pub use recurrent::Recurrent;
 
-use crate::{
-    random::{percent, ConnectionEvent, EventKind, GenomeEvent},
-    specie::InnoGen,
-};
+use crate::random::{percent, ConnectionEvent, EventKind, GenomeEvent};
 use core::{cmp::Ordering, error::Error, fmt::Debug, hash::Hash, ops::Range};
+use fxhash::FxHashMap;
 use rand::{Rng, RngCore};
 use serde::{Deserialize, Serialize};
 use std::{fs, path::Path};
+
+pub struct InnoGen {
+    pub head: usize,
+    seen: FxHashMap<(usize, usize), usize>,
+}
+
+impl InnoGen {
+    pub fn new(head: usize) -> Self {
+        Self {
+            head,
+            seen: FxHashMap::default(),
+        }
+    }
+
+    pub fn path(&mut self, v: (usize, usize)) -> usize {
+        match self.seen.get(&v) {
+            Some(n) => *n,
+            None => {
+                let n = self.head;
+                self.head += 1;
+                self.seen.insert(v, n);
+                n
+            }
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum NodeKind {

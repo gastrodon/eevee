@@ -1,7 +1,7 @@
 use brain::{
     crossover::{avg_param_diff, disjoint_excess_count},
     genome::{Recurrent, WConnection},
-    specie::speciate,
+    population::speciate,
 };
 use core::iter::empty;
 use criterion::Criterion;
