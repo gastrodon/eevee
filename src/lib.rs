@@ -1,4 +1,3 @@
-#![feature(associated_type_defaults)]
 #![feature(generic_const_exprs)]
 #![allow(confusable_idents)]
 #![allow(incomplete_features)]
