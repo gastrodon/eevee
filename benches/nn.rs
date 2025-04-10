@@ -1,11 +1,11 @@
 #![allow(mixed_script_confusables)]
 #![allow(confusable_idents)]
 
-use brain::{activate::relu, Ctrnn, Network};
+use brain::{activate::relu, network::Continuous, Network};
 use criterion::Criterion;
 
 fn bench_nn(bench: &mut Criterion) {
-    let net = &mut Ctrnn::from_str(include_str!("data/ctrnn-rand-100.json")).unwrap();
+    let net = &mut Continuous::from_str(include_str!("data/ctrnn-rand-100.json")).unwrap();
     let i = vec![0.7, 0.3];
 
     bench.bench_function("ctrnn-step", |b| b.iter(|| net.step(100, &i, relu)));

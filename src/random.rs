@@ -3,107 +3,24 @@ use rand::RngCore;
 use std::{
     fs::File,
     io::{self, Read},
+    ops::ControlFlow,
 };
-
-#[derive(Debug, Clone, Copy)]
-pub enum EvolutionEvent {
-    MutateConnection,
-    MutateBisection,
-    MutateWeight,
-    NewWeight,
-    PerturbWeight,
-    NewDisabled,
-    KeepDisabled,
-    PickLEQ,
-    PickLNE,
-}
 
 pub const fn percent(x: u64) -> u64 {
     x * (u64::MAX / 100)
 }
 
-pub trait Probabilities {
-    type Update;
-    fn probability(&self, evt: EvolutionEvent) -> u64;
-    fn update(&mut self, stats: Self::Update);
+pub fn seed_urandom() -> io::Result<u64> {
+    let mut file = File::open("/dev/urandom")?;
+    let mut buffer = [0u8; 8];
+    file.read_exact(&mut buffer)?;
+    Ok(u64::from_le_bytes([
+        buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7],
+    ]))
 }
 
-pub trait Happens {
-    fn happens(&mut self, evt: EvolutionEvent) -> bool;
-}
-
-impl<T: RngCore + Probabilities> Happens for T {
-    fn happens(&mut self, evt: EvolutionEvent) -> bool {
-        self.probability(evt) > self.next_u64()
-    }
-}
-
-pub struct ProbStatic {
-    mutate_connection: u64,
-    mutate_bisection: u64,
-    mutate_weight: u64,
-    perturb_weight: u64,
-    new_weight: u64,
-    new_disabled: u64,
-    keep_disabled: u64,
-    pick_leq: u64,
-    pick_lne: u64,
-}
-
-impl ProbStatic {
-    pub fn with_overrides(mut self, updates: &[(EvolutionEvent, u64)]) -> Self {
-        for update in updates {
-            self.update(*update);
-        }
-        self
-    }
-}
-
-impl Default for ProbStatic {
-    fn default() -> Self {
-        Self {
-            mutate_connection: percent(3),
-            mutate_bisection: percent(5),
-            mutate_weight: percent(80),
-            perturb_weight: percent(90),
-            new_weight: percent(10),
-            new_disabled: percent(1),
-            keep_disabled: percent(75),
-            pick_leq: percent(50),
-            pick_lne: percent(50),
-        }
-    }
-}
-
-impl Probabilities for ProbStatic {
-    type Update = (EvolutionEvent, u64);
-    fn probability(&self, evt: EvolutionEvent) -> u64 {
-        match evt {
-            EvolutionEvent::MutateConnection => self.mutate_connection,
-            EvolutionEvent::MutateBisection => self.mutate_bisection,
-            EvolutionEvent::MutateWeight => self.mutate_weight,
-            EvolutionEvent::PerturbWeight => self.perturb_weight,
-            EvolutionEvent::NewWeight => self.new_weight,
-            EvolutionEvent::NewDisabled => self.new_disabled,
-            EvolutionEvent::KeepDisabled => self.keep_disabled,
-            EvolutionEvent::PickLEQ => self.pick_leq,
-            EvolutionEvent::PickLNE => self.pick_lne,
-        }
-    }
-
-    fn update(&mut self, (evt, v): Self::Update) {
-        match evt {
-            EvolutionEvent::MutateConnection => self.mutate_connection = v,
-            EvolutionEvent::MutateBisection => self.mutate_bisection = v,
-            EvolutionEvent::MutateWeight => self.mutate_weight = v,
-            EvolutionEvent::PerturbWeight => self.perturb_weight = v,
-            EvolutionEvent::NewWeight => self.new_weight = v,
-            EvolutionEvent::NewDisabled => self.new_disabled = v,
-            EvolutionEvent::KeepDisabled => self.keep_disabled = v,
-            EvolutionEvent::PickLEQ => self.pick_leq = v,
-            EvolutionEvent::PickLNE => self.pick_lne = v,
-        }
-    }
+pub fn default_rng() -> impl RngCore {
+    WyRng::seeded(seed_urandom().unwrap())
 }
 
 pub struct WyRng {
@@ -144,151 +61,102 @@ impl RngCore for WyRng {
     }
 }
 
-pub struct ProbBinding<P: Probabilities, R: RngCore> {
-    p: P,
-    r: R,
+pub trait EventKind: Copy {
+    const COUNT: usize;
+    fn variants() -> [Self; Self::COUNT];
+    fn idx(&self) -> usize;
+
+    fn pick<R: RngCore>(rng: &mut R, prob: [u64; Self::COUNT]) -> Option<Self> {
+        let roll = rng.next_u64();
+        debug_assert!({
+            prob.iter()
+                .fold(0u64, |acc, next| acc.checked_add(*next).unwrap());
+            true
+        });
+
+        prob.into_iter().enumerate().find_fold(0, |acc, (idx, p)| {
+            if roll < p + acc {
+                ControlFlow::Break(Self::variants()[idx])
+            } else {
+                ControlFlow::Continue(p + acc)
+            }
+        })
+    }
 }
 
-impl<P: Probabilities, R: RngCore> ProbBinding<P, R> {
-    pub fn new(p: P, r: R) -> Self {
-        Self { p, r }
-    }
+trait FindFold<T> {
+    fn find_fold<U, R>(&mut self, init: R, op: impl Fn(R, T) -> ControlFlow<U, R>) -> Option<U>;
+}
 
-    #[allow(clippy::should_implement_trait)] // type signature is incompatible with trait Default
-    pub fn default() -> ProbBinding<impl Probabilities, impl RngCore> {
-        ProbBinding {
-            p: ProbStatic::default(),
-            r: default_rng(),
+impl<T, I: Iterator<Item = T> + Sized> FindFold<T> for I {
+    fn find_fold<U, R>(
+        &mut self,
+        mut init: R,
+        op: impl Fn(R, T) -> ControlFlow<U, R>,
+    ) -> Option<U> {
+        loop {
+            match self.next() {
+                Some(v) => match op(init, v) {
+                    ControlFlow::Continue(n) => init = n,
+                    ControlFlow::Break(res) => break Some(res),
+                },
+                None => break None,
+            }
         }
     }
 }
 
-impl<P: Probabilities, R: RngCore> Probabilities for ProbBinding<P, R> {
-    type Update = P::Update;
-    fn probability(&self, evt: EvolutionEvent) -> u64 {
-        self.p.probability(evt)
-    }
-
-    fn update(&mut self, stats: Self::Update) {
-        self.p.update(stats);
-    }
+#[macro_export]
+macro_rules! count {
+    ($_:ident) => {
+        1
+    };
+    ($_:ident, $($remain:ident),+) => {
+        1+$crate::count!($($remain),+)
+    };
 }
 
-impl<P: Probabilities, R: RngCore> RngCore for ProbBinding<P, R> {
-    fn next_u32(&mut self) -> u32 {
-        self.r.next_u32()
-    }
-
-    fn next_u64(&mut self) -> u64 {
-        self.r.next_u64()
-    }
-
-    fn fill_bytes(&mut self, dest: &mut [u8]) {
-        self.r.fill_bytes(dest)
-    }
+#[macro_export]
+macro_rules! iota {
+    (@inner $t:ty, $name:ident, $value:expr, $($rest:ident, $new_value:expr),*) => {
+        const $name: $t = $value;
+        $crate::iota!(@inner $t, $($rest, $value + 1),*);
+    };
+    (@inner $t:ty, $name:ident, $value:expr) => {
+        const $name: $t = $value;
+    };
+    ($t:ty, $($name:ident,)* $(,)?) => {
+        $crate::iota!(@inner $t, $($name, 0),*);
+    };
 }
 
-pub fn with_probabilities<P: Fn(EvolutionEvent) -> u64, R: FnMut() -> u64>(
-    prob: P,
-    rng: impl Fn() -> R,
-) -> impl FnMut(EvolutionEvent) -> bool {
-    let mut next_u64 = rng();
-    move |evt| prob(evt) > next_u64()
-}
+// TODO not pub structs
+#[macro_export]
+macro_rules! events {
+    ($scope:ident[$($evt:ident),+]) => {
+        ::paste::paste! {
+            #[derive(Debug, Clone, Copy)]
+            pub enum [<$scope Event>] {
+                $($evt,)*
+            }
 
-pub fn seed_urandom() -> io::Result<u64> {
-    let mut file = File::open("/dev/urandom")?;
-    let mut buffer = [0u8; 8];
-    file.read_exact(&mut buffer)?;
-    Ok(u64::from_le_bytes([
-        buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5], buffer[6], buffer[7],
-    ]))
-}
+            impl $crate::random::EventKind for [<$scope Event>] {
+                const COUNT: usize = $crate::count!($($evt),+);
 
-pub fn rng_rngcore(rng: impl RngCore) -> impl FnMut() -> u64 {
-    let mut rng = rng;
-    move || rng.next_u64()
-}
+                fn variants() -> [Self; Self::COUNT] {
+                    [$(Self::$evt),*]
+                }
 
-pub fn default_rng() -> impl RngCore {
-    WyRng::seeded(seed_urandom().unwrap())
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-    use core::iter::once;
-    use rand::rngs::ThreadRng;
-
-    const CHANCE_MUTATE_CONNECTION: f64 = 0.03;
-    const CHANCE_MUTATE_BISECTION: f64 = 0.05;
-    const CHANCE_MUTATE_WEIGHT: f64 = 0.8;
-    const CHANCE_PERTURB_WEIGHT: f64 = 0.9;
-    const CHANCE_NEW_WEIGHT: f64 = 0.1;
-    const CHANCE_NEW_DISABLED: f64 = 0.01;
-    const CHANCE_KEEP_DISABLED: f64 = 0.75;
-    const CHANCE_PICK_L_EQ: f64 = 0.5;
-    const CHANCE_PICK_L_NE: f64 = 0.5;
-
-    fn assert_within_deviation(
-        evt: EvolutionEvent,
-        chance: f64,
-        range: f64,
-        happens: &mut impl Happens,
-    ) {
-        let samples = 10_000.;
-        let expected = chance * samples;
-        let max_deviation = expected * range;
-        for _ in 0..100 {
-            let incidence = once(())
-                .cycle()
-                .take(samples as usize)
-                .filter(|()| happens.happens(evt))
-                .count() as f64;
-            assert!(
-                (expected - incidence).abs() < max_deviation,
-                "{evt:?}: {incidence} != {expected} ± {max_deviation}"
-            );
+                fn idx(&self) -> usize {
+                    $crate::iota!(usize, $([<$evt:snake:upper _IDX>],)*);
+                    match self {
+                        $(Self::$evt => [<$evt:snake:upper _IDX>],)*
+                    }
+                }
+            }
         }
-    }
-
-    // controll test - we are confident that rand generates good random numbers
-    #[test]
-    fn test_deviation_rand() {
-        let mut p_bind = ProbBinding::new(ProbStatic::default(), ThreadRng::default());
-        for (evt, chance) in [
-            (EvolutionEvent::MutateConnection, CHANCE_MUTATE_CONNECTION),
-            (EvolutionEvent::MutateBisection, CHANCE_MUTATE_BISECTION),
-            (EvolutionEvent::MutateWeight, CHANCE_MUTATE_WEIGHT),
-            (EvolutionEvent::PerturbWeight, CHANCE_PERTURB_WEIGHT),
-            (EvolutionEvent::NewWeight, CHANCE_NEW_WEIGHT),
-            (EvolutionEvent::NewDisabled, CHANCE_NEW_DISABLED),
-            (EvolutionEvent::KeepDisabled, CHANCE_KEEP_DISABLED),
-            (EvolutionEvent::PickLEQ, CHANCE_PICK_L_EQ),
-            (EvolutionEvent::PickLNE, CHANCE_PICK_L_NE),
-        ] {
-            assert_within_deviation(evt, chance, 0.33, &mut p_bind);
-        }
-    }
-
-    #[test]
-    fn test_deviation_wyrand() {
-        let mut p_bind = ProbBinding::new(
-            ProbStatic::default(),
-            WyRng::seeded(seed_urandom().unwrap()),
-        );
-        for (evt, chance) in [
-            (EvolutionEvent::MutateConnection, CHANCE_MUTATE_CONNECTION),
-            (EvolutionEvent::MutateBisection, CHANCE_MUTATE_BISECTION),
-            (EvolutionEvent::MutateWeight, CHANCE_MUTATE_WEIGHT),
-            (EvolutionEvent::PerturbWeight, CHANCE_PERTURB_WEIGHT),
-            (EvolutionEvent::NewWeight, CHANCE_NEW_WEIGHT),
-            (EvolutionEvent::NewDisabled, CHANCE_NEW_DISABLED),
-            (EvolutionEvent::KeepDisabled, CHANCE_KEEP_DISABLED),
-            (EvolutionEvent::PickLEQ, CHANCE_PICK_L_EQ),
-            (EvolutionEvent::PickLNE, CHANCE_PICK_L_NE),
-        ] {
-            assert_within_deviation(evt, chance, 0.33, &mut p_bind);
-        }
-    }
+    };
 }
+
+events!(Genome[NewConnection, BisectConnection, MutateConnection, MutateNode]);
+events!(Connection[Disable, MutateParam]);

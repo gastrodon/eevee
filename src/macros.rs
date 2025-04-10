@@ -24,7 +24,7 @@ macro_rules! test_t {
   ($name:ident[T: $($impl:ty)|*]() $body:tt ) => {$(
       ::paste::paste! {
           #[test]
-          fn [<test_ $name _ $impl:snake>]() {
+          fn [<$name _ $impl:snake>]() {
             type T=$impl;
             $body
           }
@@ -80,4 +80,34 @@ macro_rules! assert_some_normalized {
     assert!([$($r,)*].into_iter().any(|r| l == $crate::normalized!(r.to_owned(); $({.$($norm)* })+)), "{}", $msg)
   }};
   ($l:expr, [$($r:expr),* $(,)?]; $({.$($norm:tt)+})+) => {$crate::assert_some_normalized!($l, [$($r,)*]; $({.$($norm)* })+, format!("{:?} not in {:?}", $l, [$($r,)*]))};
+}
+
+#[macro_export]
+macro_rules! mutate_param {
+    ([$($evt:ident),+]: [$($prob:expr),+]) => {
+        ::paste::paste! {
+            fn mutate_param(&mut self, rng: &mut impl rand::RngCore) {
+                use $crate::random::EventKind;
+                use rand::Rng;
+                $crate::events!(Param[$($evt),*]);
+                const PARAM_PROBABILITIES: [u64; ParamEvent::COUNT] = [$($prob),*];
+
+                if let Some(evt) = ParamEvent::pick(rng, PARAM_PROBABILITIES) {
+                    let replace = rng.next_u64() < Self::PARAM_REPLACE_PROBABILITY;
+                    let v: f64 = rng.sample(rand::distr::Uniform::new_inclusive(-3., 3.).expect("distribution of -3. ..= 3. failed"));
+                    match evt {
+                        $(ParamEvent::[<$evt:camel>] => self.[<$evt:lower>] = if replace {
+                            v
+                        } else {
+                            self.[<$evt:lower>] + ( Self::PARAM_PERTURB_FAC * v )
+                        },)*
+                    }
+                }
+            }
+
+            fn param_diff(&self, other: &Self) -> f64 {
+                [$((self.[<$evt:lower>] - other.[<$evt:lower>])),*].iter().sum()
+            }
+        }
+    };
 }

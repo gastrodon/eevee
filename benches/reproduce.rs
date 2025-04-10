@@ -1,13 +1,12 @@
 use brain::{
-    genome::{node::NonBNode, CTRGenome, Connection, Genome, WConnection},
-    random::{default_rng, ProbBinding, ProbStatic},
+    genome::{Connection, Genome, Recurrent, WConnection},
+    random::default_rng,
     specie::{reproduce, InnoGen},
 };
 use criterion::Criterion;
 
-type N = NonBNode;
-type C = WConnection<N>;
-type G = CTRGenome<N, C>;
+type C = WConnection;
+type G = Recurrent<C>;
 
 fn bench_reproduce(bench: &mut Criterion) {
     let genomes =
@@ -25,7 +24,7 @@ fn bench_reproduce(bench: &mut Criterion) {
         .max()
         .unwrap();
 
-    let mut rng = ProbBinding::new(ProbStatic::default(), default_rng());
+    let mut rng = default_rng();
     bench.bench_function("reproduce", |b| {
         b.iter(|| reproduce(genomes.clone(), 100, &mut InnoGen::new(inno_head), &mut rng))
     });

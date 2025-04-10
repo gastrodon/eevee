@@ -3,29 +3,21 @@
 
 use brain::{
     activate::relu,
-    genome::{node::NonBNode, CTRGenome, Genome, WConnection},
-    network::{loss::decay_quadratic, ToNetwork},
-    random::{
-        default_rng, percent, EvolutionEvent, Happens, ProbBinding, ProbStatic, Probabilities,
-    },
+    genome::{Genome, Recurrent, WConnection},
+    network::{loss::decay_quadratic, Continuous, Network, ToNetwork},
+    random::default_rng,
     scenario::{evolve, EvolutionHooks},
     specie::population_init,
-    Connection, Ctrnn, Network, Node, Scenario, Stats,
+    Connection, Scenario, Stats,
 };
 use core::{f64, ops::ControlFlow};
-use rand::RngCore;
 
 const POPULATION: usize = 100;
 
 struct Xor;
 
-impl<
-        N: Node,
-        C: Connection<N>,
-        G: Genome<N, C> + ToNetwork<Ctrnn, N, C>,
-        H: RngCore + Probabilities + Happens,
-        A: Fn(f64) -> f64,
-    > Scenario<N, C, G, H, A> for Xor
+impl<C: Connection, G: Genome<C> + ToNetwork<Continuous, C>, A: Fn(f64) -> f64> Scenario<C, G, A>
+    for Xor
 {
     fn io(&self) -> (usize, usize) {
         (2, 1)
@@ -53,17 +45,15 @@ impl<
     }
 }
 
-fn hook<
-    N: Node,
-    C: Connection<N>,
-    G: Genome<N, C>,
-    H: RngCore + Probabilities<Update = (brain::random::EvolutionEvent, u64)> + Happens,
->(
-    stats: &mut Stats<'_, N, C, G, H>,
-) -> ControlFlow<()> {
+fn hook<C: Connection, G: Genome<C>>(stats: &mut Stats<'_, C, G>) -> ControlFlow<()> {
     if stats.generation % 10 == 1 {
         let (_, f) = stats.fittest().unwrap();
-        println!("fittest of gen {}: {:.4}", stats.generation, f);
+        println!(
+            "fittest of gen {}: {:.4} (of {} species",
+            stats.generation,
+            f,
+            stats.species.len()
+        );
     }
 
     if stats.any_fitter_than(0.749999) {
@@ -77,28 +67,18 @@ fn hook<
         return ControlFlow::Break(());
     }
 
-    if stats.generation == 100 {
-        stats
-            .rng
-            .update((EvolutionEvent::MutateConnection, percent(35)));
-        stats
-            .rng
-            .update((EvolutionEvent::MutateBisection, percent(35)));
-    }
-
     ControlFlow::Continue(())
 }
 
-type N = NonBNode;
-type C = WConnection<NonBNode>;
-type G = CTRGenome<NonBNode, WConnection<NonBNode>>;
+type C = WConnection;
+type G = Recurrent<C>;
 
 fn main() {
     evolve(
         Xor {},
-        |(i, o)| population_init::<N, C, G>(i, o, POPULATION),
+        |(i, o)| population_init::<C, G>(i, o, POPULATION),
         relu,
-        ProbBinding::new(ProbStatic::default(), default_rng()),
+        default_rng(),
         EvolutionHooks::new(vec![Box::new(hook)]),
     );
 }

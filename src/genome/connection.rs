@@ -1,28 +1,23 @@
-use super::{Connection, Node};
-use crate::{random::EvolutionEvent, specie::InnoGen, Happens};
-use rand::{Rng, RngCore};
-use rand_distr::StandardNormal;
+use super::Connection;
+use crate::{mutate_param, random::percent, specie::InnoGen};
+use core::hash::Hash;
 use serde::{Deserialize, Serialize};
-use std::{hash::Hash, marker::PhantomData};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct WConnection<N: Node> {
+pub struct WConnection {
     pub inno: usize,
     pub from: usize,
     pub to: usize,
     pub weight: f64,
     pub enabled: bool,
-    _phantom: PhantomData<N>,
 }
 
-impl<N: Node> WConnection<N> {
-    const MUTATE_WEIGHT_FAC: f64 = 0.05;
-}
-
-impl<N: Node> Connection<N> for WConnection<N> {
+impl Connection for WConnection {
     const EXCESS_COEFFICIENT: f64 = 1.0;
     const DISJOINT_COEFFICIENT: f64 = 1.0;
     const PARAM_COEFFICIENT: f64 = 0.4;
+
+    mutate_param!([Weight]: [percent(100)]);
 
     fn new(from: usize, to: usize, inno: &mut InnoGen) -> Self {
         Self {
@@ -31,7 +26,6 @@ impl<N: Node> Connection<N> for WConnection<N> {
             to,
             weight: 1.,
             enabled: true,
-            _phantom: PhantomData,
         }
     }
 
@@ -59,16 +53,8 @@ impl<N: Node> Connection<N> for WConnection<N> {
         self.weight
     }
 
-    fn mutate_params(&mut self, rng: &mut (impl RngCore + Happens)) {
-        if rng.happens(EvolutionEvent::NewWeight) {
-            self.weight = rng.sample(StandardNormal);
-        } else if rng.happens(EvolutionEvent::PerturbWeight) {
-            self.weight += Self::MUTATE_WEIGHT_FAC * rng.sample::<f64, _>(StandardNormal)
-        }
-    }
-
     fn bisect(&mut self, center: usize, inno: &mut InnoGen) -> (Self, Self) {
-        <Self as Connection<N>>::disable(self);
+        <Self as Connection>::disable(self);
         (
             // from -{1.}> bisect-node
             Self {
@@ -77,7 +63,6 @@ impl<N: Node> Connection<N> for WConnection<N> {
                 to: center,
                 weight: 1.,
                 enabled: true,
-                _phantom: PhantomData,
             },
             // bisect-node -{w}> to
             Self {
@@ -86,19 +71,12 @@ impl<N: Node> Connection<N> for WConnection<N> {
                 to: self.to,
                 weight: self.weight,
                 enabled: true,
-                _phantom: PhantomData,
             },
         )
     }
-
-    fn param_diff(&self, other: &Self) -> f64 {
-        // TODO add other ctrnn specific diffs when we have those fields available
-        // theta, bias, weight
-        (self.weight - other.weight).abs()
-    }
 }
 
-impl<N: Node> Default for WConnection<N> {
+impl Default for WConnection {
     fn default() -> Self {
         Self {
             inno: 0,
@@ -106,12 +84,11 @@ impl<N: Node> Default for WConnection<N> {
             to: 0,
             weight: 0.,
             enabled: true,
-            _phantom: PhantomData,
         }
     }
 }
 
-impl<N: Node> Hash for WConnection<N> {
+impl Hash for WConnection {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.inno.hash(state);
         self.from.hash(state);
@@ -121,24 +98,21 @@ impl<N: Node> Hash for WConnection<N> {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct BWConnection<N: Node> {
+pub struct BWConnection {
     pub inno: usize,
     pub from: usize,
     pub to: usize,
     pub bias: f64,
     pub weight: f64,
     pub enabled: bool,
-    _phantom: PhantomData<N>,
 }
 
-impl<N: Node> BWConnection<N> {
-    const MUTATE_WEIGHT_FAC: f64 = 0.05;
-}
-
-impl<N: Node> Connection<N> for BWConnection<N> {
+impl Connection for BWConnection {
     const EXCESS_COEFFICIENT: f64 = 1.0;
     const DISJOINT_COEFFICIENT: f64 = 1.0;
     const PARAM_COEFFICIENT: f64 = 0.4;
+
+    mutate_param!([Weight, Bias]: [percent(50), percent(50)]);
 
     fn new(from: usize, to: usize, inno: &mut InnoGen) -> Self {
         Self {
@@ -148,7 +122,6 @@ impl<N: Node> Connection<N> for BWConnection<N> {
             bias: 0.,
             weight: 1.,
             enabled: true,
-            _phantom: PhantomData,
         }
     }
 
@@ -176,16 +149,8 @@ impl<N: Node> Connection<N> for BWConnection<N> {
         self.weight
     }
 
-    fn mutate_params(&mut self, rng: &mut (impl RngCore + Happens)) {
-        if rng.happens(EvolutionEvent::NewWeight) {
-            self.weight = rng.sample(StandardNormal);
-        } else if rng.happens(EvolutionEvent::PerturbWeight) {
-            self.weight += Self::MUTATE_WEIGHT_FAC * rng.sample::<f64, _>(StandardNormal)
-        }
-    }
-
     fn bisect(&mut self, center: usize, inno: &mut InnoGen) -> (Self, Self) {
-        <Self as Connection<N>>::disable(self);
+        <Self as Connection>::disable(self);
         (
             // from -{1.}> bisect-node
             Self {
@@ -195,7 +160,6 @@ impl<N: Node> Connection<N> for BWConnection<N> {
                 bias: 0.,
                 weight: 1.,
                 enabled: true,
-                _phantom: PhantomData,
             },
             // bisect-node -{w}> to
             Self {
@@ -205,17 +169,12 @@ impl<N: Node> Connection<N> for BWConnection<N> {
                 bias: self.bias,
                 weight: self.weight,
                 enabled: true,
-                _phantom: PhantomData,
             },
         )
     }
-
-    fn param_diff(&self, other: &Self) -> f64 {
-        (self.bias - other.bias).abs() + (self.weight - other.weight).abs()
-    }
 }
 
-impl<N: Node> Default for BWConnection<N> {
+impl Default for BWConnection {
     fn default() -> Self {
         Self {
             inno: 0,
@@ -224,12 +183,11 @@ impl<N: Node> Default for BWConnection<N> {
             bias: 0.,
             weight: 0.,
             enabled: true,
-            _phantom: PhantomData,
         }
     }
 }
 
-impl<N: Node> Hash for BWConnection<N> {
+impl Hash for BWConnection {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.inno.hash(state);
         self.from.hash(state);

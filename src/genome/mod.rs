@@ -1,15 +1,14 @@
 pub mod connection;
-pub mod node;
 pub mod recurrent;
 
 pub use connection::WConnection;
-pub use recurrent::CTRGenome;
+pub use recurrent::Recurrent;
 
 use crate::{
-    random::{EvolutionEvent, Happens},
+    random::{percent, ConnectionEvent, EventKind, GenomeEvent},
     specie::InnoGen,
 };
-use core::{cmp::Ordering, error::Error, fmt::Debug, hash::Hash};
+use core::{cmp::Ordering, error::Error, fmt::Debug, hash::Hash, ops::Range};
 use rand::{Rng, RngCore};
 use serde::{Deserialize, Serialize};
 use std::{fs, path::Path};
@@ -22,27 +21,19 @@ pub enum NodeKind {
     Static,
 }
 
-pub trait Node: Serialize + for<'de> Deserialize<'de> + Clone + Debug + PartialEq {
-    /// A new node of some kind
-    fn new(kind: NodeKind) -> Self;
-
-    /// The cond of node this is, where
-    /// - sensory reads input to a network
-    /// - action describes output from a network
-    /// - internal is a hidden node of a network
-    /// - static is a hidden node, but unaffected by input, yielding a static value
-    fn kind(&self) -> NodeKind;
-
-    /// The bias of a node, returning 0. for nodes who can't have bias
-    fn bias(&self) -> f64;
-}
-
-pub trait Connection<N: Node>:
+pub trait Connection:
     Serialize + for<'de> Deserialize<'de> + Clone + Hash + PartialEq + Default + Debug
 {
+    const PROBABILITIES: [u64; ConnectionEvent::COUNT] = [percent(1), percent(99)];
+    const PARAM_REPLACE_PROBABILITY: u64 = percent(10);
+    const PARAM_PERTURB_FAC: f64 = 0.05;
+
     const EXCESS_COEFFICIENT: f64;
     const DISJOINT_COEFFICIENT: f64;
     const PARAM_COEFFICIENT: f64;
+
+    const PROBABILITY_PICK_RL: u64 = percent(50);
+    const PROBABILITY_KEEP_DISABLED: u64 = percent(75);
 
     fn new(from: usize, to: usize, inno: &mut InnoGen) -> Self;
 
@@ -66,32 +57,52 @@ pub trait Connection<N: Node>:
         self.path().0
     }
 
-    fn weight(&self) -> f64;
-
     /// path destination
     fn to(&self) -> usize {
         self.path().1
     }
 
-    /// mutate connection parameters
-    fn mutate_params(&mut self, rng: &mut (impl RngCore + Happens));
-
-    /// bisect this connection; disabling it, and returning the (upper, lower) bisection pair
-    fn bisect(&mut self, center: usize, inno: &mut InnoGen) -> (Self, Self);
+    fn weight(&self) -> f64;
 
     /// difference of connection parameters ( for example, weight )
     /// between this and another connection with the same innovation id
     fn param_diff(&self, other: &Self) -> f64;
-}
 
-pub trait Genome<N: Node, C: Connection<N>>: Serialize + for<'de> Deserialize<'de> + Clone {
+    /// possibly mutate a single param
+    fn mutate_param(&mut self, rng: &mut impl RngCore);
+
+    /// mutate a connection
+    fn mutate(&mut self, rng: &mut impl RngCore) {
+        if let Some(evt) = ConnectionEvent::pick(rng, Self::PROBABILITIES) {
+            match evt {
+                ConnectionEvent::Disable => self.disable(),
+                ConnectionEvent::MutateParam => self.mutate_param(rng),
+            }
+        }
+    }
+
+    /// bisect this connection; disabling it, and returning the (upper, lower) bisection pair
+    fn bisect(&mut self, center: usize, inno: &mut InnoGen) -> (Self, Self);
+}
+pub trait Genome<C: Connection>: Serialize + for<'de> Deserialize<'de> + Clone {
+    const MUTATE_NODE_PROBABILITY: u64 = percent(20);
+    const MUTATE_CONNECTION_PROBABILITY: u64 = percent(20);
+    const PROBABILITIES: [u64; GenomeEvent::COUNT] =
+        [percent(5), percent(15), percent(80), percent(0)];
+
     /// A new genome of this type, with a known input and output size
     fn new(sensory: usize, action: usize) -> (Self, usize);
 
-    fn nodes(&self) -> &[N];
+    fn sensory(&self) -> Range<usize>;
+
+    fn action(&self) -> Range<usize>;
+
+    fn nodes(&self) -> &[NodeKind];
+
+    fn nodes_mut(&mut self) -> &mut [NodeKind];
 
     /// Push a new node onto the genome
-    fn push_node(&mut self, node: N);
+    fn push_node(&mut self, node: NodeKind);
 
     /// A collection to the connections comprising this genome
     fn connections(&self) -> &[C];
@@ -110,16 +121,22 @@ pub trait Genome<N: Node, C: Connection<N>>: Serialize + for<'de> Deserialize<'d
         self.push_connection(second);
     }
 
-    /// Perform a ( possible? TODO ) mutation across every weight
-    fn mutate_params(&mut self, rng: &mut (impl RngCore + Happens));
+    /// Mutate a single connection
+    fn mutate_connection(&mut self, rng: &mut impl RngCore) {
+        for c in self.connections_mut() {
+            if rng.next_u64() < Self::MUTATE_CONNECTION_PROBABILITY {
+                c.mutate(rng);
+            }
+        }
+    }
 
     /// Find some open path ( that is, a path between nodes from -> to )
     /// that no connection is occupying if any exist
-    fn open_path(&self, rng: &mut (impl RngCore + Happens)) -> Option<(usize, usize)>;
+    fn open_path(&self, rng: &mut impl RngCore) -> Option<(usize, usize)>;
 
     /// Generate a new connection between unconnected nodes.
     /// Panics if all possible connections between nodes are saturated
-    fn mutate_connection(&mut self, rng: &mut (impl RngCore + Happens), inno: &mut InnoGen) {
+    fn new_connection(&mut self, rng: &mut impl RngCore, inno: &mut InnoGen) {
         if let Some((from, to)) = self.open_path(rng) {
             self.push_connection(C::new(from, to, inno));
         } else {
@@ -128,7 +145,7 @@ pub trait Genome<N: Node, C: Connection<N>>: Serialize + for<'de> Deserialize<'d
     }
 
     /// Bisect an existing connection. Should panic if there are no connections to bisect
-    fn mutate_bisection(&mut self, rng: &mut (impl RngCore + Happens), inno: &mut InnoGen) {
+    fn bisect_connection(&mut self, rng: &mut impl RngCore, inno: &mut InnoGen) {
         if self.connections().is_empty() {
             panic!("no connections available to bisect");
         }
@@ -141,30 +158,32 @@ pub trait Genome<N: Node, C: Connection<N>>: Serialize + for<'de> Deserialize<'d
             .unwrap()
             .bisect(center, inno);
 
-        self.push_node(N::new(NodeKind::Internal));
+        self.push_node(NodeKind::Internal);
         self.push_2_connections(lower, upper);
     }
 
     /// Perform 0 or more mutations on this genome ( should this be the only mutator exposed? TODO )
-    fn mutate(&mut self, rng: &mut (impl RngCore + Happens), innogen: &mut InnoGen) {
-        if rng.happens(EvolutionEvent::MutateWeight) {
-            self.mutate_params(rng);
-        }
-        if rng.happens(EvolutionEvent::MutateConnection) {
-            self.mutate_connection(rng, innogen);
-        }
-        if rng.happens(EvolutionEvent::MutateBisection) && !self.connections().is_empty() {
-            self.mutate_bisection(rng, innogen);
+    fn mutate(&mut self, rng: &mut impl RngCore, innogen: &mut InnoGen) {
+        if let Some(evt) = GenomeEvent::pick(rng, Self::PROBABILITIES) {
+            match evt {
+                GenomeEvent::NewConnection => self.new_connection(rng, innogen),
+                GenomeEvent::BisectConnection => {
+                    if !self.connections().is_empty() {
+                        self.bisect_connection(rng, innogen)
+                    }
+                }
+                GenomeEvent::MutateConnection => {
+                    if !self.connections().is_empty() {
+                        self.mutate_connection(rng)
+                    }
+                }
+                GenomeEvent::MutateNode => unreachable!("nodes may not be mutated"),
+            }
         }
     }
 
     /// Perform crossover reproduction with other, where our fitness is `fitness_cmp` compared to other
-    fn reproduce_with(
-        &self,
-        other: &Self,
-        fitness_cmp: Ordering,
-        rng: &mut (impl RngCore + Happens),
-    ) -> Self;
+    fn reproduce_with(&self, other: &Self, fitness_cmp: Ordering, rng: &mut impl RngCore) -> Self;
 
     fn to_string(&self) -> Result<String, Box<dyn Error>> {
         Ok(serde_json::to_string(self)?)

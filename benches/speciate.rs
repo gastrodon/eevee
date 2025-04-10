@@ -1,14 +1,13 @@
 use brain::{
     crossover::{avg_param_diff, disjoint_excess_count},
-    genome::{node::NonBNode, CTRGenome, WConnection},
+    genome::{Recurrent, WConnection},
     specie::speciate,
 };
 use core::iter::empty;
 use criterion::Criterion;
 
-type N = NonBNode;
-type C = WConnection<N>;
-type G = CTRGenome<N, C>;
+type C = WConnection;
+type G = Recurrent<C>;
 
 fn bench_distance(bench: &mut Criterion) {
     let l_conn =
