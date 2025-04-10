@@ -37,6 +37,8 @@ impl InnoGen {
     }
 }
 
+/// This has no reason to exist, and will be replaced with ranges in the future.
+#[deprecated]
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum NodeKind {
     Sensory,
