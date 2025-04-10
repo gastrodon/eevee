@@ -8,6 +8,20 @@ on:
       - main
 
 jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        feature: [approx, nes, parallel, smol_bench, watch_game]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+      - name: Build with feature ${{ matrix.feature }}
+        run: cargo build --features ${{ matrix.feature }}
+
   test:
     runs-on: ubuntu-latest
     steps:
