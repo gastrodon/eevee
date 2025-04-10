@@ -9,15 +9,11 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        toolchain: [stable, nightly]
-
     steps:
     - uses: actions/checkout@v2
     - name: Set up Rust
       uses: actions-rs/toolchain@v1
       with:
-        toolchain: ${{ matrix.toolchain }}
+        toolchain: nightly
     - name: Build and Test
       run: cargo test --verbose
