@@ -6,10 +6,32 @@ use std::{
     ops::ControlFlow,
 };
 
+use crate::events;
+
+/// A function for turning a whole percent into a u64 that is `x` percent of `[u64::MAX]`. This
+/// is useful because when we calculate RNGs, we get a raw u64. If our rolled u64 is less than
+/// the probability u64, the RNG check passes
+///
+/// # Examples
+///
+/// ```
+/// use eevee::random::{percent, default_rng};
+/// use rand::RngCore;
+///
+/// const ONE_PERCENT: u64 = u64::MAX / 100;
+///
+/// assert_eq!(percent(50), 50 * ONE_PERCENT);
+/// assert_eq!(percent(1), ONE_PERCENT);
+///
+/// // This will pass about 10% of the time!
+/// default_rng().next_u64() < percent(10);
+/// ```
 pub const fn percent(x: u64) -> u64 {
     x * (u64::MAX / 100)
 }
 
+/// A quick and dirty way to get an RNG seed from urandom, onsystems that support it. Useful
+/// because our implementation of WyRng always needs a seed
 pub fn seed_urandom() -> io::Result<u64> {
     let mut file = File::open("/dev/urandom")?;
     let mut buffer = [0u8; 8];
@@ -19,10 +41,13 @@ pub fn seed_urandom() -> io::Result<u64> {
     ]))
 }
 
+/// For getting a handle on an RngCore when you don't want to think too much about it. This is
+/// why Eevee doesn't work on Windows.
 pub fn default_rng() -> impl RngCore {
     WyRng::seeded(seed_urandom().unwrap())
 }
 
+/// A really small but also fast random number generator. Lifted from smol-rs/fastrand
 pub struct WyRng {
     state: u64,
 }
@@ -61,6 +86,8 @@ impl RngCore for WyRng {
     }
 }
 
+/// A struct for describing discrete events that may occur, typically related to what mutation
+/// happens when any mutation is invoked. Mostly here so that we can use
 pub trait EventKind: Copy {
     const COUNT: usize;
     fn variants() -> [Self; Self::COUNT];

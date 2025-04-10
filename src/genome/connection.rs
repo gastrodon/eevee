@@ -12,6 +12,7 @@ pub struct WConnection {
     pub enabled: bool,
 }
 
+/// A basic connection, with a single weighted path
 impl Connection for WConnection {
     const EXCESS_COEFFICIENT: f64 = 1.0;
     const DISJOINT_COEFFICIENT: f64 = 1.0;
@@ -97,6 +98,7 @@ impl Hash for WConnection {
     }
 }
 
+/// A connection who has a per-connection bias
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BWConnection {
     pub inno: usize,

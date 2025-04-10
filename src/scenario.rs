@@ -15,6 +15,7 @@ use std::collections::HashMap;
 
 const NO_IMPROVEMENT_TRUNCATE: usize = 10;
 
+/// Stats passed to a hook fn
 pub struct Stats<'a, C: Connection, G: Genome<C>> {
     pub generation: usize,
     pub species: &'a [Specie<C, G>],
@@ -40,6 +41,11 @@ impl<C: Connection, G: Genome<C>> Stats<'_, C, G> {
 
 pub type Hook<C, G> = Box<dyn Fn(&mut Stats<'_, C, G>) -> ControlFlow<()>>;
 
+/// Functions that hook into the evolution process, allowing observation and mutation.
+/// Each hook is called each generation with a [Stats] exposing the current population and
+/// generation number. Hooks are called the order that they're provided in `new`.
+///
+/// Hooks can halt evolution, causing `evolve` to return, by returning a ControlFlow::Break
 pub struct EvolutionHooks<C: Connection, G: Genome<C>> {
     hooks: Vec<Hook<C, G>>,
 }
@@ -60,11 +66,22 @@ impl<C: Connection, G: Genome<C>> EvolutionHooks<C, G> {
     }
 }
 
+/// Scenario describes the setting in which evolution takes place. For any genome kind,
+/// (eval)[Scenario::eval] should be implemented such that it evaluates the genome ( or a
+/// network that it produces ) with some fitness. Greater fitnesses will be optimized for
 pub trait Scenario<C: Connection, G: Genome<C>, A: Fn(f64) -> f64> {
     fn io(&self) -> (usize, usize);
     fn eval(&self, genome: &G, σ: &A) -> f64;
 }
 
+/// Given a well-defined evolution scenario, evolve is the entrypoint into actually... evolving.
+/// It will manage evaluation, speciation, reproduction, and mutation of a pool of genomes
+/// about ( but not necessarily exactly ) `population` large. Each specie is allocated some size
+/// in terms of `population`.
+///
+/// If compiled with `--features parallel`, evaluation will run in a thread-pool of one thread
+/// per cpu on the host. This in turn requires our arguments ( excluding init, which is called
+/// exactly once ) to implement [Sync]
 pub fn evolve<
     C: Connection,
     #[cfg(not(feature = "parallel"))] G: Genome<C>,

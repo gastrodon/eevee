@@ -9,6 +9,8 @@ use core::{
 };
 use std::{fs::read_dir, hash::DefaultHasher, iter::empty, path::Path};
 
+/// The representative member of a particular specie. Is retained inter-generationally to better
+/// track when a specie deviates
 #[derive(Debug, Clone)]
 pub struct SpecieRepr<C: Connection>(Vec<C>);
 
@@ -55,6 +57,7 @@ impl<C: Connection> AsRef<[C]> for SpecieRepr<C> {
     }
 }
 
+/// A collection of fitted [Genome]s who are closely related to the same [SpecieRepr]
 #[derive(Debug)]
 pub struct Specie<C: Connection, G: Genome<C>> {
     pub repr: SpecieRepr<C>,
@@ -93,6 +96,9 @@ impl<C: Connection, G: Genome<C>> Specie<C, G> {
 
 const SPECIE_THRESHOLD: f64 = 4.;
 
+/// Partition an unordered collection of [Genome]s into species. An initial collection of empty
+/// species is created from repr, and if some genome matches none of them, a new specie is
+/// formed with them as the repr.
 pub fn speciate<C: Connection, G: Genome<C>>(
     genomes: impl Iterator<Item = (G, f64)>,
     reprs: impl Iterator<Item = SpecieRepr<C>>,
@@ -140,6 +146,7 @@ pub fn population_init<C: Connection, G: Genome<C>>(
     )
 }
 
+/// Save a population of [Genome]s to individual files inside of a directory at `path`
 pub fn population_to_files<P: AsRef<Path>, C: Connection, G: Genome<C>>(
     path: P,
     pop: &[Specie<C, G>],
@@ -155,6 +162,8 @@ pub fn population_to_files<P: AsRef<Path>, C: Connection, G: Genome<C>>(
     Ok(())
 }
 
+/// Load a population of [Genome]s from individual files inside of a directory at `path`. Assumes
+/// that every file in `path` is a valid descriptor, and will parse it.
 pub fn population_from_files<P: AsRef<Path>, C: Connection, G: Genome<C>>(
     path: P,
 ) -> Result<SpecieGroup<C, G>, Box<dyn Error>> {
@@ -175,6 +184,8 @@ pub fn population_from_files<P: AsRef<Path>, C: Connection, G: Genome<C>>(
     Ok((speciate(pop_flat.into_iter(), empty()), inno_head))
 }
 
+/// Load a single [Genome] from a single file, and clone it `population` times. Useful for
+/// resuming training from a single champion, or inspecting a particular genome.
 pub fn population_from_genome<P: AsRef<Path>, C: Connection, G: Genome<C>>(
     path: P,
     population: usize,

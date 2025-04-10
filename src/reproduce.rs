@@ -209,7 +209,9 @@ fn population_allocated<
         .filter_map(move |specie| alloc.get(&specie.repr).map(|pop| (specie.members, *pop)))
 }
 
-// reproduce a whole speciated population into a non-speciated population
+/// Reproduce a group of species, allocating their populations based on their specie fitness
+/// relative to eachother. Enforces a min_fitness threshold for every specie member, and allows
+/// low-fitness species to naturally die off.
 pub fn population_reproduce<C: Connection, G: Genome<C>>(
     species: &[(Specie<C, G>, f64)],
     population: usize,

@@ -5,6 +5,8 @@
 Nothing really works very well. There's a lot of useful code, and topology search / genome evolution _can_ be done,
 but it's slow, inefficient, and often fails completely. Expect frequent changes.
 
+Eevee doesn't work on Windows. This is because our default RNG seeding assumes that `/dev/urandom` exists.
+
 ### Overview
 
 Eevee is a library for leveraging the [NEAT](https://web.archive.org/web/20241209001646/https://ieeexplore.ieee.org/abstract/document/6790655) algorithm to train genomes encoding neural network behavior. Specifically, it aims to generalize the algorithm such that it may be applied to different domains, and maybe in the future applications that don't implement neural networks at all.

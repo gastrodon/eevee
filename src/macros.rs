@@ -1,3 +1,4 @@
+/// A macro for instantiating a [Default]-able something, and then assigning some values to it.
 #[macro_export]
 macro_rules! new_t {
     ($t:ty, $($k:ident = $v:expr),+ $(,)?) => {{
@@ -8,6 +9,7 @@ macro_rules! new_t {
     ($($k:ident = $v:expr),+ $(,)?) => {new_t!(T, $($k = $v,)+)};
 }
 
+/// A macro for constructing a single test with a number of types.
 #[macro_export]
 macro_rules! test_t {
   ( #[should_panic(expected = $panic_msg:literal)]
@@ -73,6 +75,7 @@ macro_rules! normalized {
     }};
 }
 
+/// A macro for comparing some values who may differ in ways we don't care about
 #[macro_export]
 macro_rules! assert_some_normalized {
   ($l:expr, [$($r:expr),*  $(,)?]; $({.$($norm:tt)+})+, $msg: expr) => {{
@@ -136,7 +139,6 @@ macro_rules! iota {
     };
 }
 
-// TODO not pub structs
 #[macro_export]
 macro_rules! events {
     ($scope:ident[$($evt:ident),+]) => {

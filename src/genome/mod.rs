@@ -1,3 +1,13 @@
+//! Traits for Genomes and their Connections.
+//!
+//! A [Genome] descirbes some discrete structure which may be mutated, evaluated, and be
+//! comprised of a collection of connectionss who describe some network structure. Genomes may
+//! ( but not necessarily ) be marshallable into a [Neural Network](crate::network::Network).
+//!
+//! A [Connection] describes a member of a genome's body ( sometimes referred to as a gene )
+//! that describes some discrete behavior. In aggregate, connections may describe arbitrarially
+//! complex behavior. Through evolution, that complex behavior is refined towards increasing
+//! some one-dimensional fitness.
 pub mod connection;
 pub mod recurrent;
 
@@ -11,6 +21,11 @@ use rand::{Rng, RngCore};
 use serde::{Deserialize, Serialize};
 use std::{fs, path::Path};
 
+/// InnoGen is a structure who's job is to associate an innovation ID uniquely with some
+/// connection path in the from (from, to). It typically lives generationally, ie every new
+/// connection through some path formed in a single generation should have the same innovation
+/// id as every other connection through the same path formed that generation so that they can
+/// later be used in crossover reproduction.
 pub struct InnoGen {
     pub head: usize,
     seen: FxHashMap<(usize, usize), usize>,
@@ -47,6 +62,11 @@ pub enum NodeKind {
     Static,
 }
 
+/// A connection between 2 points. Connections may be arbitrarially parameterized, and those
+/// parameters mutated inside [mutate_param](Connection::mutate_param). For those params to
+/// actually be _used_, a connection should expose them with a trait, and a
+/// [Network](crate::network::Network) implementer should know about them. Any connection must
+/// have a path, weight, and innovation_id ( which should be supplied from InnoGen ).
 pub trait Connection:
     Serialize + for<'de> Deserialize<'de> + Clone + Hash + PartialEq + Default + Debug
 {
@@ -110,13 +130,18 @@ pub trait Connection:
     /// bisect this connection; disabling it, and returning the (upper, lower) bisection pair
     fn bisect(&mut self, center: usize, inno: &mut InnoGen) -> (Self, Self);
 }
+
+/// A genome comprised of some connections and connections. A genome must be able to form new
+/// new connections, bisect any existing connection, and mutate any existing connections
+/// arbitrary parameters. A genome must also be able to reproduce with any other genome of the
+/// same kind, their connections constructively crossing over.
 pub trait Genome<C: Connection>: Serialize + for<'de> Deserialize<'de> + Clone {
     const MUTATE_NODE_PROBABILITY: u64 = percent(20);
     const MUTATE_CONNECTION_PROBABILITY: u64 = percent(20);
     const PROBABILITIES: [u64; GenomeEvent::COUNT] =
         [percent(5), percent(15), percent(80), percent(0)];
 
-    /// A new genome of this type, with a known input and output size
+    /// A new genome of this type, with a known input and output size.
     fn new(sensory: usize, action: usize) -> (Self, usize);
 
     fn sensory(&self) -> Range<usize>;
@@ -125,29 +150,32 @@ pub trait Genome<C: Connection>: Serialize + for<'de> Deserialize<'de> + Clone {
 
     fn nodes(&self) -> &[NodeKind];
 
+    #[deprecated]
     fn nodes_mut(&mut self) -> &mut [NodeKind];
 
-    /// Push a new node onto the genome
+    /// Push a new node onto the genome.
     fn push_node(&mut self, node: NodeKind);
 
-    /// A collection to the connections comprising this genome
+    /// A collection to the connections comprising this genome.
     fn connections(&self) -> &[C];
 
-    /// Mutable reference to the connections comprising this genome
+    /// Mutable reference to the connections comprising this genome.
     fn connections_mut(&mut self) -> &mut [C];
 
-    /// Push a connection onto the genome
+    /// Push a connection onto the genome.
     fn push_connection(&mut self, connection: C);
 
     /// Push 2 connections onto the genome, first then second.
-    /// The idea with this is that we'll often do so as a result of bisection,
-    /// so this gives us a chance to grow the connections just once if we want
+    /// The idea with this is that we'll often do so as a result of bisection, so this gives us
+    /// a chance to grow the connections just once if we want.
     fn push_2_connections(&mut self, first: C, second: C) {
         self.push_connection(first);
         self.push_connection(second);
     }
 
-    /// Mutate a single connection
+    /// Possibly mutate a single connection. On average, will mutate every
+    /// [MUTATE_CONNECTION_PROBABILITY](Genome::MUTATE_CONNECTION_PROBABILITY) / [u64::MAX]
+    /// connection.
     fn mutate_connection(&mut self, rng: &mut impl RngCore) {
         for c in self.connections_mut() {
             if rng.next_u64() < Self::MUTATE_CONNECTION_PROBABILITY {
@@ -156,12 +184,13 @@ pub trait Genome<C: Connection>: Serialize + for<'de> Deserialize<'de> + Clone {
         }
     }
 
-    /// Find some open path ( that is, a path between nodes from -> to )
-    /// that no connection is occupying if any exist
+    /// Find some open path ( that is, a path between nodes from -> to ) that no connection is
+    /// occupying if any exist. Whatever path is returned will be considered valid, and may be
+    /// used when generating a new connection.
     fn open_path(&self, rng: &mut impl RngCore) -> Option<(usize, usize)>;
 
-    /// Generate a new connection between unconnected nodes.
-    /// Panics if all possible connections between nodes are saturated
+    /// Generate a new connection between unconnected nodes. Panics if all possible connections
+    /// between nodes are saturated ( TODO: is that a good idea? )
     fn new_connection(&mut self, rng: &mut impl RngCore, inno: &mut InnoGen) {
         if let Some((from, to)) = self.open_path(rng) {
             self.push_connection(C::new(from, to, inno));
@@ -170,7 +199,9 @@ pub trait Genome<C: Connection>: Serialize + for<'de> Deserialize<'de> + Clone {
         }
     }
 
-    /// Bisect an existing connection. Should panic if there are no connections to bisect
+    /// Bisect an existing connection. Panics if there are no connections to bisect. This is the
+    /// mechanism by which the internal / "hidden" layer of nodes grows on a genome, the new
+    /// node being at the center of the bisection.
     fn bisect_connection(&mut self, rng: &mut impl RngCore, inno: &mut InnoGen) {
         if self.connections().is_empty() {
             panic!("no connections available to bisect");
@@ -188,7 +219,9 @@ pub trait Genome<C: Connection>: Serialize + for<'de> Deserialize<'de> + Clone {
         self.push_2_connections(lower, upper);
     }
 
-    /// Perform 0 or more mutations on this genome ( should this be the only mutator exposed? TODO )
+    /// Perform 0 or more mutations on this genome. If [PROBABILITIES](Genome::PROBABILITIES)
+    /// add up to [u64::MAX], some event will always be picked. Otherwise, it's possible that
+    /// no mutation actually ocurrs.
     fn mutate(&mut self, rng: &mut impl RngCore, innogen: &mut InnoGen) {
         if let Some(evt) = GenomeEvent::pick(rng, Self::PROBABILITIES) {
             match evt {
@@ -211,10 +244,12 @@ pub trait Genome<C: Connection>: Serialize + for<'de> Deserialize<'de> + Clone {
     /// Perform crossover reproduction with other, where our fitness is `fitness_cmp` compared to other
     fn reproduce_with(&self, other: &Self, fitness_cmp: Ordering, rng: &mut impl RngCore) -> Self;
 
+    /// Serialize this genome to a JSON string
     fn to_string(&self) -> Result<String, Box<dyn Error>> {
         Ok(serde_json::to_string(self)?)
     }
 
+    /// Deserialize this genome from a JSON string
     #[allow(clippy::should_implement_trait)]
     fn from_str(s: &str) -> Result<Self, Box<dyn Error>> {
         serde_json::from_str(s).map_err(|op| op.into())

@@ -15,28 +15,34 @@ use serde::{Deserialize, Serialize};
 /// and with some code stolen from [TLmaK0's neat implentation](https://github.com/TLmaK0/rustneat)
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Continuous {
+    /// 1d state of neurons 0-N
     #[serde(
         serialize_with = "serialize_matrix",
         deserialize_with = "deserialize_matrix_flat"
     )]
-    pub y: Matrix<f64>, // 1d state of neurons 0-N
+    pub y: Matrix<f64>,
+    /// 1d bias of neurons 0-N
     #[serde(
         serialize_with = "serialize_matrix",
         deserialize_with = "deserialize_matrix_flat"
     )]
-    pub θ: Matrix<f64>, // 1d bias of neurons 0-N
+    pub θ: Matrix<f64>,
+    /// 1d membrane resistance time constant
     #[serde(
         serialize_with = "serialize_matrix",
         deserialize_with = "deserialize_matrix_flat"
     )]
-    pub τ: Matrix<f64>, // 1d membrane resistance time constant
+    pub τ: Matrix<f64>,
+    /// Nd weights between neurons, indexed as [from, to]
     #[serde(
         serialize_with = "serialize_matrix",
         deserialize_with = "deserialize_matrix_square"
     )]
-    pub w: Matrix<f64>, // Nd weights between neurons, indexed as [from, to]
-    pub sensory: (usize, usize), // Range of input neurons, indexing into y
-    pub action: (usize, usize),  // Range of output neurons, indexing into y
+    pub w: Matrix<f64>,
+    /// Range of input neurons, indexing into y
+    pub sensory: (usize, usize),
+    /// Range of output neurons, indexing into y
+    pub action: (usize, usize),
 }
 
 impl Network for Continuous {

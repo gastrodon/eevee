@@ -2,6 +2,9 @@ use crate::genome::Connection;
 use core::cmp::Ordering;
 use rand::RngCore;
 
+/// Count misaligned [Connection]s between 2 slices. Where `l` is more fit ( TODO really? ), we
+/// consider disjoint genes to be misalignments of innovation ids < `r`s max, and excess are
+/// misalignments of ids > `r`s max.
 pub fn disjoint_excess_count<C: Connection>(l: &[C], r: &[C]) -> (f64, f64) {
     let mut l_iter = l.iter();
     let mut r_iter = r.iter();
@@ -53,7 +56,8 @@ pub fn disjoint_excess_count<C: Connection>(l: &[C], r: &[C]) -> (f64, f64) {
     )
 }
 
-/// if genomes share no overlapping weights, their average diff should be 0
+/// Average param difference between aligned genes from `l` and `r`. Misaligned genes are not
+/// considered
 pub fn avg_param_diff<C: Connection>(l: &[C], r: &[C]) -> f64 {
     let mut diff = 0.;
     let mut count = 0.;
@@ -108,6 +112,8 @@ pub fn avg_param_diff<C: Connection>(l: &[C], r: &[C]) -> f64 {
     }
 }
 
+/// difference between [Connection]s in terms of crossover compatability. Higher deltas tend to
+/// yield more destructive crossover.
 pub fn delta<C: Connection>(l: &[C], r: &[C]) -> f64 {
     let l_size = l.len() as f64;
     let r_size = r.len() as f64;
@@ -223,8 +229,8 @@ fn crossover_ne<C: Connection>(l: &[C], r: &[C], rng: &mut impl RngCore) -> Vec<
     cross
 }
 
-/// crossover connections
-/// l_fit describes how fit l is compared to r,
+/// Perform crossover reproduction across 2 [Connection] slices `l` and `r`. `l_fit` describes
+/// how fit `l` is compared to `r`, which determines who's genes to prioritize when misaligned.
 pub fn crossover<C: Connection>(
     l: &[C],
     r: &[C],
