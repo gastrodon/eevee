@@ -1,7 +1,4 @@
 {
-  // Use IntelliSense to learn about possible attributes.
-  // Hover to view descriptions of existing attributes.
-  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
   "version": "0.2.0",
   "configurations": [
     {
@@ -18,43 +15,6 @@
         "filter": {
           "name": "brain",
           "kind": "lib"
-        }
-      },
-      "args": [],
-      "cwd": "${workspaceFolder}"
-    },
-    {
-      "type": "lldb",
-      "request": "launch",
-      "name": "Debug example 'cart-pole'",
-      "cargo": {
-        "args": [
-          "build",
-          "--example=cart-pole",
-          "--package=brain"
-        ],
-        "filter": {
-          "name": "cart-pole",
-          "kind": "example"
-        }
-      },
-      "args": [],
-      "cwd": "${workspaceFolder}"
-    },
-    {
-      "type": "lldb",
-      "request": "launch",
-      "name": "Debug unit tests in example 'cart-pole'",
-      "cargo": {
-        "args": [
-          "test",
-          "--no-run",
-          "--example=cart-pole",
-          "--package=brain"
-        ],
-        "filter": {
-          "name": "cart-pole",
-          "kind": "example"
         }
       },
       "args": [],
@@ -81,15 +41,15 @@
     {
       "type": "lldb",
       "request": "launch",
-      "name": "Debug example 'nes-tetris'",
+      "name": "Debug example 'sentiment'",
       "cargo": {
         "args": [
           "build",
-          "--example=nes-tetris",
+          "--example=sentiment",
           "--package=brain"
         ],
         "filter": {
-          "name": "nes-tetris",
+          "name": "sentiment",
           "kind": "example"
         }
       },
@@ -99,16 +59,15 @@
     {
       "type": "lldb",
       "request": "launch",
-      "name": "Debug unit tests in example 'xor'",
+      "name": "Debug example 'nes-tetris'",
       "cargo": {
         "args": [
-          "test",
-          "--no-run",
-          "--example=xor",
+          "build",
+          "--example=nes-tetris",
           "--package=brain"
         ],
         "filter": {
-          "name": "xor",
+          "name": "nes-tetris",
           "kind": "example"
         }
       },
