@@ -1,6 +1,9 @@
 name: CI
 
 on:
+push:
+  tags:
+    - '*'
   push:
     branches:
       - main
@@ -17,3 +20,16 @@ jobs:
         toolchain: nightly
     - name: Build and Test
       run: cargo test --verbose
+
+  publish:
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: nightly
+    - name: Publish to crates.io
+      run: cargo publish --token ${{ secrets.CRATES_TOKEN }}
