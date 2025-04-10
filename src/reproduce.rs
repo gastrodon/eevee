@@ -252,9 +252,10 @@ mod test {
         assert_eq!(inno2.path((0, 1)), 3);
     }
 
-    type Genome = Recurrent<WConnection>;
+    type C = WConnection;
+    type G = Recurrent<C>;
 
-    test_t!(test_specie_reproduce[T: Genome]() {
+    test_t!(test_specie_reproduce[T: G]() {
         let mut rng = default_rng();
         let count = 40;
         let (species, inno_head) = population_init::<WConnection, T>(2, 2, count);
@@ -275,4 +276,50 @@ mod test {
             }
         }
     });
+
+    #[test]
+    fn test_population_alloc() {
+        let mut inno = InnoGen::new(0);
+        let scores_1 = [100., 90., 95.];
+        let scores_2 = [3., 50., 83., 10., 25.];
+
+        let specie_1 = Specie {
+            repr: SpecieRepr::new(vec![C::new(1, 2, &mut inno)]),
+            members: scores_1
+                .into_iter()
+                .map(|score| (G::new(0, 0).0, score))
+                .collect(),
+        };
+
+        let specie_2 = Specie {
+            repr: SpecieRepr::new(vec![C::new(3, 4, &mut inno)]),
+            members: scores_2
+                .into_iter()
+                .map(|score| (G::new(0, 0).0, score))
+                .collect(),
+        };
+
+        let adjusted_1 = specie_1.fit_adjusted();
+        let adjusted_2 = specie_2.fit_adjusted();
+        let adjusted_total = adjusted_1 + adjusted_2;
+
+        let population = 100;
+        let population_f = population as f64;
+        let want_1 = f64::round(population_f * adjusted_1 / adjusted_total) as usize;
+        let want_2 = f64::round(population_f * adjusted_2 / adjusted_total) as usize;
+
+        let actual = population_alloc([&specie_1, &specie_2].into_iter(), population);
+        for (repr, allocation) in actual.into_iter() {
+            match repr
+                .as_ref()
+                .first()
+                .expect("allocation for empty specie repr")
+                .path()
+            {
+                (1, 2) => assert_eq!(want_1, allocation),
+                (3, 4) => assert_eq!(want_2, allocation),
+                _ => unreachable!("allocation for unknown specie repr"),
+            }
+        }
+    }
 }
