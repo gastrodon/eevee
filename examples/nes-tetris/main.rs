@@ -11,7 +11,7 @@ use eevee::{
     scenario::{evolve, EvolutionHooks},
     Connection, Network, Scenario, Stats,
 };
-use nes_rust::{
+use nes_rust_slim::{
     button::Button, default_audio::DefaultAudio, default_display::DefaultDisplay,
     default_input::DefaultInput, rom::Rom, Nes,
 };

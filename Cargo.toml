@@ -9,10 +9,7 @@ license = "AGPL-3.0-or-later"
 rand = "0.9.0"
 rand_distr = "0.5.0"
 rulinalg = "0.4.2"
-nes_rust = { git = "https://github.com/gastrodon/nes-rust", version = "~0.2", optional = true, features = [
-  "no_apu",
-  "no_render",
-] }
+nes_rust_slim = { version = "~0.2", optional = true }
 serde = { version = "1.0.218", features = ["derive"] }
 serde_json = { version = "1.0.139", features = ["preserve_order"] }
 fxhash = "0.2.1"
@@ -23,7 +20,7 @@ find-fold = "0.1.0"
 
 [features]
 approx = ["dep:approx"]
-nes = ["nes_rust"]
+nes = ["nes_rust_slim"]
 parallel = ["rayon"]
 smol_bench = []
 watch_game = []
