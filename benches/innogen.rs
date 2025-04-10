@@ -1,5 +1,5 @@
-use brain::{genome::InnoGen, random::default_rng};
 use criterion::Criterion;
+use eevee::{genome::InnoGen, random::default_rng};
 use rand::Rng;
 
 fn bench_innogen(bench: &mut Criterion) {

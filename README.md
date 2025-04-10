@@ -1,4 +1,4 @@
-# NeatKit
+# Eevee - Generic Neuroevolution
 
 ### This project is a WIP!
 
@@ -7,11 +7,15 @@ but it's slow, inefficient, and often fails completely. Expect frequent changes.
 
 ### Overview
 
-NeatKit is a library for leveraging the [NEAT](https://web.archive.org/web/20241209001646/https://ieeexplore.ieee.org/abstract/document/6790655) algorithm to train genomes encoding neural network behavior. Specifically, it aims to generalize the algorithm such that it may be applied to different domains, and maybe in the future applications that don't implement neural networks at all.
+Eevee is a library for leveraging the [NEAT](https://web.archive.org/web/20241209001646/https://ieeexplore.ieee.org/abstract/document/6790655) algorithm to train genomes encoding neural network behavior. Specifically, it aims to generalize the algorithm such that it may be applied to different domains, and maybe in the future applications that don't implement neural networks at all.
+
+#### Ok... but why is it named after a Pokemon
+
+I like to name [lots](https://github.com/gastrodon/psyduck) [of](https://github.com/gastrodon/groudon) [my](https://github.com/gastrodon/ferrothorn) [projects](https://github.com/gastrodon/scyther) after Pokemon. I called this one Eevee because, like generic NeuroEvolution, Eevee can evolve in a number of different ways - all of which fill their own niche, are good at some things, and not so good at others. Also because `docs.rs/eevee` wasn't occupied.
 
 ### Try it and see
 
-The core iteration loop is that, given a scenario which implements some mechanism by which a genome may be scored with a fitness, NeatKit will try mutate, reproduce, and cull genomes to optimize for that fitness to increase. There exist some experiments aound this in the `examples` folder.
+The core iteration loop is that, given a scenario which implements some mechanism by which a genome may be scored with a fitness, Eevee will try mutate, reproduce, and cull genomes to optimize for that fitness to increase. There exist some experiments aound this in the `examples` folder.
 
 ### Building on it
 

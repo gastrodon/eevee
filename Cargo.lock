@@ -225,25 +225,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "brain"
-version = "0.1.0"
-dependencies = [
- "approx",
- "criterion",
- "flamegraph",
- "fxhash",
- "nes_rust",
- "paste",
- "rand",
- "rand_distr",
- "rayon",
- "rulinalg",
- "serde",
- "serde_json",
- "toml-cli",
-]
-
-[[package]]
 name = "brotli"
 version = "7.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -648,6 +629,25 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.96",
+]
+
+[[package]]
+name = "eevee"
+version = "0.1.0"
+dependencies = [
+ "approx",
+ "criterion",
+ "flamegraph",
+ "fxhash",
+ "nes_rust",
+ "paste",
+ "rand",
+ "rand_distr",
+ "rayon",
+ "rulinalg",
+ "serde",
+ "serde_json",
+ "toml-cli",
 ]
 
 [[package]]

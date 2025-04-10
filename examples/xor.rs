@@ -2,7 +2,8 @@
 #![allow(confusable_idents)]
 
 use approx::relative_eq;
-use brain::{
+use core::{f64, ops::ControlFlow};
+use eevee::{
     activate::relu,
     genome::{Genome, Recurrent, WConnection},
     network::{Network, Simple, ToNetwork},
@@ -11,7 +12,6 @@ use brain::{
     scenario::{evolve, EvolutionHooks},
     Connection, Scenario, Stats,
 };
-use core::{f64, ops::ControlFlow};
 
 const POPULATION: usize = 1000;
 

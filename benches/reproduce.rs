@@ -1,9 +1,9 @@
-use brain::{
+use criterion::Criterion;
+use eevee::{
     genome::{Connection, Genome, InnoGen, Recurrent, WConnection},
     random::default_rng,
     reproduce::reproduce,
 };
-use criterion::Criterion;
 
 type C = WConnection;
 type G = Recurrent<C>;

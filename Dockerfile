@@ -2,7 +2,7 @@ FROM rust:alpine AS builder
 RUN apk add --no-cache musl-dev
 RUN rustup default nightly
 
-WORKDIR /opt/brain-rs
+WORKDIR /opt/eevee
 ADD src src
 ADD examples examples
 ADD benches benches
@@ -15,10 +15,10 @@ ARG BUILD_OPT="-r"
 RUN cargo build ${BUILD_OPT} --example ${TARGET}
 
 FROM alpine:latest
-WORKDIR /opt/brain-rs
+WORKDIR /opt/eevee
 
 ARG TARGET
-COPY --from=builder /opt/brain-rs/target/release/examples/${TARGET} /opt/brain-rs/run
+COPY --from=builder /opt/eevee/target/release/examples/${TARGET} /opt/eevee/run
 
-VOLUME /opt/brain-rs/output
-ENTRYPOINT ["/opt/brain-rs/run"]
+VOLUME /opt/eevee/output
+ENTRYPOINT ["/opt/eevee/run"]

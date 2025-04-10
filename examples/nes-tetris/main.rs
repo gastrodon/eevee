@@ -1,7 +1,8 @@
 #![allow(mixed_script_confusables)]
 #![allow(confusable_idents)]
 
-use brain::{
+use core::ops::ControlFlow;
+use eevee::{
     activate::relu,
     genome::{Genome, Recurrent, WConnection},
     network::{Continuous, ToNetwork},
@@ -10,7 +11,6 @@ use brain::{
     scenario::{evolve, EvolutionHooks},
     Connection, Network, Scenario, Stats,
 };
-use core::ops::ControlFlow;
 use nes_rust::{
     button::Button, default_audio::DefaultAudio, default_display::DefaultDisplay,
     default_input::DefaultInput, rom::Rom, Nes,

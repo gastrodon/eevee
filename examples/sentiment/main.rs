@@ -1,7 +1,8 @@
 #![allow(mixed_script_confusables)]
 #![allow(confusable_idents)]
 
-use brain::{
+use core::f64;
+use eevee::{
     activate::relu,
     genome::{Recurrent, WConnection},
     network::{loss::decay_linear, Continuous, ToNetwork},
@@ -10,7 +11,6 @@ use brain::{
     scenario::{evolve, EvolutionHooks},
     Connection, Genome, Network, Scenario, Stats,
 };
-use core::f64;
 use std::{fs::create_dir_all, ops::ControlFlow};
 
 const POPULATION: usize = 1000;

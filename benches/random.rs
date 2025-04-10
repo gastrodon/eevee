@@ -1,5 +1,5 @@
-use brain::random::{seed_urandom, WyRng};
 use criterion::Criterion;
+use eevee::random::{seed_urandom, WyRng};
 use rand::{
     rngs::{SmallRng, ThreadRng},
     RngCore, SeedableRng,

@@ -1,8 +1,8 @@
 #![allow(mixed_script_confusables)]
 #![allow(confusable_idents)]
 
-use brain::{activate::relu, network::Continuous, Network};
 use criterion::Criterion;
+use eevee::{activate::relu, network::Continuous, Network};
 
 fn bench_nn(bench: &mut Criterion) {
     let net = &mut Continuous::from_str(include_str!("data/ctrnn-rand-100.json")).unwrap();

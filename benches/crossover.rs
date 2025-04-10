@@ -1,6 +1,6 @@
-use brain::{crossover::crossover, genome::WConnection, random::default_rng};
 use core::cmp::Ordering;
 use criterion::Criterion;
+use eevee::{crossover::crossover, genome::WConnection, random::default_rng};
 
 type C = WConnection;
 

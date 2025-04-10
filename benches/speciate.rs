@@ -1,10 +1,10 @@
-use brain::{
+use core::iter::empty;
+use criterion::Criterion;
+use eevee::{
     crossover::{avg_param_diff, disjoint_excess_count},
     genome::{Recurrent, WConnection},
     population::speciate,
 };
-use core::iter::empty;
-use criterion::Criterion;
 
 type C = WConnection;
 type G = Recurrent<C>;
