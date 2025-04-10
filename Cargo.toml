@@ -18,6 +18,11 @@ paste = "1.0.15"
 approx = { version = "0.5.1", optional = true }
 find-fold = "0.1.0"
 
+[dev-dependencies]
+criterion = "0.5.1"
+flamegraph = "0.6.7"
+toml-cli = "0.2.3"
+
 [features]
 approx = ["dep:approx"]
 nes = ["nes_rust_slim"]
@@ -35,11 +40,6 @@ required-features = ["nes"]
 
 [[example]]
 name = "sentiment"
-
-[dev-dependencies]
-criterion = "0.5.1"
-flamegraph = "0.6.7"
-toml-cli = "0.2.3"
 
 [[bench]]
 name = "crossover"
