@@ -1,6 +1,7 @@
 #![feature(associated_type_defaults)]
-#![allow(mixed_script_confusables)]
 #![allow(confusable_idents)]
+#![allow(incomplete_features)]
+#![allow(mixed_script_confusables)]
 
 pub mod crossover;
 pub mod genome;
