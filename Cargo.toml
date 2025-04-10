@@ -25,8 +25,8 @@ toml-cli = "0.2.3"
 
 [features]
 approx = ["dep:approx"]
-nes = ["nes_rust_slim"]
-parallel = ["rayon"]
+nes = ["dep:nes_rust_slim"]
+parallel = ["dep:rayon"]
 smol_bench = []
 watch_game = []
 
