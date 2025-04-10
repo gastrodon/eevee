@@ -24,3 +24,5 @@ I use [flamegraph](https://github.com/flamegraph-rs/flamegraph) for profiling, i
 ### Other things
 
 Thanks to [smol-rs/fastrand](https://github.com/smol-rs/fastrand), I stole the core of their `WyHash` rng implementation.
+
+Thanks to [TLmaK0/rustneat](https://github.com/TLmaK0/rustneat/), This project turned me on to learning about CTRNN's and also I stole the CTRNN matmul code
