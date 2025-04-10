@@ -18,7 +18,10 @@ fn bench_alloc(bench: &mut Criterion) {
     );
 
     bench.bench_function("alloc", |b| {
-        b.iter(|| population_alloc(species.iter(), population))
+        b.iter_with_setup(
+            || species.clone(),
+            |species| population_alloc(species, population),
+        )
     });
 }
 
