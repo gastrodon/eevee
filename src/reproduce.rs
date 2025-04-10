@@ -155,7 +155,7 @@ pub fn reproduce<C: Connection, G: Genome<C>>(
 }
 
 /// allocate a target population for every specie in an existing population
-fn population_alloc<'a, C: Connection + 'a, G: Genome<C> + 'a>(
+pub fn population_alloc<'a, C: Connection + 'a, G: Genome<C> + 'a>(
     species: impl Iterator<Item = &'a Specie<C, G>>,
     population: usize,
 ) -> HashMap<SpecieRepr<C>, usize> {

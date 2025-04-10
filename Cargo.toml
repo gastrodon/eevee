@@ -52,6 +52,10 @@ name = "random"
 harness = false
 
 [[bench]]
+name = "alloc"
+harness = false
+
+[[bench]]
 name = "reproduce"
 harness = false
 

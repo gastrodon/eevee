@@ -55,7 +55,7 @@ impl<C: Connection> AsRef<[C]> for SpecieRepr<C> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Specie<C: Connection, G: Genome<C>> {
     pub repr: SpecieRepr<C>,
     pub members: Vec<(G, f64)>,
