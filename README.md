@@ -23,9 +23,9 @@ The core iteration loop is that, given a scenario which implements some mechanis
 
 It's written in rust, and uses nightly versions - mostly for incomplete features. Later when I add CUDA support, it will even more rely on nightly.
 
-I use [criterion](https://github.com/bheisler/criterion.rs) for benchmarking, it's recommended that if you run benches, you have `gnuplot` on your system. You can use `./cmp-bench <bench> [branch:-]` to compare a benchmark across two branches, which produces a nice report.
+I use [criterion](https://crates.io/crates/criterion) for benchmarking, it's recommended that if you run benches, you have `gnuplot` on your system. You can use `./cmp-bench <bench> [branch:-]` to compare a benchmark across two branches, which produces a nice report.
 
-I use [flamegraph](https://github.com/flamegraph-rs/flamegraph) for profiling, it's required that if you run benches with profiling, you have `perf` on your system. You can use `./profile <bench>` to run benchmarks on a pared-down version of any benchmark, and `./cmp-profile <bench> [branch:-]` to compare a profiling across two branches.
+I use [flamegraph](https://crates.io/crates/flamegraph) for profiling, it's required that if you run benches with profiling, you have `perf` on your system. You can use `./profile <bench>` to run benchmarks on a pared-down version of any benchmark, and `./cmp-profile <bench> [branch:-]` to compare a profiling across two branches.
 
 For both of those, I use [toml-cli](https://crates.io/crates/toml-cli) + `jq` to get a list of benchmarks.
 
