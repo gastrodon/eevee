@@ -27,6 +27,12 @@ I use [criterion](https://github.com/bheisler/criterion.rs) for benchmarking, it
 
 I use [flamegraph](https://github.com/flamegraph-rs/flamegraph) for profiling, it's required that if you run benches with profiling, you have `perf` on your system. You can use `./profile <bench>` to run benchmarks on a pared-down version of any benchmark, and `./cmp-profile <bench> [branch:-]` to compare a profiling across two branches.
 
+For both of those, I use [toml-cli](https://crates.io/crates/toml-cli) + `jq` to get a list of benchmarks.
+
+```sh
+$ toml get Cargo.toml . | jq '.bench | map(.name)[]' -r
+```
+
 ### Other things
 
 Thanks to [smol-rs/fastrand](https://github.com/smol-rs/fastrand), I stole the core of their `WyHash` rng implementation.
