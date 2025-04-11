@@ -6,7 +6,7 @@ on:
       - '*'
     branches:
       - main
-      - code-cov-report
+      - 'ci-*'
 
 jobs:
   build:
