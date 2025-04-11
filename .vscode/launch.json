@@ -28,7 +28,8 @@
         "args": [
           "build",
           "--example=xor",
-          "--package=eevee"
+          "--package=eevee",
+          "--features=approx",
         ],
         "filter": {
           "name": "xor",
@@ -64,7 +65,8 @@
         "args": [
           "build",
           "--example=nes-tetris",
-          "--package=eevee"
+          "--package=eevee",
+          "--features=nes",
         ],
         "filter": {
           "name": "nes-tetris",
