@@ -4,16 +4,16 @@
     {
       "type": "lldb",
       "request": "launch",
-      "name": "Debug unit tests in library 'brain'",
+      "name": "Debug unit tests in library 'eevee'",
       "cargo": {
         "args": [
           "test",
           "--no-run",
           "--lib",
-          "--package=brain"
+          "--package=eevee"
         ],
         "filter": {
-          "name": "brain",
+          "name": "eevee",
           "kind": "lib"
         }
       },
@@ -28,7 +28,7 @@
         "args": [
           "build",
           "--example=xor",
-          "--package=brain"
+          "--package=eevee"
         ],
         "filter": {
           "name": "xor",
@@ -46,7 +46,7 @@
         "args": [
           "build",
           "--example=sentiment",
-          "--package=brain"
+          "--package=eevee"
         ],
         "filter": {
           "name": "sentiment",
@@ -64,7 +64,7 @@
         "args": [
           "build",
           "--example=nes-tetris",
-          "--package=brain"
+          "--package=eevee"
         ],
         "filter": {
           "name": "nes-tetris",
