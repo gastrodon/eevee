@@ -182,14 +182,17 @@ fn population_allocated<
             let viable = specie
                 .members
                 .iter()
-                .filter(|&pair| (&pair.1 >= min_fitness))
+                .filter(|&pair| (&pair.1 > min_fitness))
                 .cloned()
                 .collect::<Vec<_>>();
 
-            // (!viable.is_empty()).then_some((&specie.repr, viable));
-            (!viable.is_empty()).then(|| Specie {
+            Some(Specie {
                 repr: specie.repr.clone(),
-                members: viable,
+                members: if viable.is_empty() {
+                    vec![specie.fittest()?.clone()]
+                } else {
+                    viable
+                },
             })
         })
         .collect::<Vec<_>>();
