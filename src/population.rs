@@ -59,6 +59,25 @@ impl<C: Connection> AsRef<[C]> for SpecieRepr<C> {
     }
 }
 
+pub trait FittedGroup<T> {
+    fn fittest(&self) -> Option<&(T, f64)>;
+    fn fit_adjusted(&self) -> f64;
+}
+
+impl<T> FittedGroup<T> for [(T, f64)] {
+    fn fittest(&self) -> Option<&(T, f64)> {
+        self.iter().max_by(|(_, l), (_, r)| {
+            l.partial_cmp(r)
+                .unwrap_or_else(|| panic!("could not compare specie member fitness {l} to {r}"))
+        })
+    }
+
+    fn fit_adjusted(&self) -> f64 {
+        let l = self.len() as f64;
+        self.iter().fold(0., |acc, (_, fit)| acc + *fit / l)
+    }
+}
+
 /// A collection of fitted [Genome]s who are closely related to the same [SpecieRepr]
 #[derive(Debug)]
 pub struct Specie<C: Connection, G: Genome<C>> {
@@ -89,10 +108,15 @@ impl<C: Connection, G: Genome<C>> Specie<C, G> {
             self.members.iter().map(|(g, s)| (g.clone(), *s)).collect(),
         )
     }
+}
 
-    pub fn fit_adjusted(&self) -> f64 {
-        let l = self.len() as f64;
-        self.members.iter().fold(0., |acc, (_, fit)| acc + *fit / l)
+impl<C: Connection, G: Genome<C>> FittedGroup<G> for Specie<C, G> {
+    fn fit_adjusted(&self) -> f64 {
+        self.members.fit_adjusted()
+    }
+
+    fn fittest(&self) -> Option<&(G, f64)> {
+        self.members.fittest()
     }
 }
 

@@ -2,7 +2,7 @@
 
 use crate::{
     genome::{Connection, Genome, InnoGen},
-    population::SpecieRepr,
+    population::{FittedGroup, SpecieRepr},
     Specie,
 };
 use core::{error::Error, f64};
@@ -118,17 +118,7 @@ pub fn reproduce<C: Connection, G: Genome<C>>(
     }
 
     let mut pop: Vec<G> = Vec::with_capacity(size);
-    pop.push(
-        genomes
-            .iter()
-            .max_by(|(_, l), (_, r)| {
-                l.partial_cmp(r)
-                    .unwrap_or_else(|| panic!("cannot partial_cmp {l} and {r}"))
-            })
-            .unwrap()
-            .0
-            .clone(),
-    );
+    pop.push(genomes.fittest().unwrap().0.clone());
 
     if size == 1 {
         return Ok(pop);
