@@ -32,8 +32,15 @@ jobs:
       - uses: actions/checkout@v4
       - name: Configure toolchain
         run: rustup default nightly
+      - name: Install tarpaulin
+        run: cargo install cargo-tarpaulin
       - name: Build and Test
-        run: cargo test --verbose
+        run: cargo tarpaulin --verbose --out html
+      - name: Emit codecov html
+        uses: actions/upload-artifact@v4
+        with:
+          name: codecov-report
+          path: tarpaulin-report.html
 
   publish:
     needs: [build, test]

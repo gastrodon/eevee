@@ -33,6 +33,8 @@ For both of those, I use [toml-cli](https://crates.io/crates/toml-cli) + `jq` to
 $ toml get Cargo.toml . | jq '.bench | map(.name)[]' -r
 ```
 
+I use [tarpaulin](https://crates.io/crates/cargo-tarpaulin) for getting test coverage.
+
 ### Other things
 
 Thanks to [smol-rs/fastrand](https://github.com/smol-rs/fastrand), I stole the core of their `WyHash` rng implementation.
