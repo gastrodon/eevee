@@ -35,7 +35,7 @@ jobs:
       - name: Install tarpaulin
         run: cargo install cargo-tarpaulin
       - name: Build and Test
-        run: cargo tarpaulin --verbose --out html
+        run: cargo tarpaulin --verbose --out html --target llvm
       - name: Emit codecov html
         uses: actions/upload-artifact@v4
         with:
