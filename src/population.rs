@@ -79,7 +79,7 @@ impl<T> FittedGroup<T> for [(T, f64)] {
 }
 
 /// A collection of fitted [Genome]s who are closely related to the same [SpecieRepr]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Specie<C: Connection, G: Genome<C>> {
     pub repr: SpecieRepr<C>,
     pub members: Vec<(G, f64)>,
@@ -240,7 +240,7 @@ mod test {
 
     type BasicGenomeCtrnn = Recurrent<WConnection>;
 
-    test_t!(population_init[T: BasicGenomeCtrnn]() {
+    test_t!(test_population_init[T: BasicGenomeCtrnn]() {
         let count = 40;
         let (species, inno_head) = population_init::<WConnection, T>(2, 2, count);
         assert_eq!(
