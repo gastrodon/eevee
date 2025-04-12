@@ -1,7 +1,7 @@
 /genome
 /target
 .deps/*
+output/*
 flamegraph*.svg
 perf.data*
-output/*
 tarpaulin-report*
