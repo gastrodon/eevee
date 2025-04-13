@@ -168,3 +168,10 @@ macro_rules! events {
         }
     };
 }
+
+#[macro_export]
+macro_rules! test_data {
+    ($p:literal) => {
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/test-data/", $p))
+    };
+}

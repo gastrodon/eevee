@@ -2,7 +2,7 @@
 
 use crate::{
     genome::{Connection, Genome, InnoGen},
-    population::{FittedGroup, SpecieRepr},
+    population::FittedGroup,
     Specie,
 };
 use core::{error::Error, f64};
@@ -98,7 +98,7 @@ fn reproduce_copy<C: Connection, G: Genome<C>>(
         .collect()
 }
 
-pub fn reproduce<C: Connection, G: Genome<C>>(
+fn reproduce<C: Connection, G: Genome<C>>(
     genomes: Vec<(G, f64)>,
     size: usize,
     innogen: &mut InnoGen,
@@ -145,7 +145,7 @@ pub fn reproduce<C: Connection, G: Genome<C>>(
     Ok(pop)
 }
 
-pub fn population_alloc<'a, C: Connection + 'a, G: Genome<C> + 'a>(
+fn population_alloc<'a, C: Connection + 'a, G: Genome<C> + 'a>(
     species: Vec<Specie<C, G>>,
     population: usize,
 ) -> impl Iterator<Item = (Specie<C, G>, usize)> {
@@ -210,6 +210,67 @@ pub fn population_reproduce<C: Connection, G: Genome<C>>(
             .collect::<Vec<_>>(),
         innogen.head,
     )
+}
+
+#[cfg(test)]
+mod bench {
+    use super::population_alloc;
+    use crate::{
+        genome::{Connection, Genome, InnoGen, Recurrent, WConnection},
+        population::speciate,
+        random::default_rng,
+        reproduce::reproduce,
+        test_data,
+    };
+    use criterion::Criterion;
+    use criterion_macro::criterion;
+
+    #[criterion]
+    fn alloc(bench: &mut Criterion) {
+        type C = WConnection;
+        type G = Recurrent<C>;
+
+        let population = 100;
+        let species = speciate(
+            serde_json::from_str::<Vec<(G, _)>>(test_data!("ctr-genome-xor-100.json"))
+                .unwrap()
+                .into_iter(),
+            vec![].into_iter(),
+        );
+
+        bench.bench_function("alloc", |b| {
+            b.iter_with_setup(
+                || species.clone(),
+                |species| population_alloc(species, population),
+            )
+        });
+    }
+
+    #[criterion]
+    fn bench_reproduce(bench: &mut Criterion) {
+        type G = Recurrent<WConnection>;
+        let genomes = serde_json::from_str::<Vec<(G, _)>>(include_str!(
+            "../test-data/ctr-genome-xor-100.json"
+        ))
+        .unwrap();
+        let inno_head = genomes
+            .iter()
+            .map(|(genome, _)| {
+                genome
+                    .connections()
+                    .iter()
+                    .map(|connection| connection.inno())
+                    .max()
+                    .unwrap()
+            })
+            .max()
+            .unwrap();
+
+        let mut rng = default_rng();
+        bench.bench_function("reproduce", |b| {
+            b.iter(|| reproduce(genomes.clone(), 100, &mut InnoGen::new(inno_head), &mut rng))
+        });
+    }
 }
 
 #[cfg(test)]

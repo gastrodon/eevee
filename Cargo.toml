@@ -24,9 +24,12 @@ serde_json = { version = "~1.0", features = ["preserve_order"] }
 approx = { version = "~0.5", optional = true }
 nes_rust_slim = { version = "~0.2", optional = true }
 rayon = { version = "~1.10", optional = true }
+criterion = "~0.5"
+criterion-macro = "~0.4"
 
 [dev-dependencies]
 criterion = "~0.5"
+criterion-macro = "~0.4"
 flamegraph = "~0.6"
 
 [features]
@@ -47,35 +50,3 @@ required-features = ["nes"]
 
 [[example]]
 name = "sentiment"
-
-[[bench]]
-name = "crossover"
-harness = false
-
-[[bench]]
-name = "innogen"
-harness = false
-
-[[bench]]
-name = "mutate"
-harness = false
-
-[[bench]]
-name = "nn"
-harness = false
-
-[[bench]]
-name = "random"
-harness = false
-
-[[bench]]
-name = "alloc"
-harness = false
-
-[[bench]]
-name = "reproduce"
-harness = false
-
-[[bench]]
-name = "speciate"
-harness = false

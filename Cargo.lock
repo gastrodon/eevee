@@ -472,6 +472,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "criterion-macro"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "288a8f36b28a19d7dbd572c76006c0a0eba1f3bf912a254dda211c6f665e7ffc"
+dependencies = [
+ "proc-macro2",
+ "quote",
+]
+
+[[package]]
 name = "criterion-plot"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -592,6 +602,7 @@ version = "0.2.0-1"
 dependencies = [
  "approx",
  "criterion",
+ "criterion-macro",
  "find-fold",
  "flamegraph",
  "fxhash",

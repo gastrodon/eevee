@@ -116,3 +116,20 @@ pub trait EventKind: Copy {
 
 events!(Genome[NewConnection, BisectConnection, MutateConnection, MutateNode]);
 events!(Connection[Disable, MutateParam]);
+
+#[cfg(test)]
+mod bench {
+    use super::{seed_urandom, WyRng};
+    use criterion::Criterion;
+    use criterion_macro::criterion;
+    use rand::RngCore;
+
+    #[criterion]
+    fn bench_wyhash(bench: &mut Criterion) {
+        let mut rng = WyRng::seeded(seed_urandom().unwrap());
+
+        bench.bench_function("random-wyhash", |b| {
+            b.iter(|| rng.next_u64());
+        });
+    }
+}

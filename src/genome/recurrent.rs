@@ -142,6 +142,41 @@ impl<C: Connection> Genome<C> for Recurrent<C> {
 }
 
 #[cfg(test)]
+mod bench {
+    use crate::{
+        genome::{Genome, InnoGen, Recurrent, WConnection},
+        random::default_rng,
+        test_data,
+    };
+    use criterion::Criterion;
+    use criterion_macro::criterion;
+
+    #[criterion]
+    fn bench_mutate(bench: &mut Criterion) {
+        type C = WConnection;
+        type G = Recurrent<C>;
+
+        let genome = G::from_str(test_data!("ctr-genome-rand-100.json")).unwrap();
+        let mut rng = default_rng();
+        bench.bench_function("mutate-connection", |b| {
+            b.iter(|| {
+                genome
+                    .clone()
+                    .new_connection(&mut rng, &mut InnoGen::new(300))
+            })
+        });
+
+        bench.bench_function("mutate-bisection", |b| {
+            b.iter(|| {
+                genome
+                    .clone()
+                    .bisect_connection(&mut rng, &mut InnoGen::new(300))
+            })
+        });
+    }
+}
+
+#[cfg(test)]
 mod test {
     use super::*;
     use crate::{genome::InnoGen, genome::WConnection, random::default_rng, test_t};

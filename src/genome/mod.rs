@@ -264,3 +264,21 @@ pub trait Genome<C: Connection>: Serialize + for<'de> Deserialize<'de> + Clone {
         Self::from_str(&fs::read_to_string(path)?)
     }
 }
+
+#[cfg(test)]
+mod bench {
+    use super::InnoGen;
+    use crate::random::default_rng;
+    use criterion::Criterion;
+    use criterion_macro::criterion;
+    use rand::Rng;
+
+    #[criterion]
+    fn bench_innogen(bench: &mut Criterion) {
+        let mut rng = default_rng();
+        let mut inno = InnoGen::new(0); // todo calculate all random values before benching
+        bench.bench_function("innogen", |b| {
+            b.iter(|| inno.path((rng.random_range(0..=10_000), rng.random_range(0..=10_000))))
+        });
+    }
+}

@@ -106,6 +106,22 @@ impl<C: Connection, G: Genome<C>> FromGenome<C, G> for Continuous {
 }
 
 #[cfg(test)]
+mod bench {
+    use super::Continuous;
+    use crate::{activate::relu, test_data, Network};
+    use criterion::Criterion;
+    use criterion_macro::criterion;
+
+    #[criterion]
+    fn bench_nn(bench: &mut Criterion) {
+        let net = &mut Continuous::from_str(test_data!("ctrnn-rand-100.json")).unwrap();
+        let i = vec![0.7, 0.3];
+
+        bench.bench_function("ctrnn-step", |b| b.iter(|| net.step(100, &i, relu)));
+    }
+}
+
+#[cfg(test)]
 mod test {
     use super::*;
     use crate::{

@@ -231,6 +231,30 @@ pub fn population_from_genome<P: AsRef<Path>, C: Connection, G: Genome<C>>(
 }
 
 #[cfg(test)]
+mod bench {
+    use crate::{
+        genome::{Recurrent, WConnection},
+        population::speciate,
+    };
+    use core::iter::empty;
+    use criterion::Criterion;
+    use criterion_macro::criterion;
+
+    #[criterion]
+    fn bench_speciate(bench: &mut Criterion) {
+        type G = Recurrent<WConnection>;
+
+        let genomes = serde_json::from_str::<Vec<(G, _)>>(include_str!(
+            "../test-data/ctr-genome-xor-100.json"
+        ))
+        .unwrap();
+        bench.bench_function("speciate", |b| {
+            b.iter(|| speciate(genomes.iter().cloned(), empty()))
+        });
+    }
+}
+
+#[cfg(test)]
 mod test {
     use super::*;
     use crate::{

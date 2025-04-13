@@ -8,7 +8,7 @@ use rand::RngCore;
 /// Count misaligned [Connection]s between 2 slices. Where `l` is more fit ( TODO really? ), we
 /// consider disjoint genes to be misalignments of innovation ids < `r`s max, and excess are
 /// misalignments of ids > `r`s max.
-pub fn disjoint_excess_count<C: Connection>(l: &[C], r: &[C]) -> (f64, f64) {
+fn disjoint_excess_count<C: Connection>(l: &[C], r: &[C]) -> (f64, f64) {
     let mut l_iter = l.iter();
     let mut r_iter = r.iter();
 
@@ -61,7 +61,7 @@ pub fn disjoint_excess_count<C: Connection>(l: &[C], r: &[C]) -> (f64, f64) {
 
 /// Average param difference between aligned genes from `l` and `r`. Misaligned genes are not
 /// considered
-pub fn avg_param_diff<C: Connection>(l: &[C], r: &[C]) -> f64 {
+fn avg_param_diff<C: Connection>(l: &[C], r: &[C]) -> f64 {
     let mut diff = 0.;
     let mut count = 0.;
     let mut l_iter = l.iter();
@@ -248,6 +248,58 @@ pub fn crossover<C: Connection>(
 
     usort.sort_by_key(|c| c.inno());
     usort
+}
+
+#[cfg(test)]
+mod bench {
+    use crate::{
+        crossover::{avg_param_diff, crossover, disjoint_excess_count},
+        genome::WConnection,
+        random::default_rng,
+        test_data,
+    };
+    use core::cmp::Ordering;
+    use criterion::Criterion;
+    use criterion_macro::criterion;
+
+    #[criterion]
+    fn bench_distance(bench: &mut Criterion) {
+        type C = WConnection;
+
+        let l_conn =
+            serde_json::from_str::<Vec<C>>(include_str!("../test-data/ctr-connection-rand-l.json"))
+                .unwrap();
+        let r_conn =
+            serde_json::from_str::<Vec<C>>(include_str!("../test-data/ctr-connection-rand-r.json"))
+                .unwrap();
+
+        bench.bench_function("disjoint-excess-count", |b| {
+            b.iter(|| disjoint_excess_count(&l_conn, &r_conn))
+        });
+
+        bench.bench_function("avg-weight-diff", |b| {
+            b.iter(|| avg_param_diff(&l_conn, &r_conn))
+        });
+    }
+
+    #[criterion]
+    fn bench_crossover(bench: &mut Criterion) {
+        type C = WConnection;
+
+        let l_conn =
+            serde_json::from_str::<Vec<C>>(test_data!("ctr-connection-rand-l.json")).unwrap();
+        let r_conn =
+            serde_json::from_str::<Vec<C>>(test_data!("ctr-connection-rand-r.json")).unwrap();
+
+        let mut rng = default_rng();
+        bench.bench_function("crossover-ne", |b| {
+            b.iter(|| crossover(&l_conn, &r_conn, Ordering::Greater, &mut rng))
+        });
+
+        bench.bench_function("crossover-eq", |b| {
+            b.iter(|| crossover(&l_conn, &r_conn, Ordering::Equal, &mut rng))
+        });
+    }
 }
 
 #[cfg(test)]
