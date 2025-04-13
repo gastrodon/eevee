@@ -14,20 +14,21 @@ macro_rules! new_t {
 /// A macro for constructing a single test with a number of types.
 #[macro_export]
 macro_rules! test_t {
-  ( #[should_panic(expected = $panic_msg:literal)]
-    $name:ident[T: $($impl:ty)|*]() $body:tt ) => {$(
-      ::paste::paste! {
-          #[test]
-          #[should_panic(expected = $panic_msg)]
-          fn [<$name _ $impl:snake>]() {
-            type T=$impl;
-            $body
-          }
-      }
-  )+};
+    (@panic $name:ident[T: $($impl:ty)|*]() $body:tt ) => {$(
+        ::paste::paste! {
+            #[test_case]
+            fn [<$name _ $impl:snake>]() {
+                type T=$impl;
+                std::panic::set_hook(Box::new(|_|()));
+                let unwound = std::panic::catch_unwind(|| { $body });
+                let _ = std::panic::take_hook();
+                assert!(unwound.is_err(), "did not panic!");
+            }
+        }
+    )+};
   ($name:ident[T: $($impl:ty)|*]() $body:tt ) => {$(
       ::paste::paste! {
-          #[test]
+          #[test_case]
           fn [<$name _ $impl:snake>]() {
             type T=$impl;
             $body

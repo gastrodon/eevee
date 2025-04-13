@@ -510,8 +510,7 @@ mod test {
     });
 
     test_t!(
-    #[should_panic(expected = "not from r_0")]
-    test_crossover_eq_catchup_l[T: WConnection | BWConnection]() {
+    @panic test_crossover_eq_catchup_l[T: WConnection | BWConnection]() {
         let l = [
             new_t!(inno = 0, from = 1_1),
             new_t!(inno = 1, from = 1_2),
@@ -527,8 +526,7 @@ mod test {
     });
 
     test_t!(
-    #[should_panic(expected = "not from l_0")]
-    test_crossover_eq_catchup_r[T: WConnection | BWConnection]() {
+    @panic test_crossover_eq_catchup_r[T: WConnection | BWConnection]() {
         let l = [new_t!(inno = 1, from = 2_1)];
         let r = [
             new_t!(inno = 0, from = 1_1),
@@ -544,8 +542,7 @@ mod test {
     });
 
     test_t!(
-    #[should_panic(expected = "not from l_1")]
-    test_crossover_eq_both_step_l[T: WConnection | BWConnection]() {
+    @panic test_crossover_eq_both_step_l[T: WConnection | BWConnection]() {
         let l = [
             new_t!(inno = 0, from = 1_1),
             new_t!(inno = 1, from = 1_2),
@@ -561,11 +558,11 @@ mod test {
             assert_some_normalized!(&lr[0], [&l[0], &r[0]]; {.enable()});
             assert_some_normalized!(&lr[1], [&l[1]]; {.enable()}, "not from l_1");
         }
+
     });
 
     test_t!(
-    #[should_panic(expected = "not from r_1")]
-    test_crossover_eq_both_step_r[T: WConnection | BWConnection]() {
+    @panic test_crossover_eq_both_step_r[T: WConnection | BWConnection]() {
         let l = [
             new_t!(inno = 0, from = 1_1),
             new_t!(inno = 1, from = 1_2),

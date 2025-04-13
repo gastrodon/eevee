@@ -222,7 +222,7 @@ mod test {
         test_t,
     };
 
-    #[test]
+    #[test_case]
     fn test_inno_gen() {
         let mut inno = InnoGen::new(0);
         assert_eq!(inno.head, 0);
@@ -261,7 +261,7 @@ mod test {
         }
     });
 
-    #[test]
+    #[test_case]
     fn test_population_alloc() {
         let scores_1 = [100., 90., 95.];
         let scores_2 = [3., 50., 83., 10., 25.];

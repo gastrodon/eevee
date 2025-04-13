@@ -119,7 +119,7 @@ mod test {
 
     // Macro for comparing f64 arrays with epsilon tolerance
 
-    #[test]
+    #[test_case]
     fn test_ctrnn_serialization_deserialization() {
         let n_neurons = 10;
         let mut rng = default_rng();
@@ -162,7 +162,7 @@ mod test {
         assert_eq!(original.action, deserialized.action);
     }
 
-    #[test]
+    #[test_case]
     fn test_ctrnn_behavioral_equivalence() {
         let n_neurons = 10;
         let mut rng = default_rng();
@@ -212,7 +212,7 @@ mod test {
         }
     }
 
-    #[test]
+    #[test_case]
     fn test_from_genome() {
         type C = WConnection;
 

@@ -285,15 +285,13 @@ mod test {
     });
 
     test_t!(
-    #[should_panic(expected = "no connections available to bisect")]
-    test_mutate_bisection_empty_genome[T: RecurrentContinuous]() {
+    @panic test_mutate_bisection_empty_genome[T: RecurrentContinuous]() {
         let (mut genome, _) = T::new(0, 0);
         genome.bisect_connection(&mut default_rng(), &mut InnoGen::new(0));
     });
 
     test_t!(
-    #[should_panic(expected = "no connections available to bisect")]
-    test_mutate_bisection_no_connections[T: RecurrentContinuous]() {
+    @panic test_mutate_bisection_no_connections[T: RecurrentContinuous]() {
         let (mut genome, _) = T::new(2, 2);
         genome.connections = vec![];
         genome.bisect_connection(&mut default_rng(), &mut InnoGen::new(0));

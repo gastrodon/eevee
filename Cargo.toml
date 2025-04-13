@@ -5,6 +5,12 @@ edition = "2021"
 description = "Generalized NeuroEvolution toolkit, based on NEAT"
 license = "AGPL-3.0-or-later"
 
+[profile.dev]
+panic = "unwind"
+
+[profile.release]
+panic = "unwind"
+
 [dependencies]
 find-fold = "~0.1"
 fxhash = "~0.2"
@@ -25,6 +31,7 @@ flamegraph = "~0.6"
 
 [features]
 approx = ["dep:approx"]
+bench = []
 nes = ["dep:nes_rust_slim"]
 parallel = ["dep:rayon"]
 smol_bench = []
