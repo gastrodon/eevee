@@ -378,33 +378,36 @@ mod test {
         let innogen = &mut InnoGen::new(1);
         genome.bisect_connection(&mut default_rng(), innogen);
 
-        assert!(!genome.connections()[0].enabled);
+        // source connection
+        let source = &genome.connections()[0];
+        assert!(!source.enabled);
 
-        assert_eq!(genome.connections()[1].from(), 0);
-        assert_eq!(genome.connections()[1].to(), 2);
-        assert_eq!(genome.connections()[1].weight(), 1.0);
-        assert!(genome.connections()[1].enabled);
+        // new pair front half: from -> center
+        let front = &genome.connections()[1];
+        assert_eq!(front.from(), 0);
+        assert_eq!(front.to(), 2);
+        assert_eq!(front.weight(), 1.);
+        assert!(front.enabled);
         assert_eq!(
-            genome.connections()[1].inno,
-            innogen.path((genome.connections()[1].from(), genome.connections()[1].to()))
+            front.inno,
+            innogen.path((front.from(), front.to()))
         );
 
-        assert_eq!(genome.connections()[2].from(), 2);
-        assert_eq!(genome.connections()[2].to(), 1);
-        assert_eq!(genome.connections()[1].weight(), 1.);
+        // new pair rear half: center -> from
+        let rear = &genome.connections()[2];
+        assert_eq!(rear.from(), 2);
+        assert_eq!(rear.to(), 1);
         assert_eq!(
-            genome.connections()[2].weight(),
-            genome.connections()[0].weight()
+            rear.weight(),
+            source.weight()
         );
-        assert!(genome.connections()[2].enabled);
+        assert!(rear.enabled);
         assert_eq!(
-            genome.connections()[2].inno,
-            innogen.path((genome.connections()[2].from(), genome.connections()[2].to()))
+            rear.inno,
+            innogen.path((rear.from(), rear.to()))
         );
 
-        assert_ne!(genome.connections()[0].inno, genome.connections()[1].inno);
-        assert_ne!(genome.connections()[1].inno, genome.connections()[2].inno);
-        assert_ne!(genome.connections()[0].inno, genome.connections()[2].inno);
+        assert_eq!(HashSet::from([source.inno, front.inno, rear.inno]).len(), 3)
     });
 
     test_t!(
