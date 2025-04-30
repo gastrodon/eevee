@@ -1,4 +1,4 @@
-use super::{Connection, Genome, NodeKind};
+use super::{Connection, ConnectionPoint, Genome, NodeKind};
 use crate::{
     crossover::crossover,
     serialize::{deserialize_connections, deserialize_nodes},
@@ -17,6 +17,105 @@ pub struct Recurrent<C: Connection> {
     nodes: Vec<NodeKind>,
     #[serde(deserialize_with = "deserialize_connections")]
     connections: Vec<C>,
+}
+
+macro_rules! unbound_nodes {
+    ($self:ident, $saturated:ident, $matcher:pat) => {
+        $self
+            .nodes()
+            .iter()
+            .enumerate()
+            .filter_map(|(node_idx, node)| {
+                (matches!(node, $matcher)
+                    && !($saturated).is_some_and(|exclude| exclude.contains(&node_idx)))
+                .then_some(node_idx)
+            })
+    };
+    (@from: $self:ident, $saturated:ident) => {
+        unbound_nodes!(
+            $self,
+            $saturated,
+            NodeKind::Sensory | NodeKind::Internal | NodeKind::Static
+        )
+    };
+    (@to: $self:ident, $saturated:ident) => {
+        unbound_nodes!($self, $saturated, NodeKind::Internal | NodeKind::Action)
+    };
+}
+
+macro_rules! bound_nodes {
+    ($self:ident, $filter_map:expr, $matcher:pat) => {{
+        let exclude = $self
+            .connections
+            .iter()
+            .filter_map($filter_map)
+            .collect::<HashSet<_>>();
+
+        $self
+            .nodes()
+            .iter()
+            .enumerate()
+            .filter_map(move |(node_idx, node)| {
+                (matches!(node, $matcher) && !exclude.contains(&node_idx)).then_some(node_idx)
+            })
+    }};
+    (@from: $self:ident, $bound:expr) => {
+        bound_nodes!(
+            $self,
+            |c| (c.to() == $bound).then_some(c.from()),
+            NodeKind::Sensory | NodeKind::Internal | NodeKind::Static
+        )
+    };
+    (@to: $self:ident, $bound:expr) => {
+        bound_nodes!(
+            $self,
+            |c| (c.from() == $bound).then_some(c.to()),
+            NodeKind::Internal | NodeKind::Action
+        )
+    };
+}
+
+impl<C: Connection> Recurrent<C> {
+    fn unbound_from(
+        &self,
+        saturated: Option<&HashSet<usize>>,
+        rng: &mut impl RngCore,
+    ) -> Option<usize> {
+        unbound_nodes!(@from: self, saturated).choose(rng)
+    }
+
+    #[allow(dead_code, reason = "may be useful for generating paths in reverse")]
+    fn unbound_to(
+        &self,
+        saturated: Option<&HashSet<usize>>,
+        rng: &mut impl RngCore,
+    ) -> Option<usize> {
+        unbound_nodes!(@to: self, saturated).choose(rng)
+    }
+
+    fn bound_from(&self, to_idx: usize, rng: &mut impl RngCore) -> Option<usize> {
+        assert!(
+            matches!(
+                self.nodes.get(to_idx),
+                Some(NodeKind::Internal | NodeKind::Action)
+            ),
+            "node[{to_idx}] {:?} cannot be bound as to",
+            self.nodes.get(to_idx)
+        );
+        bound_nodes!(@from: self, to_idx).choose(rng)
+    }
+
+    fn bound_to(&self, from_idx: usize, rng: &mut impl RngCore) -> Option<usize> {
+        assert!(
+            matches!(
+                self.nodes.get(from_idx),
+                Some(NodeKind::Sensory | NodeKind::Internal | NodeKind::Static)
+            ),
+            "node[{from_idx}] {:?} cannot be bound as from",
+            self.nodes.get(from_idx),
+        );
+        bound_nodes!(@to: self, from_idx).choose(rng)
+    }
 }
 
 impl<C: Connection> Genome<C> for Recurrent<C> {
@@ -73,37 +172,29 @@ impl<C: Connection> Genome<C> for Recurrent<C> {
         self.connections.push(connection);
     }
 
-    fn open_path(&self, rng: &mut impl RngCore) -> Option<(usize, usize)> {
-        let mut saturated = HashSet::new();
-        loop {
-            let (from, _) = self
-                .nodes()
-                .iter()
-                .enumerate()
-                .filter(|(from, node)| {
-                    !matches!(node, NodeKind::Action) && !saturated.contains(from)
-                })
-                .choose(rng)?;
-
-            let exclude = self
-                .connections
-                .iter()
-                .filter_map(|c| (c.from() == from).then_some(c.to()))
-                .collect::<HashSet<_>>();
-
-            if let Some((to, _)) = self
-                .nodes()
-                .iter()
-                .enumerate()
-                .filter(|(to, node)| {
-                    !matches!(node, NodeKind::Static | NodeKind::Sensory) && !exclude.contains(to)
-                })
-                .choose(rng)
-            {
-                break Some((from, to));
+    fn open_path<'a>(
+        &self,
+        included: Option<ConnectionPoint>,
+        rng: &mut impl RngCore,
+    ) -> Option<(usize, usize)> {
+        match included {
+            Some(ConnectionPoint::From(from_idx)) => self
+                .bound_to(from_idx, rng)
+                .map(|to_idx| (from_idx, to_idx)),
+            Some(ConnectionPoint::To(to_idx)) => self
+                .bound_from(to_idx, rng)
+                .map(|from_idx| (from_idx, to_idx)),
+            None => {
+                let mut saturated = HashSet::new();
+                loop {
+                    let from_idx = self.unbound_from(Some(&saturated), rng)?;
+                    if let Some(to_idx) = self.bound_to(from_idx, rng) {
+                        break Some((from_idx, to_idx));
+                    } else {
+                        saturated.insert(from_idx);
+                    }
+                }
             }
-
-            saturated.insert(from);
         }
     }
 
@@ -200,17 +291,49 @@ mod test {
         let (mut genome, _ ) = T::new(1, 1);
 
         for _ in 0..100 {
-            match genome.open_path(&mut default_rng()) {
+            match genome.open_path(None, &mut default_rng()) {
                 Some((0, 1)) | Some((2, 1)) => {}, // sensory -> action, bias -> action
-                Some(p) => unreachable!("invalid pair {p:?} gen'd"),
+                Some(p) => unreachable!("invalid pair {p:?} ({:?} -> {:?}) gen'd", genome.nodes()[p.0], genome.nodes()[p.1]),
                 None => unreachable!("no path gen'd"),
             }
         }
 
         genome.push_connection(C::new(2, 1, &mut InnoGen::new(0)));
         for _ in 0..100 {
-            assert_eq!(genome.open_path(&mut default_rng()), Some((0, 1)));
+            assert_eq!(genome.open_path(None, &mut default_rng()), Some((0, 1)));
         }
+    });
+
+    test_t!(
+    test_gen_connection_including[T: RecurrentContinuous]() {
+        let (mut genome, _) = T::new(1, 1);
+
+        for _ in 0..100 {
+            assert_eq!(genome.open_path(Some(ConnectionPoint::From(0)), &mut default_rng()), Some((0, 1)));
+            match genome.open_path(Some(ConnectionPoint::To(1)), &mut default_rng()) {
+                Some((0, 1)) | Some((2, 1)) => {}, // sensory -> action, bias -> action
+                Some(p) => unreachable!("invalid pair {p:?} ({:?} -> {:?}) gen'd", genome.nodes()[p.0], genome.nodes()[p.1]),
+                None => unreachable!("no path gen'd"),
+            }
+        }
+
+        genome.push_connection(C::new(2, 1, &mut InnoGen::new(0)));
+        for _ in 0..100 {
+            assert_eq!(genome.open_path(Some(ConnectionPoint::To(1)), &mut default_rng()), Some((0, 1)));
+        }
+
+    });
+
+    test_t!(
+    #[should_panic(expected = "node[0] Some(Sensory) cannot be bound as to")]
+    test_gen_connection_invalid_to[T: RecurrentContinuous]() {
+        T::new(1, 1).0.open_path(Some(ConnectionPoint::To(0)), &mut default_rng());
+    });
+
+    test_t!(
+    #[should_panic(expected = "node[1] Some(Action) cannot be bound as from")]
+    test_gen_connection_invalid_from[T: RecurrentContinuous]() {
+        T::new(1, 1).0.open_path(Some(ConnectionPoint::From(1)), &mut default_rng());
     });
 
     test_t!(
@@ -218,7 +341,7 @@ mod test {
         let (genome, _) = T::new(0, 0);
         assert_eq!(
             genome
-            .open_path(&mut default_rng()),
+            .open_path(None, &mut default_rng()),
             None
         );
     });

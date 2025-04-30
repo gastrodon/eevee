@@ -62,6 +62,12 @@ pub enum NodeKind {
     Static,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum ConnectionPoint {
+    From(usize),
+    To(usize),
+}
+
 /// A connection between 2 points. Connections may be arbitrarially parameterized, and those
 /// parameters mutated inside [mutate_param](Connection::mutate_param). For those params to
 /// actually be _used_, a connection should expose them with a trait, and a
@@ -187,12 +193,18 @@ pub trait Genome<C: Connection>: Serialize + for<'de> Deserialize<'de> + Clone {
     /// Find some open path ( that is, a path between nodes from -> to ) that no connection is
     /// occupying if any exist. Whatever path is returned will be considered valid, and may be
     /// used when generating a new connection.
-    fn open_path(&self, rng: &mut impl RngCore) -> Option<(usize, usize)>;
+    /// `included` describes a part of the path being queried, if any. If Some(From(n)),
+    /// the path must originate from n, if Some(To(n)) the path must travel to n.
+    fn open_path(
+        &self,
+        included: Option<ConnectionPoint>,
+        rng: &mut impl RngCore,
+    ) -> Option<(usize, usize)>;
 
     /// Generate a new connection between unconnected nodes. Panics if all possible connections
     /// between nodes are saturated ( TODO: is that a good idea? )
     fn new_connection(&mut self, rng: &mut impl RngCore, inno: &mut InnoGen) {
-        if let Some((from, to)) = self.open_path(rng) {
+        if let Some((from, to)) = self.open_path(None, rng) {
             self.push_connection(C::new(from, to, inno));
         } else {
             panic!("connections on genome are fully saturated")
