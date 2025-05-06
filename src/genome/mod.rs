@@ -229,6 +229,22 @@ pub trait Genome<C: Connection>: Serialize + for<'de> Deserialize<'de> + Clone {
 
         self.push_node(NodeKind::Internal);
         self.push_2_connections(lower, upper);
+
+        let inter = {
+            let include = if rng.next_u64() > u64::MAX / 2 {
+                ConnectionPoint::From(center)
+            } else {
+                ConnectionPoint::To(center)
+            };
+
+            if let Some((from, to)) = self.open_path(Some(include), rng) {
+                C::new(from, to, inno)
+            } else {
+                panic!("connections on genome are fully saturated")
+            }
+        };
+
+        self.push_connection(inter);
     }
 
     /// Perform 0 or more mutations on this genome. If [PROBABILITIES](Genome::PROBABILITIES)

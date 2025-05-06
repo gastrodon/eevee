@@ -407,7 +407,10 @@ mod test {
             innogen.path((rear.from(), rear.to()))
         );
 
-        assert_eq!(HashSet::from([source.inno, front.inno, rear.inno]).len(), 3)
+
+        // external  connection: * -> center
+        let inter = &genome.connections()[3];
+        assert_eq!(HashSet::from([source.inno, front.inno, rear.inno, inter.inno]).len(), 4)
     });
 
     test_t!(
