@@ -94,7 +94,7 @@ impl<C: Connection> Recurrent<C> {
     }
 
     fn bound_from(&self, to_idx: usize, rng: &mut impl RngCore) -> Option<usize> {
-        assert!(
+        debug_assert!(
             matches!(
                 self.nodes.get(to_idx),
                 Some(NodeKind::Internal | NodeKind::Action)
@@ -106,7 +106,7 @@ impl<C: Connection> Recurrent<C> {
     }
 
     fn bound_to(&self, from_idx: usize, rng: &mut impl RngCore) -> Option<usize> {
-        assert!(
+        debug_assert!(
             matches!(
                 self.nodes.get(from_idx),
                 Some(NodeKind::Sensory | NodeKind::Internal | NodeKind::Static)
