@@ -249,7 +249,7 @@ mod test {
         genome.push_connection(C::new(1, 2, &mut inno));
 
         let before = genome.clone();
-        genome.new_connection(&mut default_rng(), &mut inno);
+        genome.new_connection(&mut default_rng(), &mut inno).unwrap_or_else(|e| panic!("failed new_connection: {e}"));
 
         assert_eq!(genome.connections().len(), before.connections().len() + 1);
 
@@ -272,7 +272,7 @@ mod test {
         });
 
         let innogen = &mut InnoGen::new(1);
-        genome.bisect_connection(&mut default_rng(), innogen);
+        genome.bisect_connection(&mut default_rng(), innogen).unwrap_or_else(|e| panic!("failed new_connection: {e}"));
 
         assert!(!genome.connections()[0].enabled);
 
@@ -304,18 +304,16 @@ mod test {
     });
 
     test_t!(
-    #[should_panic(expected = "no connections available to bisect")]
     test_mutate_bisection_empty_genome[T: RecurrentContinuous]() {
         let (mut genome, _) = T::new(0, 0);
         genome.connections = vec![]; // TODO generalize empty connection state
-        genome.bisect_connection(&mut default_rng(), &mut InnoGen::new(0));
+        assert!(genome.bisect_connection(&mut default_rng(), &mut InnoGen::new(0)).is_err());
     });
 
     test_t!(
-    #[should_panic(expected = "no connections available to bisect")]
     test_mutate_bisection_no_connections[T: RecurrentContinuous]() {
         let (mut genome, _) = T::new(2, 2);
         genome.connections = vec![]; // TODO generalize empty connection state
-        genome.bisect_connection(&mut default_rng(), &mut InnoGen::new(0));
+        assert!(genome.bisect_connection(&mut default_rng(), &mut InnoGen::new(0)).is_err());
     });
 }

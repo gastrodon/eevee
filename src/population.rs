@@ -235,8 +235,7 @@ mod test {
         for specie in species.iter() {
             assert_ne!(0, specie.len());
         }
-        for (genome, fit) in species.iter().flat_map(|Specie { members, .. }| members) {
-            assert_eq!(0, genome.connections().len());
+        for (_, fit) in species.iter().flat_map(|Specie { members, .. }| members) {
             assert_eq!(f64::MIN, *fit);
         }
     });

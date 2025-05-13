@@ -189,22 +189,31 @@ pub trait Genome<C: Connection>: Serialize + for<'de> Deserialize<'de> + Clone {
     /// used when generating a new connection.
     fn open_path(&self, rng: &mut impl RngCore) -> Option<(usize, usize)>;
 
-    /// Generate a new connection between unconnected nodes. Panics if all possible connections
-    /// between nodes are saturated ( TODO: is that a good idea? )
-    fn new_connection(&mut self, rng: &mut impl RngCore, inno: &mut InnoGen) {
+    /// Generate a new connection between unconnected nodes. Fails if all possible connections
+    /// between nodes are saturated
+    fn new_connection(
+        &mut self,
+        rng: &mut impl RngCore,
+        inno: &mut InnoGen,
+    ) -> Result<(), Box<dyn Error>> {
         if let Some((from, to)) = self.open_path(rng) {
             self.push_connection(C::new(from, to, inno));
+            Ok(())
         } else {
-            panic!("connections on genome are fully saturated")
+            Err("connections on genome are fully saturated".into())
         }
     }
 
-    /// Bisect an existing connection. Panics if there are no connections to bisect. This is the
+    /// Bisect an existing connection. Fails if there are no connections to bisect. This is the
     /// mechanism by which the internal / "hidden" layer of nodes grows on a genome, the new
     /// node being at the center of the bisection.
-    fn bisect_connection(&mut self, rng: &mut impl RngCore, inno: &mut InnoGen) {
+    fn bisect_connection(
+        &mut self,
+        rng: &mut impl RngCore,
+        inno: &mut InnoGen,
+    ) -> Result<(), Box<dyn Error>> {
         if self.connections().is_empty() {
-            panic!("no connections available to bisect");
+            return Err("no connections available to bisect".into());
         }
 
         let center = self.nodes().len();
@@ -217,28 +226,29 @@ pub trait Genome<C: Connection>: Serialize + for<'de> Deserialize<'de> + Clone {
 
         self.push_node(NodeKind::Internal);
         self.push_2_connections(lower, upper);
+        Ok(())
     }
 
     /// Perform 0 or more mutations on this genome. If [PROBABILITIES](Genome::PROBABILITIES)
     /// add up to [u64::MAX], some event will always be picked. Otherwise, it's possible that
     /// no mutation actually ocurrs.
-    fn mutate(&mut self, rng: &mut impl RngCore, innogen: &mut InnoGen) {
-        if let Some(evt) = GenomeEvent::pick(rng, Self::PROBABILITIES) {
+    fn mutate(
+        &mut self,
+        rng: &mut impl RngCore,
+        innogen: &mut InnoGen,
+    ) -> Result<(), Box<dyn Error>> {
+        if self.connections().is_empty() {
+            self.new_connection(rng, innogen)?;
+        } else if let Some(evt) = GenomeEvent::pick(rng, Self::PROBABILITIES) {
             match evt {
-                GenomeEvent::NewConnection => self.new_connection(rng, innogen),
-                GenomeEvent::BisectConnection => {
-                    if !self.connections().is_empty() {
-                        self.bisect_connection(rng, innogen)
-                    }
-                }
-                GenomeEvent::MutateConnection => {
-                    if !self.connections().is_empty() {
-                        self.mutate_connection(rng)
-                    }
-                }
+                GenomeEvent::NewConnection => self.new_connection(rng, innogen)?,
+                GenomeEvent::BisectConnection => self.bisect_connection(rng, innogen)?,
+                GenomeEvent::MutateConnection => self.mutate_connection(rng),
                 GenomeEvent::MutateNode => unreachable!("nodes may not be mutated"),
-            }
+            };
         }
+
+        Ok(())
     }
 
     /// Perform crossover reproduction with other, where our fitness is `fitness_cmp` compared to other
