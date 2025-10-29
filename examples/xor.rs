@@ -20,7 +20,6 @@ macro_rules! eval_pair {
     ($pair:expr, $want:expr, ($network:ident $fit:ident $σ:ident)) => {{
         $network.step(2, &$pair, $σ);
         let v = $network.output()[0];
-        
         // Gradient-based fitness calculation
         if v >= 0. && v <= 1. {
             // Output in valid range [0, 1]: fitness in [0.1, 1.0]
@@ -28,11 +27,7 @@ macro_rules! eval_pair {
             $fit += 1.0 - 0.9 * error;
         } else {
             // Output outside [0, 1]: fitness in [0, 0.1)
-            let distance_outside = if v < 0. {
-                -v  // how far below 0
-            } else {
-                v - 1.  // how far above 1
-            };
+            let distance_outside = if v < 0. { -v } else { v - 1. };
             // Exponentially decay from 0.1 as distance increases
             $fit += 0.1 * (-distance_outside).exp();
         }
