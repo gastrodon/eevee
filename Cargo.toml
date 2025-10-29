@@ -85,3 +85,11 @@ required-features = ["approx"]
 [[example]]
 name = "xor_diverse_init"
 required-features = ["approx"]
+
+[[example]]
+name = "xor_test"
+required-features = ["approx"]
+
+[[example]]
+name = "xor_debug"
+required-features = ["approx"]
