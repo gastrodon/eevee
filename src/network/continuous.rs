@@ -71,7 +71,7 @@ impl Network for Continuous {
             temp2 -= &self.y;
             temp2 += &m_input;
             
-            // temp2 = temp2.component_mul(τ) * inv
+            // temp2 = temp2.component_mul(τ) * inv (in-place)
             temp2.component_mul_assign(&self.τ);
             temp2 *= inv;
             
