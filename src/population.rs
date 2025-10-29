@@ -96,7 +96,7 @@ impl<C: Connection, G: Genome<C>> Specie<C, G> {
     }
 }
 
-const SPECIE_THRESHOLD: f64 = 4.;
+const SPECIE_THRESHOLD: f64 = 1.01;
 
 /// Partition an unordered collection of [Genome]s into species. An initial collection of empty
 /// species is created from repr, and if some genome matches none of them, a new specie is

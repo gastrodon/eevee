@@ -5,6 +5,7 @@ use approx::relative_eq;
 use core::{f64, ops::ControlFlow};
 use eevee::{
     activate::relu,
+    crossover::delta,
     genome::{Genome, Recurrent, WConnection},
     network::{Network, Simple, ToNetwork},
     population::population_init,
@@ -59,50 +60,46 @@ fn hook<C: Connection, G: Genome<C>>(
     log_file: RefCell<File>,
 ) -> impl Fn(&mut Stats<'_, C, G>) -> ControlFlow<()> {
     move |stats: &mut Stats<'_, C, G>| -> ControlFlow<()> {
-        // Log species info
-        let num_species = stats.species.len();
-        let species_info: Vec<String> = stats
+        // Sample some genomes and compute deltas
+        let all_genomes: Vec<&G> = stats
             .species
             .iter()
-            .enumerate()
-            .filter(|(_, specie)| !specie.members.is_empty())
-            .map(|(idx, specie)| {
-                let size = specie.len();
-                let avg_fitness = specie.members.iter().map(|(_, f)| f).sum::<f64>() / size as f64;
-                let max_fitness = specie.members.iter().map(|(_, f)| f).max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap();
-                let min_fitness = specie.members.iter().map(|(_, f)| f).min_by(|a, b| a.partial_cmp(b).unwrap()).unwrap();
-                let adjusted_fitness = specie.fit_adjusted();
-                format!(
-                    "S{}: size={}, avg_fit={:.2}, max_fit={:.2}, min_fit={:.2}, adj_fit={:.2}",
-                    idx, size, avg_fitness, max_fitness, min_fitness, adjusted_fitness
-                )
-            })
+            .flat_map(|s| s.members.iter().map(|(g, _)| g))
             .collect();
-
-        let log_line = format!(
-            "Gen {}: {} species | {}\n",
-            stats.generation,
-            num_species,
-            species_info.join(" | ")
-        );
         
-        let _ = log_file.borrow_mut().write_all(log_line.as_bytes());
-        
-        if stats.generation % 10 == 0 || stats.generation < 20 {
+        if all_genomes.len() >= 10 && stats.generation % 10 == 0 {
+            // Sample 10 pairs
+            let mut deltas = Vec::new();
+            for i in 0..5 {
+                let g1 = all_genomes[i * 2];
+                let g2 = all_genomes[i * 2 + 1];
+                let d = delta(g1.connections(), g2.connections());
+                deltas.push(d);
+            }
+            let avg_delta = deltas.iter().sum::<f64>() / deltas.len() as f64;
+            let max_delta = deltas.iter().cloned().fold(0./0., f64::max);
+            
+            let log_line = format!(
+                "Gen {}: {} species, sample deltas: avg={:.4}, max={:.4}, values={:?}\n",
+                stats.generation,
+                stats.species.len(),
+                avg_delta,
+                max_delta,
+                deltas.iter().map(|d| format!("{:.2}", d)).collect::<Vec<_>>()
+            );
+            
+            let _ = log_file.borrow_mut().write_all(log_line.as_bytes());
             print!("{}", log_line);
         }
 
-        if stats.generation >= 100 {
-            println!("Stopping after 100 generations for analysis");
+        if stats.generation >= 50 {
+            println!("Stopping after 50 generations");
             return ControlFlow::Break(());
         }
 
         if stats.any_fitter_than(400. - f64::EPSILON) {
             let fittest = stats.fittest().unwrap();
-            println!("target met in gen {}: {:.4}", stats.generation, fittest.1);
-            let _ = fittest
-                .0
-                .to_file(format!("output/xor-diagnostic-{}.json", stats.generation));
+            println!("Target met in gen {}: {:.4}", stats.generation, fittest.1);
             return ControlFlow::Break(());
         }
 
@@ -114,7 +111,7 @@ type C = WConnection;
 type G = Recurrent<C>;
 
 fn main() {
-    let log_file = RefCell::new(File::create("output/species_diagnostic.log").expect("Failed to create log file"));
+    let log_file = RefCell::new(File::create("output/delta_analysis.log").expect("Failed to create log file"));
     
     evolve(
         Xor {},

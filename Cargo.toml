@@ -77,3 +77,7 @@ required-features = ["approx"]
 [[example]]
 name = "xor_genome_sizes"
 required-features = ["approx"]
+
+[[example]]
+name = "xor_delta_analysis"
+required-features = ["approx"]
