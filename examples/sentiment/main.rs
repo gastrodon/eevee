@@ -124,7 +124,7 @@ fn hook<C: Connection, G: Genome<C>>(stats: &mut Stats<'_, C, G>) -> ControlFlow
     let fittest = stats.fittest().unwrap();
     println!("fittest of gen {}: {:.4}", stats.generation, fittest.1);
 
-    if stats.generation % 10 == 0 {
+    if stats.generation.is_multiple_of(10) {
         population_to_files("output/sentiment", stats.species).unwrap();
     }
 

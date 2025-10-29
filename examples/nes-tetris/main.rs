@@ -80,7 +80,7 @@ fn sense_board(ram: &[u8], sense: &mut [f64; INPUT_SIZE]) {
             .filter_map(|(row, col)| {
                 let row = row + ram[Y];
                 let col = col + ram[X];
-                (row >= 2 && col >= 2).then(|| (((row - 2) as usize * 10) + (col - 2) as usize))
+                (row >= 2 && col >= 2).then(|| ((row - 2) as usize * 10) + (col - 2) as usize)
             })
             .filter(|index| *index < 200)
         {
@@ -195,13 +195,13 @@ impl<C: Connection, G: Genome<C> + ToNetwork<Continuous, C>, A: Fn(f64) -> f64> 
 const POPULATION: usize = 1000;
 
 fn hook(stats: &mut Stats<'_, WConnection, Recurrent<WConnection>>) -> ControlFlow<()> {
-    if stats.generation % 10 != 0 {
+    if !stats.generation.is_multiple_of(10) {
         ControlFlow::Continue(())
     } else {
         let fittest = stats.fittest().unwrap();
         println!("gen {} best: {:.3}", stats.generation, fittest.1);
 
-        if stats.generation % 10 == 0 {
+        if stats.generation.is_multiple_of(10) {
             population_to_files("output/sentiment", stats.species).unwrap();
         }
 
