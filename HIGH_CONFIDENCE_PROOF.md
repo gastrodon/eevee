@@ -114,7 +114,7 @@ This demonstrates three different genome configurations that produce high confid
 
 ### Test Suite
 
-Run: `cargo test test_high_confidence`
+Run: `cargo test high_confidence`
 
 Four automated tests verify:
 1. Strong bias configuration works

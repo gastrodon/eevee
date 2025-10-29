@@ -25,7 +25,7 @@ A comprehensive proof demonstrating that the CTRNN implementation can produce hi
 - Mathematical analysis of activation functions and network dynamics
 - Multiple proven genome configurations
 - Executable example: `cargo run --example high_confidence`
-- Automated test suite: `cargo test test_high_confidence`
+- Automated test suite: `cargo test high_confidence`
 
 ### Building on it
 
