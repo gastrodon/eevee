@@ -192,7 +192,7 @@ fn population_allocated<
             let viable = specie
                 .members
                 .iter()
-                .filter(|&pair| (&pair.1 >= min_fitness))
+                .filter(|&pair| &pair.1 >= min_fitness)
                 .cloned()
                 .collect::<Vec<_>>();
 
