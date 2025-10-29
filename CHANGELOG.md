@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### Reproduction and Evolution
 - **Improved Mutation Error Handling**: Mutations that would fail now return errors instead of panicking, with logic to prefer mutation methods less likely to fail
+- **Probabilistic Species Survival**: Weak species now get probabilistic chances to breed based on fractional population allocations, enabling innovation by new or struggling lineages without eliminating them instantly
 
 #### Performance Improvements
 - **Hashless Population Allocation**: Optimized species population allocation by removing hash table lookups, using direct iteration over aligned vectors instead
