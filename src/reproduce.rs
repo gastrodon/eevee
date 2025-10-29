@@ -1,5 +1,6 @@
 //! Functions related to reproducing on the specie and global population scale.
 
+use crate::random::percent;
 use crate::{
     genome::{Connection, Genome, InnoGen},
     population::FittedGroup,
@@ -7,7 +8,6 @@ use crate::{
 };
 use core::{error::Error, f64};
 use rand::RngCore;
-use crate::random::percent;
 
 fn reproduce_crossover<C: Connection, G: Genome<C>>(
     genomes: &[(G, f64)],
@@ -170,6 +170,7 @@ pub fn population_reproduce<C: Connection, G: Genome<C>>(
     population: usize,
     inno_head: usize,
     rng: &mut impl RngCore,
+    species_ages: &[usize],
 ) -> (Vec<G>, usize) {
     let mut innogen = InnoGen::new(inno_head);
 
@@ -180,12 +181,17 @@ pub fn population_reproduce<C: Connection, G: Genome<C>>(
     let allocated: Vec<_> = species
         .iter()
         .zip(species_fitted)
-        .map(|(specie, fit_adjusted)| {
+        .zip(species_ages)
+        .map(|((specie, fit_adjusted), &age)| {
             let ideal_alloc = population_f * fit_adjusted / fit_total;
             let base_alloc = ideal_alloc.floor() as usize;
             let fraction = ideal_alloc - ideal_alloc.floor();
-            
-            let extra = if rng.next_u64() < percent((100.0 * fraction) as u64) {
+
+            let age_f = age as f64;
+            let survival_multiplier = (-((age_f / 5.0).powi(2))).exp();
+            let adjusted_fraction = fraction * survival_multiplier;
+
+            let extra = if rng.next_u64() < percent((100.0 * adjusted_fraction) as u64) {
                 1
             } else {
                 0
@@ -257,7 +263,7 @@ mod test {
     fn test_probabilistic_allocation() {
         // Test that probabilistic allocation gives weak species a chance to survive
         let connection = C::new(1, 2, &mut InnoGen::new(1));
-        
+
         // Create a strong specie and a weak specie
         let strong_specie = Specie {
             repr: SpecieRepr::new(vec![connection.clone()]),
@@ -270,7 +276,7 @@ mod test {
                 100.0,
             )],
         };
-        
+
         let weak_specie = Specie {
             repr: SpecieRepr::new(vec![connection.clone()]),
             members: vec![(
@@ -279,28 +285,28 @@ mod test {
                     g.push_connection(connection.clone());
                     g
                 },
-                1.0,  // Very weak fitness
+                1.0, // Very weak fitness
             )],
         };
-        
+
         let population = 100;
         let num_trials = 100;
-        
+
         // Run multiple trials to ensure probabilistic allocation works consistently
         for _ in 0..num_trials {
-            let mut rng = crate::random::WyRng::seeded(
-                crate::random::seed_urandom().unwrap_or(12345)
-            );
+            let mut rng =
+                crate::random::WyRng::seeded(crate::random::seed_urandom().unwrap_or(12345));
             let (offspring, _) = population_reproduce(
                 &[strong_specie.clone(), weak_specie.clone()],
                 population,
                 0,
                 &mut rng,
+                &[0, 0],
             );
-            // Weak species should occasionally get allocation slots despite low fitness.
-            // We just verify that the reproduction completes successfully and produces
-            // approximately the right population size.
-            assert!(!offspring.is_empty(), "offspring population should not be empty");
+            assert!(
+                !offspring.is_empty(),
+                "offspring population should not be empty"
+            );
         }
     }
 

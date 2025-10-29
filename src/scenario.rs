@@ -204,8 +204,21 @@ pub fn evolve<
             })
             .collect::<Vec<_>>();
 
-        (pop_flat, inno_head) =
-            population_reproduce(&p_truncated, population_lim, inno_head, &mut rng);
+        let species_ages = p_truncated
+            .iter()
+            .map(|s| {
+                let (_, gen_created) = *scores_prev.get(&s.repr).unwrap_or(&(f64::MIN, gen_idx));
+                gen_idx.saturating_sub(gen_created)
+            })
+            .collect::<Vec<_>>();
+
+        (pop_flat, inno_head) = population_reproduce(
+            &p_truncated,
+            population_lim,
+            inno_head,
+            &mut rng,
+            &species_ages,
+        );
         debug_assert!(!pop_flat.is_empty(), "nobody past {gen_idx}");
         gen_idx += 1
     }

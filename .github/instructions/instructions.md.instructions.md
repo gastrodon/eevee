@@ -1,4 +1,4 @@
 ---
 applyTo: '**/*.rs'
 ---
-Provide project context and coding guidelines that AI should follow when generating code, answering questions, or reviewing changes.
+Do not add comments explaining your changes, unless you're doing something pretty _novel_.
