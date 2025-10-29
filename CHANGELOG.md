@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Minimum fitness for sentiment analysis examples set to > 0
 - Fixed and formatted test data for non-bias static nodes
 - Build configuration improvements for required features
+- XOR example now uses 0-1 gradient fitness calculation for improved training convergence
 
 ### Development & CI
 
