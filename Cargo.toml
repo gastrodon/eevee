@@ -69,3 +69,11 @@ harness = false
 [[bench]]
 name = "speciate"
 harness = false
+
+[[example]]
+name = "xor_diagnostic"
+required-features = ["approx"]
+
+[[example]]
+name = "xor_genome_sizes"
+required-features = ["approx"]
