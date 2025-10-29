@@ -51,10 +51,31 @@ impl Network for Continuous {
         m_input.as_mut_slice()[self.sensory.0..self.sensory.1].copy_from_slice(input);
 
         let inv = 1. / (prec as f64);
+        
+        // Preallocate temporary buffers to reduce allocations
+        let mut temp1 = na::DMatrix::zeros(1, self.y.ncols());
+        let mut temp2 = na::DMatrix::zeros(1, self.y.ncols());
+        
         for _ in 0..prec {
-            self.y += (((&self.y + &self.θ).map(&σ) * &self.w) - &self.y + &m_input)
-                .component_mul(&self.τ)
-                .map(|v| v * inv);
+            // temp1 = (y + θ).map(σ)
+            temp1.copy_from(&self.y);
+            temp1 += &self.θ;
+            temp1 = temp1.map(&σ);
+            
+            // temp2 = temp1 * w
+            temp2.fill(0.0);
+            temp2.gemm(1.0, &temp1, &self.w, 0.0);
+            
+            // temp2 = temp2 - y + m_input
+            temp2 -= &self.y;
+            temp2 += &m_input;
+            
+            // temp2 = temp2.component_mul(τ).map(|v| v * inv)
+            temp2.component_mul_assign(&self.τ);
+            temp2 *= inv;
+            
+            // y += temp2
+            self.y += &temp2;
         }
     }
 

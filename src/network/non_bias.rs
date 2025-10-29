@@ -28,8 +28,23 @@ impl Network for NonBias {
         m_input.as_mut_slice()[self.sensory.0..self.sensory.1].copy_from_slice(input);
 
         let inv = 1. / (prec as f64);
+        
+        // Preallocate temporary buffers
+        let mut temp1 = na::DMatrix::zeros(1, self.y.ncols());
+        let mut temp2 = na::DMatrix::zeros(1, self.y.ncols());
+        
         for _ in 0..prec {
-            self.y = ((&self.y + &m_input).map(&σ) * &self.w).map(|v| v * inv);
+            // temp1 = (y + m_input).map(σ)
+            temp1.copy_from(&self.y);
+            temp1 += &m_input;
+            temp1 = temp1.map(&σ);
+            
+            // y = (temp1 * w).map(|v| v * inv)
+            temp2.fill(0.0);
+            temp2.gemm(1.0, &temp1, &self.w, 0.0);
+            temp2 *= inv;
+            
+            self.y.copy_from(&temp2);
         }
     }
 
