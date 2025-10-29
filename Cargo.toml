@@ -93,3 +93,6 @@ required-features = ["approx"]
 [[example]]
 name = "xor_debug"
 required-features = ["approx"]
+
+[[example]]
+name = "test_weighted_reproduction"
