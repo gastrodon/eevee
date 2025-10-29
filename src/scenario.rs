@@ -187,7 +187,7 @@ pub fn evolve<
                 let (min_fit, gen_achieved) =
                     *scores_prev.get(&s.repr).unwrap_or(&(f64::MIN, gen_idx));
 
-                if gen_achieved + NO_IMPROVEMENT_TRUNCATE <= gen_idx && s.members.len() > 5 {
+                if gen_achieved + NO_IMPROVEMENT_TRUNCATE <= gen_idx && s.members.len() > 2 {
                     (
                         Specie {
                             repr: s.repr,
@@ -197,9 +197,7 @@ pub fn evolve<
                                     r.partial_cmp(l)
                                         .unwrap_or_else(|| panic!("cannot partial_cmp {l} and {r}"))
                                 });
-                                // Keep top 25% (at least 5) to allow more exploration
-                                let keep_count = ((trunc.len() as f64 * 0.25).ceil() as usize).max(5);
-                                trunc[..keep_count].to_vec()
+                                trunc[..2].to_vec()
                             },
                         },
                         f64::MIN,  // Don't filter by historical best
