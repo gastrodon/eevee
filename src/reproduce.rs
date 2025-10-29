@@ -161,21 +161,75 @@ fn population_alloc<'a, C: Connection + 'a, G: Genome<C> + 'a>(
     species: impl Iterator<Item = &'a Specie<C, G>>,
     population: usize,
 ) -> HashMap<SpecieRepr<C>, usize> {
-    let species_fitted = species
+    let species_fitted: Vec<_> = species
         .map(|s| (s.repr.clone(), s.fit_adjusted()))
-        .collect::<Vec<_>>();
+        .collect();
 
-    let fit_total = species_fitted.iter().fold(0., |acc, (_, n)| acc + n);
+    if species_fitted.is_empty() {
+        return HashMap::new();
+    }
+
+    // Ensure each species gets at least a minimum allocation to preserve diversity
+    const MIN_ALLOC_PER_SPECIES: usize = 5;
+    let num_species = species_fitted.len();
+    let min_total = num_species * MIN_ALLOC_PER_SPECIES;
+
+    if population < min_total {
+        // Not enough population to give minimum to all species, distribute evenly
+        let per_species = population / num_species;
+        let remainder = population % num_species;
+        return species_fitted
+            .into_iter()
+            .enumerate()
+            .map(|(i, (repr, _))| {
+                (repr, per_species + if i < remainder { 1 } else { 0 })
+            })
+            .collect();
+    }
+
+    let fit_total: f64 = species_fitted.iter().map(|(_, f)| *f).sum();
     let population_f = population as f64;
-    species_fitted
+
+    // Reserve minimum for each species, then distribute remainder proportionally
+    let remaining_pop = population - min_total;
+    let remaining_pop_f = remaining_pop as f64;
+
+    let mut allocations: Vec<(SpecieRepr<C>, f64)> = species_fitted
         .into_iter()
         .map(|(specie_repr, fit_adjusted)| {
-            (
-                specie_repr,
-                f64::round(population_f * fit_adjusted / fit_total) as usize,
-            )
+            let proportional = if fit_total > 0.0 {
+                remaining_pop_f * fit_adjusted / fit_total
+            } else {
+                remaining_pop_f / num_species as f64
+            };
+            (specie_repr, MIN_ALLOC_PER_SPECIES as f64 + proportional)
         })
-        .collect()
+        .collect();
+
+    // Use floor for initial allocation
+    let mut result: HashMap<SpecieRepr<C>, usize> = allocations
+        .iter()
+        .map(|(repr, exact)| (repr.clone(), exact.floor() as usize))
+        .collect();
+
+    // Distribute remainder based on fractional parts (largest remainder method)
+    let allocated: usize = result.values().sum();
+    let mut remainder = population - allocated;
+
+    allocations.sort_by(|(_, a), (_, b)| {
+        let frac_a = a - a.floor();
+        let frac_b = b - b.floor();
+        frac_b.partial_cmp(&frac_a).unwrap()
+    });
+
+    for (repr, _) in allocations.iter() {
+        if remainder > 0 {
+            *result.get_mut(repr).unwrap() += 1;
+            remainder -= 1;
+        }
+    }
+
+    result
 }
 
 fn population_allocated<
@@ -188,15 +242,23 @@ fn population_allocated<
     population: usize,
 ) -> impl Iterator<Item = (Vec<(G, f64)>, usize)> {
     let viable = species
-        .filter_map(|(specie, min_fitness)| {
-            let viable = specie
-                .members
-                .iter()
-                .filter(|&pair| (&pair.1 >= min_fitness))
-                .cloned()
-                .collect::<Vec<_>>();
+        .filter_map(|(specie, _min_fitness)| {
+            // Keep top 50% of each species to allow exploration of lower-fitness mutations
+            // that may lead to better solutions later
+            if specie.members.is_empty() {
+                return None;
+            }
 
-            // (!viable.is_empty()).then_some((&specie.repr, viable));
+            let mut sorted_members = specie.members.clone();
+            sorted_members.sort_by(|(_, l), (_, r)| {
+                r.partial_cmp(l)
+                    .unwrap_or_else(|| panic!("cannot partial_cmp {l} and {r}"))
+            });
+
+            // Keep top 50% (at least 1 member)
+            let keep_count = (sorted_members.len() / 2).max(1);
+            let viable: Vec<_> = sorted_members.into_iter().take(keep_count).collect();
+
             (!viable.is_empty()).then(|| Specie {
                 repr: specie.repr.clone(),
                 members: viable,
