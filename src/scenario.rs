@@ -181,35 +181,31 @@ pub fn evolve<
             })
             .collect();
 
-        let p_scored = species
+        let p_truncated = species
             .into_iter()
             .map(|s| {
-                let (min_fit, gen_achieved) =
-                    *scores_prev.get(&s.repr).unwrap_or(&(f64::MIN, gen_idx));
+                let (_, gen_achieved) = *scores_prev.get(&s.repr).unwrap_or(&(f64::MIN, gen_idx));
 
                 if gen_achieved + NO_IMPROVEMENT_TRUNCATE <= gen_idx && s.members.len() > 2 {
-                    (
-                        Specie {
-                            repr: s.repr,
-                            members: {
-                                let mut trunc = s.members;
-                                trunc.sort_by(|(_, l), (_, r)| {
-                                    r.partial_cmp(l)
-                                        .unwrap_or_else(|| panic!("cannot partial_cmp {l} and {r}"))
-                                });
-                                trunc[..2].to_vec()
-                            },
+                    Specie {
+                        repr: s.repr,
+                        members: {
+                            let mut trunc = s.members;
+                            trunc.sort_by(|(_, l), (_, r)| {
+                                r.partial_cmp(l)
+                                    .unwrap_or_else(|| panic!("cannot partial_cmp {l} and {r}"))
+                            });
+                            trunc[..2].to_vec()
                         },
-                        f64::MIN,
-                    )
+                    }
                 } else {
-                    (s, min_fit)
+                    s
                 }
             })
             .collect::<Vec<_>>();
 
         (pop_flat, inno_head) =
-            population_reproduce(&p_scored, population_lim, inno_head, &mut rng);
+            population_reproduce(&p_truncated, population_lim, inno_head, &mut rng);
         debug_assert!(!pop_flat.is_empty(), "nobody past {gen_idx}");
         gen_idx += 1
     }

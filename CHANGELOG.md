@@ -13,7 +13,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Saturated Initial Connections**: New genomes now create all valid connections between sensory+bias and action neurons, providing a more complete initial topology for evolution
 
 #### Reproduction and Evolution
-- **Selective Reproduction**: Only reproduce genomes that show fitness improvements, reducing wasted computation on stagnant lineages
 - **Improved Mutation Error Handling**: Mutations that would fail now return errors instead of panicking, with logic to prefer mutation methods less likely to fail
 
 #### Performance Improvements

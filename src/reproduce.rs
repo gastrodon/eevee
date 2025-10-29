@@ -2,7 +2,7 @@
 
 use crate::{
     genome::{Connection, Genome, InnoGen},
-    population::{FittedGroup, SpecieRepr},
+    population::FittedGroup,
     Specie,
 };
 use core::{error::Error, f64};
@@ -164,48 +164,32 @@ pub fn population_alloc<'a, C: Connection + 'a, G: Genome<C> + 'a>(
         })
 }
 
-fn population_allocated<
-    'a,
-    C: Connection + 'a,
-    G: Genome<C> + 'a,
-    T: Iterator<Item = &'a (Specie<C, G>, f64)>,
->(
-    species: T,
-    population: usize,
-) -> impl Iterator<Item = (Vec<(G, f64)>, usize)> {
-    let viable = species
-        .filter_map(|(specie, min_fitness)| {
-            let viable = specie
-                .members
-                .iter()
-                .filter(|&pair| (&pair.1 >= min_fitness))
-                .cloned()
-                .collect::<Vec<_>>();
-
-            // (!viable.is_empty()).then_some((&specie.repr, viable));
-            (!viable.is_empty()).then(|| Specie {
-                repr: specie.repr.clone(),
-                members: viable,
-            })
-        })
-        .collect::<Vec<_>>();
-
-    population_alloc(viable, population)
-        .filter_map(|(specie, pop)| (pop > 0).then_some((specie.members, pop)))
-}
-
 // reproduce a whole speciated population into a non-speciated population
 pub fn population_reproduce<C: Connection, G: Genome<C>>(
-    species: &[(Specie<C, G>, f64)],
+    species: &[Specie<C, G>],
     population: usize,
     inno_head: usize,
     rng: &mut impl RngCore,
 ) -> (Vec<G>, usize) {
-    // let species = population_viable(species.into_iter());
-    // let species_pop = population_alloc(species, population);
     let mut innogen = InnoGen::new(inno_head);
+
+    // Inline population_alloc logic
+    let species_fitted = species.iter().map(|s| s.fit_adjusted()).collect::<Vec<_>>();
+    let fit_total = species_fitted.iter().sum::<f64>();
+    let population_f = population as f64;
+
+    let allocated = species
+        .iter()
+        .zip(species_fitted)
+        .map(|(specie, fit_adjusted)| {
+            (
+                specie.members.clone(),
+                f64::round(population_f * fit_adjusted / fit_total) as usize,
+            )
+        });
+
     (
-        population_allocated(species.iter(), population)
+        allocated
             .flat_map(|(members, pop)| reproduce(members, pop, &mut innogen, rng).unwrap())
             .collect::<Vec<_>>(),
         innogen.head,
