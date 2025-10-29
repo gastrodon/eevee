@@ -19,6 +19,14 @@ I like to name [lots](https://github.com/gastrodon/psyduck) [of](https://github.
 
 The core iteration loop is that, given a scenario which implements some mechanism by which a genome may be scored with a fitness, Eevee will try mutate, reproduce, and cull genomes to optimize for that fitness to increase. There exist some experiments aound this in the `examples` folder.
 
+#### High Confidence Signal Capability
+
+A comprehensive proof demonstrating that the CTRNN implementation can produce high confidence signals (>0.9) is available in [HIGH_CONFIDENCE_PROOF.md](HIGH_CONFIDENCE_PROOF.md). This includes:
+- Mathematical analysis of activation functions and network dynamics
+- Multiple proven genome configurations
+- Executable example: `cargo run --example high_confidence`
+- Automated test suite: `cargo test test_high_confidence`
+
 ### Building on it
 
 It's written in rust, and uses nightly versions - mostly for incomplete features. Later when I add CUDA support, it will even more rely on nightly.
