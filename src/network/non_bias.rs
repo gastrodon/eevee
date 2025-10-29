@@ -37,10 +37,11 @@ impl Network for NonBias {
             // temp1 = (y + m_input).map(σ)
             temp1.copy_from(&self.y);
             temp1 += &m_input;
-            temp1 = temp1.map(&σ);
+            for val in temp1.iter_mut() {
+                *val = σ(*val);
+            }
             
-            // y = (temp1 * w).map(|v| v * inv)
-            temp2.fill(0.0);
+            // y = (temp1 * w) * inv
             temp2.gemm(1.0, &temp1, &self.w, 0.0);
             temp2 *= inv;
             
