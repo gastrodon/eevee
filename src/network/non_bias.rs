@@ -41,7 +41,7 @@ impl Network for NonBias {
                 *val = σ(*val);
             }
             
-            // y = (temp1 * w) * inv
+            // temp2 = (temp1 * w) * inv
             temp2.gemm(1.0, &temp1, &self.w, 0.0);
             temp2 *= inv;
             
