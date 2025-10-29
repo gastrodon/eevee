@@ -4,7 +4,7 @@ use crate::{
     serialize::{deserialize_matrix_flat, deserialize_matrix_square, serialize_matrix},
     Connection, Genome, Network,
 };
-use rulinalg::matrix::{BaseMatrix, BaseMatrixMut, Matrix};
+use nalgebra as na;
 use serde::{Deserialize, Serialize};
 
 /// A stateful NN who receives input continuously, useful for realtime problems
@@ -20,25 +20,25 @@ pub struct Continuous {
         serialize_with = "serialize_matrix",
         deserialize_with = "deserialize_matrix_flat"
     )]
-    pub y: Matrix<f64>,
+    pub y: na::DMatrix<f64>,
     /// 1d bias of neurons 0-N
     #[serde(
         serialize_with = "serialize_matrix",
         deserialize_with = "deserialize_matrix_flat"
     )]
-    pub θ: Matrix<f64>,
+    pub θ: na::DMatrix<f64>,
     /// 1d membrane resistance time constant
     #[serde(
         serialize_with = "serialize_matrix",
         deserialize_with = "deserialize_matrix_flat"
     )]
-    pub τ: Matrix<f64>,
+    pub τ: na::DMatrix<f64>,
     /// Nd weights between neurons, indexed as [from, to]
     #[serde(
         serialize_with = "serialize_matrix",
         deserialize_with = "deserialize_matrix_square"
     )]
-    pub w: Matrix<f64>,
+    pub w: na::DMatrix<f64>,
     /// Range of input neurons, indexing into y
     pub sensory: (usize, usize),
     /// Range of output neurons, indexing into y
@@ -47,23 +47,23 @@ pub struct Continuous {
 
 impl Network for Continuous {
     fn step<F: Fn(f64) -> f64>(&mut self, prec: usize, input: &[f64], σ: F) {
-        let mut m_input = Matrix::zeros(1, self.y.cols());
-        m_input.mut_data()[self.sensory.0..self.sensory.1].copy_from_slice(input);
+        let mut m_input = na::DMatrix::zeros(1, self.y.ncols());
+        m_input.as_mut_slice()[self.sensory.0..self.sensory.1].copy_from_slice(input);
 
         let inv = 1. / (prec as f64);
         for _ in 0..prec {
-            self.y += (((&self.y + &self.θ).apply(&σ) * &self.w) - &self.y + &m_input)
-                .elemul(&self.τ)
-                .apply(&|v| v * inv);
+            self.y += (((&self.y + &self.θ).map(&σ) * &self.w) - &self.y + &m_input)
+                .component_mul(&self.τ)
+                .map(|v| v * inv);
         }
     }
 
     fn flush(&mut self) {
-        self.y = Matrix::zeros(1, self.y.cols());
+        self.y = na::DMatrix::zeros(1, self.y.ncols());
     }
 
     fn output(&self) -> &[f64] {
-        &self.y.data()[self.action.0..self.action.1]
+        &self.y.as_slice()[self.action.0..self.action.1]
     }
 }
 
@@ -75,11 +75,11 @@ impl<C: Connection, G: Genome<C>> FromGenome<C, G> for Continuous {
     fn from_genome(genome: &G) -> Self {
         let cols = genome.nodes().len();
         Self {
-            y: Matrix::zeros(1, cols),
-            θ: Matrix::new(
+            y: na::DMatrix::zeros(1, cols),
+            θ: na::DMatrix::from_row_slice(
                 1,
                 cols,
-                genome
+                &genome
                     .nodes()
                     .iter()
                     .map(|n| {
@@ -91,13 +91,13 @@ impl<C: Connection, G: Genome<C>> FromGenome<C, G> for Continuous {
                     })
                     .collect::<Vec<_>>(),
             ),
-            τ: Matrix::new(1, cols, vec![0.1; cols]),
+            τ: na::DMatrix::from_element(1, cols, 0.1),
             w: {
                 let mut w = vec![0.; cols * cols];
                 for c in genome.connections().iter().filter(|c| c.enabled()) {
                     w[c.from() * cols + c.to()] = c.weight();
                 }
-                Matrix::new(cols, cols, w)
+                na::DMatrix::from_row_slice(cols, cols, &w)
             },
             sensory: (genome.sensory().start, genome.sensory().end),
             action: (genome.action().start, genome.action().end),
@@ -115,7 +115,6 @@ mod test {
         random::default_rng,
     };
     use rand_distr::{num_traits::Float, Distribution, Uniform};
-    use rulinalg::matrix::Matrix;
 
     // Macro for comparing f64 arrays with epsilon tolerance
 
@@ -141,10 +140,10 @@ mod test {
         }
 
         let original = Continuous {
-            y: Matrix::new(1, n_neurons, y_data),
-            θ: Matrix::new(1, n_neurons, theta_data),
-            τ: Matrix::new(1, n_neurons, tau_data),
-            w: Matrix::new(n_neurons, n_neurons, w_data),
+            y: na::DMatrix::from_row_slice(1, n_neurons, &y_data),
+            θ: na::DMatrix::from_row_slice(1, n_neurons, &theta_data),
+            τ: na::DMatrix::from_row_slice(1, n_neurons, &tau_data),
+            w: na::DMatrix::from_row_slice(n_neurons, n_neurons, &w_data),
             sensory: (0, 2),
             action: (3, 5),
         };
@@ -153,10 +152,10 @@ mod test {
 
         let deserialized = Continuous::from_str(&serialized).expect("Failed to deserialize");
 
-        assert_matrix_approx!(original.y.data(), deserialized.y.data());
-        assert_matrix_approx!(original.θ.data(), deserialized.θ.data());
-        assert_matrix_approx!(original.τ.data(), deserialized.τ.data());
-        assert_matrix_approx!(original.w.data(), deserialized.w.data());
+        assert_matrix_approx!(original.y.as_slice(), deserialized.y.as_slice());
+        assert_matrix_approx!(original.θ.as_slice(), deserialized.θ.as_slice());
+        assert_matrix_approx!(original.τ.as_slice(), deserialized.τ.as_slice());
+        assert_matrix_approx!(original.w.as_slice(), deserialized.w.as_slice());
 
         assert_eq!(original.sensory, deserialized.sensory);
         assert_eq!(original.action, deserialized.action);
@@ -184,10 +183,10 @@ mod test {
         }
 
         let mut original = Continuous {
-            y: Matrix::new(1, n_neurons, y_data),
-            θ: Matrix::new(1, n_neurons, θ_data),
-            τ: Matrix::new(1, n_neurons, τ_data),
-            w: Matrix::new(n_neurons, n_neurons, w_data),
+            y: na::DMatrix::from_row_slice(1, n_neurons, &y_data),
+            θ: na::DMatrix::from_row_slice(1, n_neurons, &θ_data),
+            τ: na::DMatrix::from_row_slice(1, n_neurons, &τ_data),
+            w: na::DMatrix::from_row_slice(n_neurons, n_neurons, &w_data),
             sensory: (0, 2),
             action: (3, 5),
         };
@@ -223,23 +222,21 @@ mod test {
         genome.push_connection(C::new(0, 1, &mut inno));
 
         let nn = Continuous::from_genome(&genome);
-        unsafe {
-            for c in genome.connections() {
-                if c.enabled() {
-                    assert_f64_approx!(nn.w.get_unchecked([c.from(), c.to()]), c.weight());
-                }
+        for c in genome.connections() {
+            if c.enabled() {
+                assert_f64_approx!(nn.w[(c.from(), c.to())], c.weight());
             }
+        }
 
-            for (i, node) in genome.nodes().iter().enumerate() {
-                assert_f64_approx!(
-                    nn.θ.get_unchecked([0, i]),
-                    if matches!(node, NodeKind::Static) {
-                        1.
-                    } else {
-                        0.
-                    }
-                )
-            }
+        for (i, node) in genome.nodes().iter().enumerate() {
+            assert_f64_approx!(
+                nn.θ[(0, i)],
+                if matches!(node, NodeKind::Static) {
+                    1.
+                } else {
+                    0.
+                }
+            )
         }
 
         for i in nn.sensory.0..nn.sensory.1 {
