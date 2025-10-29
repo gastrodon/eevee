@@ -105,6 +105,17 @@ pub fn speciate<C: Connection, G: Genome<C>>(
     genomes: impl Iterator<Item = (G, f64)>,
     reprs: impl Iterator<Item = SpecieRepr<C>>,
 ) -> Vec<Specie<C, G>> {
+    speciate_with_limit(genomes, reprs, None)
+}
+
+/// Partition genomes into species with an optional species limit.
+/// If max_species is Some(n), limits the number of species by forcing genomes
+/// into the closest existing species once the limit is reached.
+pub fn speciate_with_limit<C: Connection, G: Genome<C>>(
+    genomes: impl Iterator<Item = (G, f64)>,
+    reprs: impl Iterator<Item = SpecieRepr<C>>,
+    max_species: Option<usize>,
+) -> Vec<Specie<C, G>> {
     let mut sp = Vec::from_iter(reprs.map(|repr| Specie {
         repr,
         members: Vec::new(),
@@ -117,6 +128,23 @@ pub fn speciate<C: Connection, G: Genome<C>>(
         {
             Some(Specie { members, .. }) => members.push((genome, fitness)),
             None => {
+                // Check if we've hit the species cap
+                if let Some(max) = max_species {
+                    if sp.len() >= max {
+                        // Force into closest existing species
+                        let closest = sp
+                            .iter_mut()
+                            .min_by(|a, b| {
+                                let a_delta = a.repr.delta(genome.connections());
+                                let b_delta = b.repr.delta(genome.connections());
+                                a_delta.partial_cmp(&b_delta).unwrap_or(std::cmp::Ordering::Equal)
+                            })
+                            .expect("at least one species should exist");
+                        closest.members.push((genome, fitness));
+                        continue;
+                    }
+                }
+                
                 sp.push(Specie {
                     repr: SpecieRepr::new(genome.connections().to_vec()),
                     members: vec![(genome, fitness)],
@@ -145,6 +173,53 @@ pub fn population_init<C: Connection, G: Genome<C>>(
             members: vec![(genome, f64::MIN); population],
         }],
         inno_head,
+    )
+}
+
+/// Create an initial population with diverse genomes, each with one random connection.
+/// Each unique genome is duplicated to create pairs, establishing initial species diversity.
+/// 
+/// This creates `population/2` unique genomes, each duplicated once, for a total of `population` genomes.
+/// The species cap for the first generation should be set to `population/2` to allow each pair
+/// to form its own species.
+pub fn population_init_diverse<C: Connection, G: Genome<C>>(
+    sensory: usize,
+    action: usize,
+    population: usize,
+    rng: &mut impl rand::RngCore,
+) -> SpecieGroup<C, G> {
+    use crate::genome::InnoGen;
+    
+    let (base_genome, inno_head) = G::new(sensory, action);
+    let mut inno = InnoGen::new(inno_head);
+    let num_unique = population / 2;
+    let mut genomes = Vec::with_capacity(population);
+    
+    // Create unique genomes, each with one random connection
+    for _ in 0..num_unique {
+        let mut genome = base_genome.clone();
+        
+        // Add one random connection
+        genome.new_connection(rng, &mut inno);
+        
+        // Add this genome twice (duplicate it)
+        genomes.push((genome.clone(), f64::MIN));
+        genomes.push((genome, f64::MIN));
+    }
+    
+    // If population is odd, add one more empty genome
+    if population % 2 == 1 {
+        genomes.push((base_genome, f64::MIN));
+    }
+    
+    // Create initial species - one specie with all genomes
+    // (They will be separated in the first speciate call with the cap)
+    (
+        vec![Specie {
+            repr: SpecieRepr::new(vec![]),
+            members: genomes,
+        }],
+        inno.head,
     )
 }
 
