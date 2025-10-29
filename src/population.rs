@@ -149,10 +149,13 @@ pub fn population_init<C: Connection, G: Genome<C>>(
 }
 
 /// Save a population of [Genome]s to individual files inside of a directory at `path`
-pub fn population_to_files<P: AsRef<Path>, C: Connection, G: Genome<C>>(
+pub fn population_to_files<P: AsRef<Path>, C: Connection, G>(
     path: P,
     pop: &[Specie<C, G>],
-) -> Result<(), Box<dyn Error>> {
+) -> Result<(), Box<dyn Error>>
+where
+    G: Genome<C> + crate::serde_traits::Serialize,
+{
     for (idx, (member, _)) in pop
         .iter()
         .flat_map(|specie| specie.members.iter())
@@ -166,9 +169,12 @@ pub fn population_to_files<P: AsRef<Path>, C: Connection, G: Genome<C>>(
 
 /// Load a population of [Genome]s from individual files inside of a directory at `path`. Assumes
 /// that every file in `path` is a valid descriptor, and will parse it.
-pub fn population_from_files<P: AsRef<Path>, C: Connection, G: Genome<C>>(
+pub fn population_from_files<P: AsRef<Path>, C: Connection, G>(
     path: P,
-) -> Result<SpecieGroup<C, G>, Box<dyn Error>> {
+) -> Result<SpecieGroup<C, G>, Box<dyn Error>>
+where
+    G: Genome<C> + crate::serde_traits::Deserialize,
+{
     let pop_flat = read_dir(path)?
         .map(|fp| Ok::<_, Box<dyn Error>>((G::from_file(fp?.path())?, f64::MIN)))
         .collect::<Result<Vec<_>, _>>()?;
@@ -188,10 +194,13 @@ pub fn population_from_files<P: AsRef<Path>, C: Connection, G: Genome<C>>(
 
 /// Load a single [Genome] from a single file, and clone it `population` times. Useful for
 /// resuming training from a single champion, or inspecting a particular genome.
-pub fn population_from_genome<P: AsRef<Path>, C: Connection, G: Genome<C>>(
+pub fn population_from_genome<P: AsRef<Path>, C: Connection, G>(
     path: P,
     population: usize,
-) -> Result<SpecieGroup<C, G>, Box<dyn Error>> {
+) -> Result<SpecieGroup<C, G>, Box<dyn Error>>
+where
+    G: Genome<C> + crate::serde_traits::Deserialize,
+{
     let muse = G::from_file(path)?;
     let inno_head = muse
         .connections()

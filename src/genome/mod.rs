@@ -18,7 +18,6 @@ use crate::random::{percent, ConnectionEvent, EventKind, GenomeEvent};
 use core::{cmp::Ordering, error::Error, fmt::Debug, hash::Hash, ops::Range};
 use fxhash::FxHashMap;
 use rand::{Rng, RngCore};
-use serde::{Deserialize, Serialize};
 use std::{fs, path::Path};
 
 /// InnoGen is a structure who's job is to associate an innovation ID uniquely with some
@@ -54,7 +53,8 @@ impl InnoGen {
 
 /// This has no reason to exist, and will be replaced with ranges in the future.
 #[deprecated]
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub enum NodeKind {
     Sensory,
     Action,
@@ -67,9 +67,7 @@ pub enum NodeKind {
 /// actually be _used_, a connection should expose them with a trait, and a
 /// [Network](crate::network::Network) implementer should know about them. Any connection must
 /// have a path, weight, and innovation_id ( which should be supplied from InnoGen ).
-pub trait Connection:
-    Serialize + for<'de> Deserialize<'de> + Clone + Hash + PartialEq + Default + Debug
-{
+pub trait Connection: Clone + Hash + PartialEq + Default + Debug {
     const PROBABILITIES: [u64; ConnectionEvent::COUNT] = [percent(1), percent(99)];
     const PARAM_REPLACE_PROBABILITY: u64 = percent(10);
     const PARAM_PERTURB_FAC: f64 = 0.05;
@@ -135,7 +133,7 @@ pub trait Connection:
 /// new connections, bisect any existing connection, and mutate any existing connections
 /// arbitrary parameters. A genome must also be able to reproduce with any other genome of the
 /// same kind, their connections constructively crossing over.
-pub trait Genome<C: Connection>: Serialize + for<'de> Deserialize<'de> + Clone {
+pub trait Genome<C: Connection>: Clone {
     const MUTATE_NODE_PROBABILITY: u64 = percent(20);
     const MUTATE_CONNECTION_PROBABILITY: u64 = percent(20);
     const PROBABILITIES: [u64; GenomeEvent::COUNT] =
@@ -243,24 +241,4 @@ pub trait Genome<C: Connection>: Serialize + for<'de> Deserialize<'de> + Clone {
 
     /// Perform crossover reproduction with other, where our fitness is `fitness_cmp` compared to other
     fn reproduce_with(&self, other: &Self, fitness_cmp: Ordering, rng: &mut impl RngCore) -> Self;
-
-    /// Serialize this genome to a JSON string
-    fn to_string(&self) -> Result<String, Box<dyn Error>> {
-        Ok(serde_json::to_string(self)?)
-    }
-
-    /// Deserialize this genome from a JSON string
-    #[allow(clippy::should_implement_trait)]
-    fn from_str(s: &str) -> Result<Self, Box<dyn Error>> {
-        serde_json::from_str(s).map_err(|op| op.into())
-    }
-
-    fn to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), Box<dyn Error>> {
-        fs::write(path, self.to_string()?)?;
-        Ok(())
-    }
-
-    fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, Box<dyn Error>> {
-        Self::from_str(&fs::read_to_string(path)?)
-    }
 }

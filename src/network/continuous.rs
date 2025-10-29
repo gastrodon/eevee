@@ -1,11 +1,6 @@
 use super::{FromGenome, Recurrent, Stateful};
-use crate::{
-    genome::NodeKind,
-    serialize::{deserialize_matrix_flat, deserialize_matrix_square, serialize_matrix},
-    Connection, Genome, Network,
-};
+use crate::{genome::NodeKind, Connection, Genome, Network};
 use rulinalg::matrix::{BaseMatrix, BaseMatrixMut, Matrix};
-use serde::{Deserialize, Serialize};
 
 /// A stateful NN who receives input continuously, useful for realtime problems
 /// and genomes whos connections may be recurrent.
@@ -13,30 +8,43 @@ use serde::{Deserialize, Serialize};
 /// Implementation based on the network described by
 /// on the dynamics of small continuous-time recurrent neural networks (beer 1995)
 /// and with some code stolen from [TLmaK0's neat implentation](https://github.com/TLmaK0/rustneat)
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Continuous {
     /// 1d state of neurons 0-N
-    #[serde(
-        serialize_with = "serialize_matrix",
-        deserialize_with = "deserialize_matrix_flat"
+    #[cfg_attr(
+        feature = "serialize",
+        serde(
+            serialize_with = "crate::serialize::serialize_matrix",
+            deserialize_with = "crate::serialize::deserialize_matrix_flat"
+        )
     )]
     pub y: Matrix<f64>,
     /// 1d bias of neurons 0-N
-    #[serde(
-        serialize_with = "serialize_matrix",
-        deserialize_with = "deserialize_matrix_flat"
+    #[cfg_attr(
+        feature = "serialize",
+        serde(
+            serialize_with = "crate::serialize::serialize_matrix",
+            deserialize_with = "crate::serialize::deserialize_matrix_flat"
+        )
     )]
     pub θ: Matrix<f64>,
     /// 1d membrane resistance time constant
-    #[serde(
-        serialize_with = "serialize_matrix",
-        deserialize_with = "deserialize_matrix_flat"
+    #[cfg_attr(
+        feature = "serialize",
+        serde(
+            serialize_with = "crate::serialize::serialize_matrix",
+            deserialize_with = "crate::serialize::deserialize_matrix_flat"
+        )
     )]
     pub τ: Matrix<f64>,
     /// Nd weights between neurons, indexed as [from, to]
-    #[serde(
-        serialize_with = "serialize_matrix",
-        deserialize_with = "deserialize_matrix_square"
+    #[cfg_attr(
+        feature = "serialize",
+        serde(
+            serialize_with = "crate::serialize::serialize_matrix",
+            deserialize_with = "crate::serialize::deserialize_matrix_square"
+        )
     )]
     pub w: Matrix<f64>,
     /// Range of input neurons, indexing into y
