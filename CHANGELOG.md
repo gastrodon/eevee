@@ -39,13 +39,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Organized gitignore and improved dependency management
 - Removed toml-cli as dev-dependency to avoid conflicts with cargo-tarpaulin
 
-## [0.1.1-1] - 2025
+## [0.1.1-1] - 2025-04-11
 
 ### Fixed
 - Fixed semver versioning (0.1.0-1 is before 0.1.0)
 - Added write permission to GITHUB_TOKEN for releases
 - Fixed release trigger in CI
 
-## [0.1.0] - 2025
+## [0.1.0] - 2025-04-10
 
 Initial release with NEAT-based neuroevolution functionality.
