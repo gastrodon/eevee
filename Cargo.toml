@@ -70,6 +70,10 @@ harness = false
 name = "speciate"
 harness = false
 
+[[bench]]
+name = "seed"
+harness = false
+
 [[example]]
 name = "xor_diagnostic"
 required-features = ["approx"]
@@ -93,6 +97,3 @@ required-features = ["approx"]
 [[example]]
 name = "xor_debug"
 required-features = ["approx"]
-
-[[example]]
-name = "test_weighted_reproduction"
