@@ -83,10 +83,6 @@ name = "xor_delta_analysis"
 required-features = ["approx"]
 
 [[example]]
-name = "xor_diverse_init"
-required-features = ["approx"]
-
-[[example]]
 name = "xor_test"
 required-features = ["approx"]
 
