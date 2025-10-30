@@ -44,6 +44,44 @@ pub fn seed_urandom() -> io::Result<u64> {
     ]))
 }
 
+/// Fast seed function using current timestamp
+pub fn seed_time() -> u64 {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    nanos as u64
+}
+
+/// Fast seed function using process ID and timestamp
+pub fn seed_pid_time() -> u64 {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let pid = std::process::id() as u128;
+    let combined = nanos.wrapping_mul(pid).wrapping_add(nanos);
+    combined as u64
+}
+
+/// Fast seed function using thread ID and timestamp
+pub fn seed_thread_time() -> u64 {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    use std::thread;
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let thread_id = thread::current().id();
+    let thread_hash = format!("{:?}", thread_id).bytes().fold(0u64, |acc, b| {
+        acc.wrapping_mul(31).wrapping_add(b as u64)
+    });
+    let combined = nanos.wrapping_mul(thread_hash as u128).wrapping_add(nanos);
+    combined as u64
+}
+
 /// For getting a handle on an RngCore when you don't want to think too much about it. This is
 /// why Eevee doesn't work on Windows.
 pub fn default_rng() -> impl RngCore {
