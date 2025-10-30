@@ -7,7 +7,7 @@ use eevee::{
     activate::relu,
     genome::{Genome, Recurrent, WConnection},
     network::{Network, Simple, ToNetwork},
-    population::population_init,
+    population::population_init_diverse,
     random::default_rng,
     scenario::{evolve, EvolutionHooks},
     Connection, Scenario, Stats,
@@ -83,7 +83,10 @@ type G = Recurrent<C>;
 fn main() {
     evolve(
         Xor {},
-        |(i, o)| population_init::<C, G>(i, o, POPULATION),
+        |(i, o)| {
+            let mut rng = default_rng();
+            population_init_diverse::<C, G>(i, o, POPULATION, &mut rng)
+        },
         relu,
         default_rng(),
         EvolutionHooks::new(vec![Box::new(hook)]),
