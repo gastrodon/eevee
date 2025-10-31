@@ -16,7 +16,7 @@ fn reproduce_crossover<C: Connection, G: Genome<C>>(
     innogen: &mut InnoGen,
 ) -> Result<Vec<G>, Box<dyn Error>> {
     if size == 0 {
-        return Ok(vec![]);
+        return Ok(Vec::new());
     }
 
     if genomes.len() < 2 {
@@ -27,42 +27,34 @@ fn reproduce_crossover<C: Connection, G: Genome<C>>(
         .into());
     }
 
-    let pairs = {
-        let mut pairs = genomes
-            .iter()
-            .enumerate()
-            .flat_map(|(l_idx, (l, l_fit))| {
-                genomes
-                    .iter()
-                    .enumerate()
-                    .filter_map(move |(r_idx, (r, r_fit))| {
-                        if l_fit > r_fit || (l_fit == r_fit && l_idx > r_idx) {
-                            Some(((l, l_fit), (r, r_fit)))
-                        } else {
-                            None
-                        }
-                    })
-            })
-            .collect::<Vec<_>>();
-        pairs.sort_by(|l, r| {
-            let r = r.0 .1 + r.1 .1;
-            let l = l.0 .1 + l.1 .1;
-            (r).partial_cmp(&l)
-                .unwrap_or_else(|| panic!("cannot partial_cmp {l} and {r}"))
-        });
-        pairs
-    };
+    // Pre-allocate pairs vector with estimated capacity
+    let estimated_pairs = genomes.len() * (genomes.len() - 1) / 2;
+    let mut pairs = Vec::with_capacity(estimated_pairs);
+    
+    for (l_idx, (l, l_fit)) in genomes.iter().enumerate() {
+        for (r_idx, (r, r_fit)) in genomes.iter().enumerate() {
+            if l_fit > r_fit || (l_fit == r_fit && l_idx > r_idx) {
+                pairs.push(((l, *l_fit), (r, *r_fit)));
+            }
+        }
+    }
+    
+    pairs.sort_unstable_by(|l, r| {
+        let r_sum = r.0 .1 + r.1 .1;
+        let l_sum = l.0 .1 + l.1 .1;
+        r_sum.partial_cmp(&l_sum)
+            .unwrap_or_else(|| panic!("cannot partial_cmp {l_sum} and {r_sum}"))
+    });
 
-    pairs
-        .into_iter()
-        .cycle()
-        .take(size)
-        .map(|((l, _), (r, _))| {
-            let mut child = l.reproduce_with(r, std::cmp::Ordering::Greater, rng);
-            child.mutate(rng, innogen);
-            Ok(child)
-        })
-        .collect()
+    let mut children = Vec::with_capacity(size);
+    for i in 0..size {
+        let ((l, _), (r, _)) = pairs[i % pairs.len()];
+        let mut child = l.reproduce_with(r, std::cmp::Ordering::Greater, rng);
+        child.mutate(rng, innogen);
+        children.push(child);
+    }
+    
+    Ok(children)
 }
 
 fn reproduce_copy<C: Connection, G: Genome<C>>(
@@ -72,7 +64,7 @@ fn reproduce_copy<C: Connection, G: Genome<C>>(
     innogen: &mut InnoGen,
 ) -> Result<Vec<G>, Box<dyn Error>> {
     if size == 0 {
-        return Ok(vec![]);
+        return Ok(Vec::new());
     }
 
     if genomes.is_empty() {
@@ -83,20 +75,25 @@ fn reproduce_copy<C: Connection, G: Genome<C>>(
         .into());
     }
 
-    let mut top = genomes.iter().collect::<Vec<_>>();
-    top.sort_by(|(_, l), (_, r)| {
+    // Create sorted indices instead of collecting references
+    let mut indices: Vec<usize> = (0..genomes.len()).collect();
+    indices.sort_unstable_by(|&i, &j| {
+        let (_, l) = &genomes[i];
+        let (_, r) = &genomes[j];
         r.partial_cmp(l)
             .unwrap_or_else(|| panic!("cannot partial_cmp {l} and {r}"))
     });
-    top.into_iter()
-        .cycle()
-        .take(size)
-        .map(|(genome, _)| {
-            let mut child = genome.clone();
-            child.mutate(rng, innogen);
-            Ok(child)
-        })
-        .collect()
+    
+    let mut children = Vec::with_capacity(size);
+    for i in 0..size {
+        let idx = indices[i % indices.len()];
+        let (genome, _) = &genomes[idx];
+        let mut child = genome.clone();
+        child.mutate(rng, innogen);
+        children.push(child);
+    }
+    
+    Ok(children)
 }
 
 pub fn reproduce<C: Connection, G: Genome<C>>(
@@ -142,16 +139,11 @@ pub fn reproduce<C: Connection, G: Genome<C>>(
         size_copy
     };
 
-    // TODO reproduce_crossover and reproduce_copy can potentially be made faster
-    // if they're handed a slice to write into intead of returning a vec that we then need to copy
-    reproduce_copy(&genomes, size_copy, rng, innogen)?
-        .into_iter()
-        .for_each(|genome| pop.push(genome));
+    // Append directly to avoid intermediate vector allocation
+    pop.extend(reproduce_copy(&genomes, size_copy, rng, innogen)?);
 
     let size_crossover = size - size_copy;
-    reproduce_crossover(&genomes, size_crossover, rng, innogen)?
-        .into_iter()
-        .for_each(|genome| pop.push(genome));
+    pop.extend(reproduce_crossover(&genomes, size_crossover, rng, innogen)?);
 
     Ok(pop)
 }
