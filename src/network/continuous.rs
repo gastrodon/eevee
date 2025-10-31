@@ -29,8 +29,6 @@ pub struct Continuous {
     pub action: (usize, usize),
     /// Reusable buffer for input matrix to avoid allocation in hot loop
     m_input: Matrix<f64>,
-    /// Reusable buffer for intermediate computation to avoid allocation
-    m_temp: Matrix<f64>,
 }
 
 impl Network for Continuous {
@@ -41,12 +39,11 @@ impl Network for Continuous {
 
         let inv = 1. / (prec as f64);
         for _ in 0..prec {
-            // Reuse temp buffer for computation: (y + θ).apply(σ) * w
-            self.m_temp = (&self.y + &self.θ).apply(&σ) * &self.w;
-            // Continue computation: result - y + m_input
-            self.m_temp = (&self.m_temp - &self.y) + &self.m_input;
-            // Element-wise multiply and scale
-            self.y += self.m_temp.elemul(&self.τ).apply(&|v| v * inv);
+            // Compute full expression to leverage rulinalg's optimizations
+            // Breaking it up creates more intermediate allocations than necessary
+            self.y += (((&self.y + &self.θ).apply(&σ) * &self.w) - &self.y + &self.m_input)
+                .elemul(&self.τ)
+                .apply(&|v| v * inv);
         }
     }
 
@@ -95,7 +92,6 @@ impl<C: Connection, G: Genome<C>> FromGenome<C, G> for Continuous {
             sensory: (genome.sensory().start, genome.sensory().end),
             action: (genome.action().start, genome.action().end),
             m_input: Matrix::zeros(1, cols),
-            m_temp: Matrix::zeros(1, cols),
         }
     }
 }
@@ -237,7 +233,6 @@ impl<'de> Deserialize<'de> for Continuous {
                     sensory,
                     action,
                     m_input: Matrix::zeros(1, cols),
-                    m_temp: Matrix::zeros(1, cols),
                 })
             }
         }
@@ -290,7 +285,6 @@ mod test {
             sensory: (0, 2),
             action: (3, 5),
             m_input: Matrix::zeros(1, n_neurons),
-            m_temp: Matrix::zeros(1, n_neurons),
         };
 
         let serialized = original.to_string().expect("Failed to serialize");
@@ -335,7 +329,6 @@ mod test {
             sensory: (0, 2),
             action: (3, 5),
             m_input: Matrix::zeros(1, n_neurons),
-            m_temp: Matrix::zeros(1, n_neurons),
         };
 
         let mut deserialized =

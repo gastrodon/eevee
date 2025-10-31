@@ -27,8 +27,9 @@ fn reproduce_crossover<C: Connection, G: Genome<C>>(
         .into());
     }
 
-    // Pre-allocate pairs vector with estimated capacity
-    let estimated_pairs = genomes.len() * (genomes.len() - 1) / 2;
+    // Pre-allocate pairs vector with conservative capacity estimate
+    // Worst case: each genome can pair with all others where fitness comparison is favorable
+    let estimated_pairs = genomes.len() * genomes.len();
     let mut pairs = Vec::with_capacity(estimated_pairs);
     
     for (l_idx, (l, l_fit)) in genomes.iter().enumerate() {

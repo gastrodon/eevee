@@ -130,24 +130,23 @@ impl<C: Connection> Genome<C> for Recurrent<C> {
         let total_nodes = max(nodes_size + 1, self.sensory + self.action + 1);
         let mut nodes = Vec::with_capacity(total_nodes);
         
-        // Batch push sensory nodes
-        nodes.resize(self.sensory, NodeKind::Sensory);
-        
-        // Batch push action nodes
+        // Build nodes vector efficiently
+        for _ in 0..self.sensory {
+            nodes.push(NodeKind::Sensory);
+        }
         for _ in self.sensory..self.sensory + self.action {
             nodes.push(NodeKind::Action);
         }
-        
-        // Push static node
         nodes.push(NodeKind::Static);
-        
-        // Batch push internal nodes
-        nodes.resize(total_nodes, NodeKind::Internal);
+        for _ in self.sensory + self.action + 1..total_nodes {
+            nodes.push(NodeKind::Internal);
+        }
 
         debug_assert!(
             connections
                 .iter()
-                .all(|c| c.from() < nodes.len() && c.to() < nodes.len())
+                .fold(0, |acc, c| max(acc, max(c.from(), c.to())))
+                < nodes.len()
         );
 
         Self {
