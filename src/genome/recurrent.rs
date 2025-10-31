@@ -41,40 +41,48 @@ impl<C: Connection> Genome<C> for Recurrent<C> {
         )
     }
 
+    #[inline]
     fn sensory(&self) -> std::ops::Range<usize> {
         0..self.sensory
     }
 
+    #[inline]
     fn action(&self) -> std::ops::Range<usize> {
         self.sensory..self.sensory + self.action
     }
 
+    #[inline]
     fn nodes(&self) -> &[NodeKind] {
         &self.nodes
     }
 
+    #[inline]
     fn nodes_mut(&mut self) -> &mut [NodeKind] {
         &mut self.nodes
     }
 
+    #[inline]
     fn push_node(&mut self, node: NodeKind) {
         self.nodes.push(node);
     }
 
+    #[inline]
     fn connections(&self) -> &[C] {
         &self.connections
     }
 
+    #[inline]
     fn connections_mut(&mut self) -> &mut [C] {
         &mut self.connections
     }
 
+    #[inline]
     fn push_connection(&mut self, connection: C) {
         self.connections.push(connection);
     }
 
     fn open_path(&self, rng: &mut impl RngCore) -> Option<(usize, usize)> {
-        let mut saturated = HashSet::new();
+        let mut saturated = HashSet::with_capacity(self.nodes.len());
         loop {
             let (from, _) = self
                 .nodes()
@@ -85,11 +93,13 @@ impl<C: Connection> Genome<C> for Recurrent<C> {
                 })
                 .choose(rng)?;
 
-            let exclude = self
-                .connections
-                .iter()
-                .filter_map(|c| (c.from() == from).then_some(c.to()))
-                .collect::<HashSet<_>>();
+            // Pre-allocate with estimated size based on connections
+            let mut exclude = HashSet::with_capacity(self.nodes.len());
+            for c in &self.connections {
+                if c.from() == from {
+                    exclude.insert(c.to());
+                }
+            }
 
             if let Some((to, _)) = self
                 .nodes()
@@ -109,27 +119,35 @@ impl<C: Connection> Genome<C> for Recurrent<C> {
 
     fn reproduce_with(&self, other: &Self, self_fit: Ordering, rng: &mut impl RngCore) -> Self {
         let connections = crossover(&self.connections, &other.connections, self_fit, rng);
-        let nodes_size = connections
-            .iter()
-            .fold(0, |prev, c| max(prev, max(c.from(), c.to())));
-
-        let mut nodes = Vec::with_capacity(self.sensory + self.action + 1);
-        for _ in 0..self.sensory {
-            nodes.push(NodeKind::Sensory);
+        
+        // Find max node index in one pass
+        let mut nodes_size = 0;
+        for c in &connections {
+            nodes_size = max(nodes_size, max(c.from(), c.to()));
         }
+
+        // Pre-allocate exact capacity needed
+        let total_nodes = max(nodes_size + 1, self.sensory + self.action + 1);
+        let mut nodes = Vec::with_capacity(total_nodes);
+        
+        // Batch push sensory nodes
+        nodes.resize(self.sensory, NodeKind::Sensory);
+        
+        // Batch push action nodes
         for _ in self.sensory..self.sensory + self.action {
             nodes.push(NodeKind::Action);
         }
+        
+        // Push static node
         nodes.push(NodeKind::Static);
-        for _ in self.sensory + self.action..nodes_size {
-            nodes.push(NodeKind::Internal);
-        }
+        
+        // Batch push internal nodes
+        nodes.resize(total_nodes, NodeKind::Internal);
 
         debug_assert!(
             connections
                 .iter()
-                .fold(0, |acc, c| max(acc, max(c.from(), c.to())))
-                < nodes.len()
+                .all(|c| c.from() < nodes.len() && c.to() < nodes.len())
         );
 
         Self {
