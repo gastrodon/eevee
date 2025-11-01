@@ -9,18 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Features
 
-#### Genome Initialization
+Genome Initialization
+---------------------
 - **Saturated Initial Connections**: New genomes now create all valid connections between sensory+bias and action neurons, providing a more complete initial topology for evolution ([`28db946`](https://github.com/gastrodon/eevee/commit/28db946))
 
-#### Reproduction and Evolution
+Reproduction and Evolution
+--------------------------
 - **Improved Mutation Error Handling**: Mutations that would fail now return errors instead of panicking, with logic to prefer mutation methods less likely to fail ([`65bfdf0`](https://github.com/gastrodon/eevee/commit/65bfdf0))
 - **Removed Selective Reproduction**: Simplified reproduction pipeline to accept all species members, eliminating fitness threshold filtering while maintaining proportional allocation based on adjusted fitness ([`b659314`](https://github.com/gastrodon/eevee/commit/b659314))
 
-#### Performance Improvements
+Performance Improvements
+------------------------
 - **Hashless Population Allocation**: Optimized species population allocation by removing hash table lookups, using direct iteration over aligned vectors instead ([`d3abc26`](https://github.com/gastrodon/eevee/commit/d3abc26))
 - **FittedGroup Trait**: Introduced `FittedGroup` trait for reasoning about collections of genomes as groups with fitness, eliminating the need for explicit species construction in some cases ([`7bd4da6`](https://github.com/gastrodon/eevee/commit/7bd4da6))
 
-#### Code Organization
+Code Organization
+-----------------
 - **Module Refactoring**: Split reproduction logic into `reproduce.rs` and species/population management into `population.rs` for better code organization ([`f6e3a99`](https://github.com/gastrodon/eevee/commit/f6e3a99))
 
 ### Improvements
