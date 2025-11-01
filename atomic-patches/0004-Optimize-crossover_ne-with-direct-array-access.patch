@@ -1,0 +1,40 @@
+From fc32162f31b03c4dab4212e4aacd0602bce99b0d Mon Sep 17 00:00:00 2001
+From: "copilot-swe-agent[bot]" <198982749+Copilot@users.noreply.github.com>
+Date: Sat, 1 Nov 2025 16:53:55 +0000
+Subject: [PATCH 4/8] Optimize crossover_ne with direct array access
+
+Replace .get().is_some_and() pattern with direct bounds check and array access for better performance.
+---
+ src/crossover.rs | 11 ++---------
+ 1 file changed, 2 insertions(+), 9 deletions(-)
+
+diff --git a/src/crossover.rs b/src/crossover.rs
+index c88fe5b..330cb0b 100644
+--- a/src/crossover.rs
++++ b/src/crossover.rs
+@@ -209,20 +209,13 @@ fn crossover_ne<C: Connection>(l: &[C], r: &[C], rng: &mut impl RngCore) -> Vec<
+     let mut cross = Vec::with_capacity(l.len());
+     let mut r_idx = 0;
+     for l_conn in l {
+-        // TODO is r_idx < r.len() && r[r_idx] or maybe even get_unchecked
+-        while r
+-            .get(r_idx)
+-            .is_some_and(|r_conn| r_conn.inno() < l_conn.inno())
+-        {
++        while r_idx < r.len() && r[r_idx].inno() < l_conn.inno() {
+             r_idx += 1;
+         }
+ 
+-        // TODO above applies here
+         cross.push(pick_gene(
+             l_conn,
+-            r.get(r_idx)
+-                .is_some_and(|r_conn| r_conn.inno() == l_conn.inno())
+-                .then(|| &r[r_idx]),
++            (r_idx < r.len() && r[r_idx].inno() == l_conn.inno()).then(|| &r[r_idx]),
+             rng,
+         ))
+     }
+-- 
+2.51.2
+

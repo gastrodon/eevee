@@ -1,0 +1,30 @@
+From cdd94759bf7eb71e70c48f42d06959020f5291d3 Mon Sep 17 00:00:00 2001
+From: "copilot-swe-agent[bot]" <198982749+Copilot@users.noreply.github.com>
+Date: Sat, 1 Nov 2025 16:54:49 +0000
+Subject: [PATCH 6/8] Optimize speciate with Vec::from for single-element vec
+
+Use Vec::from instead of vec! macro for single-element vector initialization.
+---
+ src/population.rs | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/src/population.rs b/src/population.rs
+index 932980b..e1343d9 100644
+--- a/src/population.rs
++++ b/src/population.rs
+@@ -116,9 +116,10 @@ pub fn speciate<C: Connection, G: Genome<C>>(
+         {
+             Some(Specie { members, .. }) => members.push((genome, fitness)),
+             None => {
++                let connections = genome.connections().to_vec();
+                 sp.push(Specie {
+-                    repr: SpecieRepr::new(genome.connections().to_vec()),
+-                    members: vec![(genome, fitness)],
++                    repr: SpecieRepr::new(connections),
++                    members: Vec::from([(genome, fitness)]),
+                 });
+             }
+         }
+-- 
+2.51.2
+

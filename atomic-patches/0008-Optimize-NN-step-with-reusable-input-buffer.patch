@@ -1,0 +1,75 @@
+From 73f681f3b581656b820920635b58cd33cd7ea757 Mon Sep 17 00:00:00 2001
+From: "copilot-swe-agent[bot]" <198982749+Copilot@users.noreply.github.com>
+Date: Sat, 1 Nov 2025 16:59:04 +0000
+Subject: [PATCH 8/8] Optimize NN::step with reusable input buffer
+
+Add m_input buffer field to Continuous struct to eliminate per-iteration allocation in step() hot loop. Buffer is initialized once and reused across calls.
+---
+ src/network/continuous.rs | 23 ++++++++++++++++++++---
+ 1 file changed, 20 insertions(+), 3 deletions(-)
+
+diff --git a/src/network/continuous.rs b/src/network/continuous.rs
+index 6ca5d90..47da8c9 100644
+--- a/src/network/continuous.rs
++++ b/src/network/continuous.rs
+@@ -43,16 +43,30 @@ pub struct Continuous {
+     pub sensory: (usize, usize),
+     /// Range of output neurons, indexing into y
+     pub action: (usize, usize),
++    /// Reusable buffer for input matrix to avoid allocation in hot loop
++    #[serde(skip, default = "default_matrix")]
++    m_input: Matrix<f64>,
++}
++
++fn default_matrix() -> Matrix<f64> {
++    // This is just a placeholder; the field will be properly initialized in step() if needed
++    Matrix::zeros(1, 0)
+ }
+ 
+ impl Network for Continuous {
+     fn step<F: Fn(f64) -> f64>(&mut self, prec: usize, input: &[f64], σ: F) {
+-        let mut m_input = Matrix::zeros(1, self.y.cols());
+-        m_input.mut_data()[self.sensory.0..self.sensory.1].copy_from_slice(input);
++        // Initialize m_input if not properly sized (e.g., after deserialization)
++        if self.m_input.cols() != self.y.cols() {
++            self.m_input = Matrix::zeros(1, self.y.cols());
++        }
++        
++        // Reset and populate input buffer (reuse allocation)
++        self.m_input.mut_data().iter_mut().for_each(|v| *v = 0.);
++        self.m_input.mut_data()[self.sensory.0..self.sensory.1].copy_from_slice(input);
+ 
+         let inv = 1. / (prec as f64);
+         for _ in 0..prec {
+-            self.y += (((&self.y + &self.θ).apply(&σ) * &self.w) - &self.y + &m_input)
++            self.y += (((&self.y + &self.θ).apply(&σ) * &self.w) - &self.y + &self.m_input)
+                 .elemul(&self.τ)
+                 .apply(&|v| v * inv);
+         }
+@@ -101,6 +115,7 @@ impl<C: Connection, G: Genome<C>> FromGenome<C, G> for Continuous {
+             },
+             sensory: (genome.sensory().start, genome.sensory().end),
+             action: (genome.action().start, genome.action().end),
++            m_input: Matrix::zeros(1, cols),
+         }
+     }
+ }
+@@ -147,6 +162,7 @@ mod test {
+             w: Matrix::new(n_neurons, n_neurons, w_data),
+             sensory: (0, 2),
+             action: (3, 5),
++            m_input: Matrix::zeros(1, n_neurons),
+         };
+ 
+         let serialized = original.to_string().expect("Failed to serialize");
+@@ -190,6 +206,7 @@ mod test {
+             w: Matrix::new(n_neurons, n_neurons, w_data),
+             sensory: (0, 2),
+             action: (3, 5),
++            m_input: Matrix::zeros(1, n_neurons),
+         };
+ 
+         let mut deserialized =
+-- 
+2.51.2
+

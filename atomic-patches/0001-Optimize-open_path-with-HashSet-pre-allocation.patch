@@ -1,0 +1,45 @@
+From 4bbdb5efdd035a2ca5cfbafc6fe5de903bd5cd58 Mon Sep 17 00:00:00 2001
+From: "copilot-swe-agent[bot]" <198982749+Copilot@users.noreply.github.com>
+Date: Sat, 1 Nov 2025 16:52:19 +0000
+Subject: [PATCH 1/8] Optimize open_path with HashSet pre-allocation
+
+Pre-allocate HashSet capacity based on node count to reduce allocations during path finding.
+---
+ src/genome/recurrent.rs | 14 ++++++++------
+ 1 file changed, 8 insertions(+), 6 deletions(-)
+
+diff --git a/src/genome/recurrent.rs b/src/genome/recurrent.rs
+index 0535859..19bf086 100644
+--- a/src/genome/recurrent.rs
++++ b/src/genome/recurrent.rs
+@@ -74,7 +74,7 @@ impl<C: Connection> Genome<C> for Recurrent<C> {
+     }
+ 
+     fn open_path(&self, rng: &mut impl RngCore) -> Option<(usize, usize)> {
+-        let mut saturated = HashSet::new();
++        let mut saturated = HashSet::with_capacity(self.nodes.len());
+         loop {
+             let (from, _) = self
+                 .nodes()
+@@ -85,11 +85,13 @@ impl<C: Connection> Genome<C> for Recurrent<C> {
+                 })
+                 .choose(rng)?;
+ 
+-            let exclude = self
+-                .connections
+-                .iter()
+-                .filter_map(|c| (c.from() == from).then_some(c.to()))
+-                .collect::<HashSet<_>>();
++            // Pre-allocate with estimated size based on connections
++            let mut exclude = HashSet::with_capacity(self.nodes.len());
++            for c in &self.connections {
++                if c.from() == from {
++                    exclude.insert(c.to());
++                }
++            }
+ 
+             if let Some((to, _)) = self
+                 .nodes()
+-- 
+2.51.2
+

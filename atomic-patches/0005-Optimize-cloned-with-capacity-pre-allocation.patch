@@ -1,0 +1,31 @@
+From ecdc2111fea606c550cdf3b420872be764db8c90 Mon Sep 17 00:00:00 2001
+From: "copilot-swe-agent[bot]" <198982749+Copilot@users.noreply.github.com>
+Date: Sat, 1 Nov 2025 16:54:21 +0000
+Subject: [PATCH 5/8] Optimize cloned with capacity pre-allocation
+
+Pre-allocate members_clone vector with exact capacity to avoid reallocations.
+---
+ src/population.rs | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/src/population.rs b/src/population.rs
+index 11e2b0a..932980b 100644
+--- a/src/population.rs
++++ b/src/population.rs
+@@ -84,10 +84,9 @@ impl<C: Connection, G: Genome<C>> Specie<C, G> {
+ 
+     #[inline]
+     pub fn cloned(&self) -> (Vec<C>, Vec<(G, f64)>) {
+-        (
+-            self.repr.cloned(),
+-            self.members.iter().map(|(g, s)| (g.clone(), *s)).collect(),
+-        )
++        let mut members_clone = Vec::with_capacity(self.members.len());
++        members_clone.extend(self.members.iter().map(|(g, s)| (g.clone(), *s)));
++        (self.repr.cloned(), members_clone)
+     }
+ 
+     pub fn fit_adjusted(&self) -> f64 {
+-- 
+2.51.2
+

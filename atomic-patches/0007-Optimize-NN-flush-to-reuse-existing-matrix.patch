@@ -1,0 +1,26 @@
+From 78bc8f108eb889787e22ffe66fb71cc0ec140226 Mon Sep 17 00:00:00 2001
+From: "copilot-swe-agent[bot]" <198982749+Copilot@users.noreply.github.com>
+Date: Sat, 1 Nov 2025 16:55:17 +0000
+Subject: [PATCH 7/8] Optimize NN::flush to reuse existing matrix
+
+Zero existing matrix data instead of reallocating to reduce memory pressure.
+---
+ src/network/continuous.rs | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/network/continuous.rs b/src/network/continuous.rs
+index b98e4c2..6ca5d90 100644
+--- a/src/network/continuous.rs
++++ b/src/network/continuous.rs
+@@ -59,7 +59,7 @@ impl Network for Continuous {
+     }
+ 
+     fn flush(&mut self) {
+-        self.y = Matrix::zeros(1, self.y.cols());
++        self.y.mut_data().iter_mut().for_each(|v| *v = 0.);
+     }
+ 
+     fn output(&self) -> &[f64] {
+-- 
+2.51.2
+
