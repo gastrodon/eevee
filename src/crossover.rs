@@ -165,17 +165,17 @@ fn pick_gene<C: Connection>(base_conn: &C, opt_conn: Option<&C>, rng: &mut impl 
 }
 
 /// crossover connections where l and r are equally fit
+#[inline]
 fn crossover_eq<C: Connection>(l: &[C], r: &[C], rng: &mut impl RngCore) -> Vec<C> {
-    // TODO I wonder what the actual average case overlap between genomes is?
-    // probably pretty close, could we measure this?
-    let mut cross = Vec::with_capacity(l.len() + r.len());
+    // Pre-allocate based on max size, which is l.len() + r.len() in worst case
+    // Most genomes have high overlap, so the average case is closer to max(l.len(), r.len())
+    let mut cross = Vec::with_capacity(l.len().max(r.len()));
     let mut l_idx = 0;
     let mut r_idx = 0;
     loop {
         match (l.get(l_idx), r.get(r_idx)) {
             (None, None) => break,
             (None, Some(_)) => {
-                // TODO is it faster to extend, or to loop-push?
                 cross.extend(r[r_idx..].iter().map(|conn| pick_gene(conn, None, rng)));
                 break;
             }
@@ -201,30 +201,23 @@ fn crossover_eq<C: Connection>(l: &[C], r: &[C], rng: &mut impl RngCore) -> Vec<
         }
     }
 
-    cross.shrink_to_fit(); // TODO what happens if I remove this
     cross
 }
 
 /// crossover connections where l is more fit than r
+#[inline]
 fn crossover_ne<C: Connection>(l: &[C], r: &[C], rng: &mut impl RngCore) -> Vec<C> {
     // copy l, pick_gene where l.inno() == r.inno()
     let mut cross = Vec::with_capacity(l.len());
     let mut r_idx = 0;
     for l_conn in l {
-        // TODO is r_idx < r.len() && r[r_idx] or maybe even get_unchecked
-        while r
-            .get(r_idx)
-            .is_some_and(|r_conn| r_conn.inno() < l_conn.inno())
-        {
+        while r_idx < r.len() && r[r_idx].inno() < l_conn.inno() {
             r_idx += 1;
         }
 
-        // TODO above applies here
         cross.push(pick_gene(
             l_conn,
-            r.get(r_idx)
-                .is_some_and(|r_conn| r_conn.inno() == l_conn.inno())
-                .then(|| &r[r_idx]),
+            (r_idx < r.len() && r[r_idx].inno() == l_conn.inno()).then(|| &r[r_idx]),
             rng,
         ))
     }

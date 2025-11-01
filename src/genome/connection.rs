@@ -30,26 +30,32 @@ impl Connection for WConnection {
         }
     }
 
+    #[inline]
     fn inno(&self) -> usize {
         self.inno
     }
 
+    #[inline]
     fn enable(&mut self) {
         self.enabled = true;
     }
 
+    #[inline]
     fn disable(&mut self) {
         self.enabled = false;
     }
 
+    #[inline]
     fn enabled(&self) -> bool {
         self.enabled
     }
 
+    #[inline]
     fn path(&self) -> (usize, usize) {
         (self.from, self.to)
     }
 
+    #[inline]
     fn weight(&self) -> f64 {
         self.weight
     }
@@ -127,26 +133,32 @@ impl Connection for BWConnection {
         }
     }
 
+    #[inline]
     fn inno(&self) -> usize {
         self.inno
     }
 
+    #[inline]
     fn enable(&mut self) {
         self.enabled = true;
     }
 
+    #[inline]
     fn disable(&mut self) {
         self.enabled = false;
     }
 
+    #[inline]
     fn enabled(&self) -> bool {
         self.enabled
     }
 
+    #[inline]
     fn path(&self) -> (usize, usize) {
         (self.from, self.to)
     }
 
+    #[inline]
     fn weight(&self) -> f64 {
         self.weight
     }

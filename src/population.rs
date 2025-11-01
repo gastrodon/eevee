@@ -84,12 +84,12 @@ impl<C: Connection, G: Genome<C>> Specie<C, G> {
 
     #[inline]
     pub fn cloned(&self) -> (Vec<C>, Vec<(G, f64)>) {
-        (
-            self.repr.cloned(),
-            self.members.iter().map(|(g, s)| (g.clone(), *s)).collect(),
-        )
+        let mut members_clone = Vec::with_capacity(self.members.len());
+        members_clone.extend(self.members.iter().map(|(g, s)| (g.clone(), *s)));
+        (self.repr.cloned(), members_clone)
     }
 
+    #[inline]
     pub fn fit_adjusted(&self) -> f64 {
         let l = self.len() as f64;
         self.members.iter().fold(0., |acc, (_, fit)| acc + *fit / l)
@@ -117,9 +117,10 @@ pub fn speciate<C: Connection, G: Genome<C>>(
         {
             Some(Specie { members, .. }) => members.push((genome, fitness)),
             None => {
+                let connections = genome.connections().to_vec();
                 sp.push(Specie {
-                    repr: SpecieRepr::new(genome.connections().to_vec()),
-                    members: vec![(genome, fitness)],
+                    repr: SpecieRepr::new(connections),
+                    members: Vec::from([(genome, fitness)]),
                 });
             }
         }
