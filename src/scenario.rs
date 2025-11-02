@@ -137,12 +137,20 @@ pub fn evolve<
             });
             let reprs = scores.keys().cloned();
 
+            // Apply species cap on first generation to establish initial species
+            let max_species = if gen_idx == 0 {
+                Some(population_lim / 2)
+            } else {
+                None
+            };
+
             #[cfg(not(feature = "smol_bench"))]
-            let species = speciate(genomes, reprs);
+            let species = crate::population::speciate_with_limit(genomes, reprs, max_species);
             #[cfg(feature = "smol_bench")]
-            let species = speciate(
+            let species = crate::population::speciate_with_limit(
                 genomes.collect::<Vec<_>>().into_iter(),
                 reprs.collect::<Vec<_>>().into_iter(),
+                max_species,
             );
             species
         };

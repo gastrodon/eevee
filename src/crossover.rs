@@ -120,20 +120,12 @@ pub fn avg_param_diff<C: Connection>(l: &[C], r: &[C]) -> f64 {
 pub fn delta<C: Connection>(l: &[C], r: &[C]) -> f64 {
     let l_size = l.len() as f64;
     let r_size = r.len() as f64;
-    let fac = {
-        let longest = f64::max(l_size, r_size);
-        if longest < 20. {
-            1.
-        } else {
-            longest
-        }
-    };
 
     if l_size == 0. || r_size == 0. {
-        (C::EXCESS_COEFFICIENT * f64::max(l_size, r_size)) / fac
+        C::EXCESS_COEFFICIENT * f64::max(l_size, r_size)
     } else {
         let (disjoint, excess) = disjoint_excess_count(l, r);
-        (C::DISJOINT_COEFFICIENT * disjoint + C::EXCESS_COEFFICIENT * excess) / fac
+        C::DISJOINT_COEFFICIENT * disjoint + C::EXCESS_COEFFICIENT * excess
             + C::PARAM_COEFFICIENT * avg_param_diff(l, r)
     }
 }

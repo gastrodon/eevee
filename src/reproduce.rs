@@ -6,8 +6,48 @@ use crate::{
     Specie,
 };
 use core::{error::Error, f64};
-use rand::RngCore;
+use rand::{Rng, RngCore};
 use std::collections::HashMap;
+
+/// Select a random genome with probability weighted by fitness.
+/// Fitness values are normalized so negative fitnesses are handled properly.
+fn weighted_random_select<'a, G>(
+    genomes: &'a [(G, f64)],
+    rng: &mut impl RngCore,
+) -> Option<&'a (G, f64)> {
+    if genomes.is_empty() {
+        return None;
+    }
+
+    // Find min fitness to shift all values to be non-negative
+    let min_fitness = genomes
+        .iter()
+        .map(|(_, f)| f)
+        .min_by(|a, b| a.partial_cmp(b).unwrap())
+        .unwrap();
+    
+    // Shift all fitnesses to be non-negative and add a small epsilon to avoid all-zero weights
+    let shift = if *min_fitness < 0.0 { -min_fitness } else { 0.0 };
+    let epsilon = 1e-6;
+    
+    let weights: Vec<f64> = genomes
+        .iter()
+        .map(|(_, f)| f + shift + epsilon)
+        .collect();
+    
+    let total_weight: f64 = weights.iter().sum();
+    let mut threshold = rng.random::<f64>() * total_weight;
+    
+    for (i, weight) in weights.iter().enumerate() {
+        threshold -= weight;
+        if threshold <= 0.0 {
+            return Some(&genomes[i]);
+        }
+    }
+    
+    // Fallback to last element (shouldn't happen unless floating point issues)
+    genomes.last()
+}
 
 fn reproduce_crossover<C: Connection, G: Genome<C>>(
     genomes: &[(G, f64)],
@@ -27,38 +67,24 @@ fn reproduce_crossover<C: Connection, G: Genome<C>>(
         .into());
     }
 
-    let pairs = {
-        let mut pairs = genomes
-            .iter()
-            .enumerate()
-            .flat_map(|(l_idx, (l, l_fit))| {
-                genomes
-                    .iter()
-                    .enumerate()
-                    .filter_map(move |(r_idx, (r, r_fit))| {
-                        if l_fit > r_fit || (l_fit == r_fit && l_idx > r_idx) {
-                            Some(((l, l_fit), (r, r_fit)))
-                        } else {
-                            None
-                        }
-                    })
-            })
-            .collect::<Vec<_>>();
-        pairs.sort_by(|l, r| {
-            let r = r.0 .1 + r.1 .1;
-            let l = l.0 .1 + l.1 .1;
-            (r).partial_cmp(&l)
-                .unwrap_or_else(|| panic!("cannot partial_cmp {l} and {r}"))
-        });
-        pairs
-    };
-
-    pairs
-        .into_iter()
-        .cycle()
-        .take(size)
-        .map(|((l, _), (r, _))| {
-            let mut child = l.reproduce_with(r, std::cmp::Ordering::Greater, rng);
+    // Use weighted random selection for both parents instead of only top performers
+    (0..size)
+        .map(|_| {
+            let (parent1, fitness1) = weighted_random_select(genomes, rng)
+                .expect("weighted_random_select should return Some for non-empty genomes");
+            let (parent2, fitness2) = weighted_random_select(genomes, rng)
+                .expect("weighted_random_select should return Some for non-empty genomes");
+            
+            // Determine which parent is fitter for crossover ordering
+            let ordering = if fitness1 > fitness2 {
+                std::cmp::Ordering::Greater
+            } else if fitness1 < fitness2 {
+                std::cmp::Ordering::Less
+            } else {
+                std::cmp::Ordering::Equal
+            };
+            
+            let mut child = parent1.reproduce_with(parent2, ordering, rng);
             child.mutate(rng, innogen);
             Ok(child)
         })
@@ -83,15 +109,11 @@ fn reproduce_copy<C: Connection, G: Genome<C>>(
         .into());
     }
 
-    let mut top = genomes.iter().collect::<Vec<_>>();
-    top.sort_by(|(_, l), (_, r)| {
-        r.partial_cmp(l)
-            .unwrap_or_else(|| panic!("cannot partial_cmp {l} and {r}"))
-    });
-    top.into_iter()
-        .cycle()
-        .take(size)
-        .map(|(genome, _)| {
+    // Use weighted random selection instead of only top performers
+    (0..size)
+        .map(|_| {
+            let (genome, _) = weighted_random_select(genomes, rng)
+                .expect("weighted_random_select should return Some for non-empty genomes");
             let mut child = genome.clone();
             child.mutate(rng, innogen);
             Ok(child)
