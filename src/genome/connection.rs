@@ -14,9 +14,9 @@ pub struct WConnection {
 
 /// A basic connection, with a single weighted path
 impl Connection for WConnection {
-    const EXCESS_COEFFICIENT: f64 = 1.0;
-    const DISJOINT_COEFFICIENT: f64 = 1.0;
-    const PARAM_COEFFICIENT: f64 = 0.4;
+    const EXCESS_COEFFICIENT: f64 = crate::constants::EEVEE_CROSSOVER_EXCESS_COEFFICIENT;
+    const DISJOINT_COEFFICIENT: f64 = crate::constants::EEVEE_CROSSOVER_DISJOINT_COEFFICIENT;
+    const PARAM_COEFFICIENT: f64 = crate::constants::EEVEE_CROSSOVER_PARAM_COEFFICIENT;
 
     mutate_param!([Weight]: [percent(100)]);
 
@@ -110,9 +110,9 @@ pub struct BWConnection {
 }
 
 impl Connection for BWConnection {
-    const EXCESS_COEFFICIENT: f64 = 1.0;
-    const DISJOINT_COEFFICIENT: f64 = 1.0;
-    const PARAM_COEFFICIENT: f64 = 0.4;
+    const EXCESS_COEFFICIENT: f64 = crate::constants::EEVEE_CROSSOVER_EXCESS_COEFFICIENT;
+    const DISJOINT_COEFFICIENT: f64 = crate::constants::EEVEE_CROSSOVER_DISJOINT_COEFFICIENT;
+    const PARAM_COEFFICIENT: f64 = crate::constants::EEVEE_CROSSOVER_PARAM_COEFFICIENT;
 
     mutate_param!([Weight, Bias]: [percent(50), percent(50)]);
 

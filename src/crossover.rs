@@ -118,11 +118,13 @@ pub fn avg_param_diff<C: Connection>(l: &[C], r: &[C]) -> f64 {
 /// difference between [Connection]s in terms of crossover compatability. Higher deltas tend to
 /// yield more destructive crossover.
 pub fn delta<C: Connection>(l: &[C], r: &[C]) -> f64 {
+    use crate::constants::EEVEE_CROSSOVER_NORMALIZATION_THRESHOLD;
+    
     let l_size = l.len() as f64;
     let r_size = r.len() as f64;
     let fac = {
         let longest = f64::max(l_size, r_size);
-        if longest < 20. {
+        if longest < EEVEE_CROSSOVER_NORMALIZATION_THRESHOLD {
             1.
         } else {
             longest

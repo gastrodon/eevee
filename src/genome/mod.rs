@@ -70,16 +70,19 @@ pub enum NodeKind {
 pub trait Connection:
     Serialize + for<'de> Deserialize<'de> + Clone + Hash + PartialEq + Default + Debug
 {
-    const PROBABILITIES: [u64; ConnectionEvent::COUNT] = [percent(1), percent(99)];
-    const PARAM_REPLACE_PROBABILITY: u64 = percent(10);
-    const PARAM_PERTURB_FAC: f64 = 0.05;
+    const PROBABILITIES: [u64; ConnectionEvent::COUNT] = [
+        crate::constants::EEVEE_CONNECTION_DISABLE_PROB,
+        crate::constants::EEVEE_CONNECTION_MUTATE_PARAM_PROB,
+    ];
+    const PARAM_REPLACE_PROBABILITY: u64 = crate::constants::EEVEE_PARAM_REPLACE_PROB;
+    const PARAM_PERTURB_FAC: f64 = crate::constants::EEVEE_PARAM_PERTURB_FACTOR;
 
     const EXCESS_COEFFICIENT: f64;
     const DISJOINT_COEFFICIENT: f64;
     const PARAM_COEFFICIENT: f64;
 
-    const PROBABILITY_PICK_RL: u64 = percent(50);
-    const PROBABILITY_KEEP_DISABLED: u64 = percent(75);
+    const PROBABILITY_PICK_RL: u64 = crate::constants::EEVEE_CROSSOVER_PICK_LESS_FIT_PROB;
+    const PROBABILITY_KEEP_DISABLED: u64 = crate::constants::EEVEE_CROSSOVER_KEEP_DISABLED_PROB;
 
     fn new(from: usize, to: usize, inno: &mut InnoGen) -> Self;
 
@@ -136,10 +139,14 @@ pub trait Connection:
 /// arbitrary parameters. A genome must also be able to reproduce with any other genome of the
 /// same kind, their connections constructively crossing over.
 pub trait Genome<C: Connection>: Serialize + for<'de> Deserialize<'de> + Clone {
-    const MUTATE_NODE_PROBABILITY: u64 = percent(20);
-    const MUTATE_CONNECTION_PROBABILITY: u64 = percent(20);
-    const PROBABILITIES: [u64; GenomeEvent::COUNT] =
-        [percent(5), percent(15), percent(80), percent(0)];
+    const MUTATE_NODE_PROBABILITY: u64 = crate::constants::EEVEE_GENOME_MUTATE_NODE_PROB;
+    const MUTATE_CONNECTION_PROBABILITY: u64 = crate::constants::EEVEE_GENOME_MUTATE_CONNECTION_PROB;
+    const PROBABILITIES: [u64; GenomeEvent::COUNT] = [
+        crate::constants::EEVEE_GENOME_NEW_CONNECTION_PROB,
+        crate::constants::EEVEE_GENOME_BISECT_CONNECTION_PROB,
+        crate::constants::EEVEE_GENOME_MUTATE_EXISTING_PROB,
+        crate::constants::EEVEE_GENOME_NODE_MUTATION_PROB,
+    ];
 
     /// A new genome of this type, with a known input and output size.
     fn new(sensory: usize, action: usize) -> (Self, usize);

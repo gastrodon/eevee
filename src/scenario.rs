@@ -1,6 +1,7 @@
 //! Traits related to evaluation, fitting, and evolution of genomes for specific tasks.
 
 use crate::{
+    constants::EEVEE_NO_IMPROVEMENT_TRUNCATE,
     genome::Genome,
     population::{speciate, Specie, SpecieRepr},
     reproduce::population_reproduce,
@@ -14,8 +15,6 @@ use rayon::{
     ThreadPoolBuilder,
 };
 use std::collections::HashMap;
-
-const NO_IMPROVEMENT_TRUNCATE: usize = 10;
 
 /// Stats passed to a hook fn
 pub struct Stats<'a, C: Connection, G: Genome<C>> {
@@ -187,7 +186,7 @@ pub fn evolve<
                 let (min_fit, gen_achieved) =
                     *scores_prev.get(&s.repr).unwrap_or(&(f64::MIN, gen_idx));
 
-                if gen_achieved + NO_IMPROVEMENT_TRUNCATE <= gen_idx && s.members.len() > 2 {
+                if gen_achieved + EEVEE_NO_IMPROVEMENT_TRUNCATE <= gen_idx && s.members.len() > 2 {
                     (
                         Specie {
                             repr: s.repr,

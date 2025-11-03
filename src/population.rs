@@ -96,8 +96,6 @@ impl<C: Connection, G: Genome<C>> Specie<C, G> {
     }
 }
 
-const SPECIE_THRESHOLD: f64 = 4.;
-
 /// Partition an unordered collection of [Genome]s into species. An initial collection of empty
 /// species is created from repr, and if some genome matches none of them, a new specie is
 /// formed with them as the repr.
@@ -105,6 +103,8 @@ pub fn speciate<C: Connection, G: Genome<C>>(
     genomes: impl Iterator<Item = (G, f64)>,
     reprs: impl Iterator<Item = SpecieRepr<C>>,
 ) -> Vec<Specie<C, G>> {
+    use crate::constants::EEVEE_SPECIE_THRESHOLD;
+    
     let mut sp = Vec::from_iter(reprs.map(|repr| Specie {
         repr,
         members: Vec::new(),
@@ -113,7 +113,7 @@ pub fn speciate<C: Connection, G: Genome<C>>(
     for (genome, fitness) in genomes {
         match sp
             .iter_mut()
-            .find(|Specie { repr, .. }| repr.delta(genome.connections()) < SPECIE_THRESHOLD)
+            .find(|Specie { repr, .. }| repr.delta(genome.connections()) < EEVEE_SPECIE_THRESHOLD)
         {
             Some(Specie { members, .. }) => members.push((genome, fitness)),
             None => {
