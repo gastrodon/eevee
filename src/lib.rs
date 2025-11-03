@@ -3,6 +3,7 @@
 #![allow(incomplete_features)]
 #![allow(mixed_script_confusables)]
 
+pub mod constants;
 pub mod crossover;
 pub mod genome;
 pub mod macros;

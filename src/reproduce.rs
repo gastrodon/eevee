@@ -117,25 +117,31 @@ pub fn reproduce<C: Connection, G: Genome<C>>(
         .into());
     }
 
+    use crate::constants::{EEVEE_REPRODUCTION_CHAMPION_COUNT, EEVEE_REPRODUCTION_COPY_RATIO};
+    
     let mut pop: Vec<G> = Vec::with_capacity(size);
-    pop.push(
-        genomes
-            .iter()
-            .max_by(|(_, l), (_, r)| {
-                l.partial_cmp(r)
-                    .unwrap_or_else(|| panic!("cannot partial_cmp {l} and {r}"))
-            })
-            .unwrap()
-            .0
-            .clone(),
-    );
+    
+    // Preserve champion(s)
+    for _ in 0..EEVEE_REPRODUCTION_CHAMPION_COUNT.min(genomes.len()) {
+        pop.push(
+            genomes
+                .iter()
+                .max_by(|(_, l), (_, r)| {
+                    l.partial_cmp(r)
+                        .unwrap_or_else(|| panic!("cannot partial_cmp {l} and {r}"))
+                })
+                .unwrap()
+                .0
+                .clone(),
+        );
+    }
 
-    if size == 1 {
+    if size == pop.len() {
         return Ok(pop);
     }
 
-    let size = size - 1;
-    let size_copy = size / 4;
+    let size = size - pop.len();
+    let size_copy = size / EEVEE_REPRODUCTION_COPY_RATIO;
     let size_copy = if size_copy == 0 || genomes.len() == 1 {
         size
     } else {
