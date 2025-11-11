@@ -1,7 +1,6 @@
 #![allow(mixed_script_confusables)]
 #![allow(confusable_idents)]
 
-use approx::relative_eq;
 use core::{f64, ops::ControlFlow};
 use eevee::{
     activate::relu,
@@ -21,12 +20,12 @@ macro_rules! eval_pair {
     ($pair:expr, $want:expr, ($network:ident $fit:ident $σ:ident)) => {{
         $network.step(2, &$pair, $σ);
         let v = $network.output()[0];
-        if relative_eq!(v, $want, epsilon = 0.05) {
-            $fit += 100.;
-        } else if (-1. ..=2.).contains(&v) {
-            $fit -= ($want - v).abs();
+        if (0. ..=1.).contains(&v) {
+            let error = ($want - v).abs();
+            $fit += 1.0 - 0.9 * error;
         } else {
-            $fit -= v.abs() * v.abs();
+            let distance_outside = if v < 0. { -v } else { v - 1. };
+            $fit += 0.1 * (-distance_outside).exp();
         }
         $network.flush();
     }};
@@ -63,7 +62,7 @@ fn hook<C: Connection, G: Genome<C>>(stats: &mut Stats<'_, C, G>) -> ControlFlow
         );
     }
 
-    if stats.any_fitter_than(400. - f64::EPSILON) {
+    if stats.any_fitter_than(4. - f64::EPSILON) {
         let fittest = stats.fittest().unwrap();
         println!("target met in gen {}: {:.4}", stats.generation, fittest.1);
         fittest

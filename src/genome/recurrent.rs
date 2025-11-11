@@ -1,4 +1,4 @@
-use super::{Connection, Genome, NodeKind};
+use super::{Connection, Genome, InnoGen, NodeKind};
 use crate::{
     crossover::crossover,
     serialize::{deserialize_connections, deserialize_nodes},
@@ -30,14 +30,30 @@ impl<C: Connection> Genome<C> for Recurrent<C> {
         }
         nodes.push(NodeKind::Static);
 
+        let mut inno = InnoGen::new(0);
+        let mut connections = Vec::new();
+        for (from, _) in nodes
+            .iter()
+            .enumerate()
+            .filter(|(_, n)| matches!(n, NodeKind::Sensory | NodeKind::Static | NodeKind::Internal))
+        {
+            for (to, _) in nodes
+                .iter()
+                .enumerate()
+                .filter(|(to, n)| *to != from && matches!(n, NodeKind::Internal | NodeKind::Action))
+            {
+                connections.push(C::new(from, to, &mut inno));
+            }
+        }
+
         (
             Self {
                 sensory,
                 action,
                 nodes,
-                connections: vec![],
+                connections,
             },
-            (sensory + 1) * action,
+            inno.head,
         )
     }
 
@@ -198,6 +214,7 @@ mod test {
     test_t!(
     test_gen_connection[T: RecurrentContinuous]() {
         let (mut genome, _ ) = T::new(1, 1);
+        genome.connections = vec![]; // TODO generalize empty connection state
 
         for _ in 0..100 {
             match genome.open_path(&mut default_rng()) {
@@ -227,11 +244,12 @@ mod test {
     test_mutate_connection[T: RecurrentContinuous]() {
         let (mut genome, _) = T::new(4, 4);
         let mut inno = InnoGen::new(0);
+        genome.connections = vec![]; // TODO generalize empty connection state
         genome.push_connection(C::new(0, 1, &mut inno));
         genome.push_connection(C::new(1, 2, &mut inno));
 
         let before = genome.clone();
-        genome.new_connection(&mut default_rng(), &mut inno);
+        genome.new_connection(&mut default_rng(), &mut inno).unwrap_or_else(|e| panic!("failed new_connection: {e}"));
 
         assert_eq!(genome.connections().len(), before.connections().len() + 1);
 
@@ -246,6 +264,7 @@ mod test {
         let mut inno = InnoGen::new(0);
         let (mut genome, _) = T::new(0, 1);
 
+        genome.connections = vec![]; // TODO generalize empty connection state
         genome.push_connection({
             let mut c = C::new(0, 1, &mut inno);
             c.mutate_param(&mut default_rng());
@@ -253,7 +272,7 @@ mod test {
         });
 
         let innogen = &mut InnoGen::new(1);
-        genome.bisect_connection(&mut default_rng(), innogen);
+        genome.bisect_connection(&mut default_rng(), innogen).unwrap_or_else(|e| panic!("failed new_connection: {e}"));
 
         assert!(!genome.connections()[0].enabled);
 
@@ -285,17 +304,16 @@ mod test {
     });
 
     test_t!(
-    #[should_panic(expected = "no connections available to bisect")]
     test_mutate_bisection_empty_genome[T: RecurrentContinuous]() {
         let (mut genome, _) = T::new(0, 0);
-        genome.bisect_connection(&mut default_rng(), &mut InnoGen::new(0));
+        genome.connections = vec![]; // TODO generalize empty connection state
+        assert!(genome.bisect_connection(&mut default_rng(), &mut InnoGen::new(0)).is_err());
     });
 
     test_t!(
-    #[should_panic(expected = "no connections available to bisect")]
     test_mutate_bisection_no_connections[T: RecurrentContinuous]() {
         let (mut genome, _) = T::new(2, 2);
-        genome.connections = vec![];
-        genome.bisect_connection(&mut default_rng(), &mut InnoGen::new(0));
+        genome.connections = vec![]; // TODO generalize empty connection state
+        assert!(genome.bisect_connection(&mut default_rng(), &mut InnoGen::new(0)).is_err());
     });
 }

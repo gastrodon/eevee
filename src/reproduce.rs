@@ -2,12 +2,11 @@
 
 use crate::{
     genome::{Connection, Genome, InnoGen},
-    population::SpecieRepr,
+    population::FittedGroup,
     Specie,
 };
 use core::{error::Error, f64};
 use rand::RngCore;
-use std::collections::HashMap;
 
 fn reproduce_crossover<C: Connection, G: Genome<C>>(
     genomes: &[(G, f64)],
@@ -118,17 +117,7 @@ pub fn reproduce<C: Connection, G: Genome<C>>(
     }
 
     let mut pop: Vec<G> = Vec::with_capacity(size);
-    pop.push(
-        genomes
-            .iter()
-            .max_by(|(_, l), (_, r)| {
-                l.partial_cmp(r)
-                    .unwrap_or_else(|| panic!("cannot partial_cmp {l} and {r}"))
-            })
-            .unwrap()
-            .0
-            .clone(),
-    );
+    pop.push(genomes.fittest().unwrap().0.clone());
 
     if size == 1 {
         return Ok(pop);
@@ -156,75 +145,51 @@ pub fn reproduce<C: Connection, G: Genome<C>>(
     Ok(pop)
 }
 
-/// allocate a target population for every specie in an existing population
-fn population_alloc<'a, C: Connection + 'a, G: Genome<C> + 'a>(
-    species: impl Iterator<Item = &'a Specie<C, G>>,
+pub fn population_alloc<'a, C: Connection + 'a, G: Genome<C> + 'a>(
+    species: Vec<Specie<C, G>>,
     population: usize,
-) -> HashMap<SpecieRepr<C>, usize> {
-    let species_fitted = species
-        .map(|s| (s.repr.clone(), s.fit_adjusted()))
-        .collect::<Vec<_>>();
+) -> impl Iterator<Item = (Specie<C, G>, usize)> {
+    let species_fitted = species.iter().map(|s| s.fit_adjusted()).collect::<Vec<_>>();
+    let fit_total = species_fitted.iter().sum::<f64>();
 
-    let fit_total = species_fitted.iter().fold(0., |acc, (_, n)| acc + n);
     let population_f = population as f64;
-    species_fitted
+    species
         .into_iter()
-        .map(|(specie_repr, fit_adjusted)| {
+        .zip(species_fitted)
+        .map(move |(specie, fit_adjusted)| {
             (
-                specie_repr,
+                specie,
                 f64::round(population_f * fit_adjusted / fit_total) as usize,
             )
         })
-        .collect()
 }
 
-fn population_allocated<
-    'a,
-    C: Connection + 'a,
-    G: Genome<C> + 'a,
-    T: Iterator<Item = &'a (Specie<C, G>, f64)>,
->(
-    species: T,
-    population: usize,
-) -> impl Iterator<Item = (Vec<(G, f64)>, usize)> {
-    let viable = species
-        .filter_map(|(specie, min_fitness)| {
-            let viable = specie
-                .members
-                .iter()
-                .filter(|&pair| (&pair.1 >= min_fitness))
-                .cloned()
-                .collect::<Vec<_>>();
-
-            // (!viable.is_empty()).then_some((&specie.repr, viable));
-            (!viable.is_empty()).then(|| Specie {
-                repr: specie.repr.clone(),
-                members: viable,
-            })
-        })
-        .collect::<Vec<_>>();
-
-    let alloc = population_alloc(viable.iter(), population);
-
-    viable
-        .into_iter()
-        .filter_map(move |specie| alloc.get(&specie.repr).map(|pop| (specie.members, *pop)))
-}
-
-/// Reproduce a group of species, allocating their populations based on their specie fitness
-/// relative to eachother. Enforces a min_fitness threshold for every specie member, and allows
-/// low-fitness species to naturally die off.
+// reproduce a whole speciated population into a non-speciated population
 pub fn population_reproduce<C: Connection, G: Genome<C>>(
-    species: &[(Specie<C, G>, f64)],
+    species: &[Specie<C, G>],
     population: usize,
     inno_head: usize,
     rng: &mut impl RngCore,
 ) -> (Vec<G>, usize) {
-    // let species = population_viable(species.into_iter());
-    // let species_pop = population_alloc(species, population);
     let mut innogen = InnoGen::new(inno_head);
+
+    // Inline population_alloc logic
+    let species_fitted = species.iter().map(|s| s.fit_adjusted()).collect::<Vec<_>>();
+    let fit_total = species_fitted.iter().sum::<f64>();
+    let population_f = population as f64;
+
+    let allocated = species
+        .iter()
+        .zip(species_fitted)
+        .map(|(specie, fit_adjusted)| {
+            (
+                specie.members.clone(),
+                f64::round(population_f * fit_adjusted / fit_total) as usize,
+            )
+        });
+
     (
-        population_allocated(species.iter(), population)
+        allocated
             .flat_map(|(members, pop)| reproduce(members, pop, &mut innogen, rng).unwrap())
             .collect::<Vec<_>>(),
         innogen.head,
@@ -233,14 +198,13 @@ pub fn population_reproduce<C: Connection, G: Genome<C>>(
 
 #[cfg(test)]
 mod test {
+    use super::*;
     use crate::{
         genome::{Recurrent, WConnection},
-        population::population_init,
+        population::{population_init, SpecieRepr},
         random::default_rng,
         test_t,
     };
-
-    use super::*;
 
     #[test]
     fn test_inno_gen() {
@@ -256,9 +220,10 @@ mod test {
         assert_eq!(inno2.path((0, 1)), 3);
     }
 
-    type BasicGenomeCtrnn = Recurrent<WConnection>;
+    type C = WConnection;
+    type G = Recurrent<C>;
 
-    test_t!(specie_reproduce[T: BasicGenomeCtrnn]() {
+    test_t!(test_specie_reproduce[T: G]() {
         let mut rng = default_rng();
         let count = 40;
         let (species, inno_head) = population_init::<WConnection, T>(2, 2, count);
@@ -279,4 +244,72 @@ mod test {
             }
         }
     });
+
+    #[test]
+    fn test_population_alloc() {
+        let scores_1 = [100., 90., 95.];
+        let scores_2 = [3., 50., 83., 10., 25.];
+
+        let connection_1 = C::new(1, 2, &mut InnoGen::new(1));
+        let specie_1 = Specie {
+            repr: SpecieRepr::new(vec![connection_1.clone()]),
+            members: scores_1
+                .into_iter()
+                .map(|score| {
+                    (
+                        {
+                            let mut g = G::new(0, 0).0;
+                            g.push_connection(connection_1.clone());
+                            g
+                        },
+                        score,
+                    )
+                })
+                .collect(),
+        };
+
+        let connection_2 = C::new(3, 4, &mut InnoGen::new(1));
+        let specie_2 = Specie {
+            repr: SpecieRepr::new(vec![connection_2.clone()]),
+            members: scores_2
+                .into_iter()
+                .map(|score| {
+                    (
+                        {
+                            let mut g = G::new(0, 0).0;
+                            g.push_connection(connection_2.clone());
+                            g
+                        },
+                        score,
+                    )
+                })
+                .collect(),
+        };
+
+        let adjusted_1 = specie_1.fit_adjusted();
+        let adjusted_2 = specie_2.fit_adjusted();
+        let adjusted_total = adjusted_1 + adjusted_2;
+
+        let population = 100;
+        let population_f = population as f64;
+        let want_1 = f64::round(population_f * adjusted_1 / adjusted_total) as usize;
+        let want_2 = f64::round(population_f * adjusted_2 / adjusted_total) as usize;
+
+        let actual = population_alloc(vec![specie_1, specie_2], population);
+        for (Specie { members, .. }, allocation) in actual {
+            match members
+                .first()
+                .expect("allocation for empty specie repr")
+                .0
+                .connections()
+                .first()
+                .expect("allocation for specie whos member has no connections")
+                .path()
+            {
+                (1, 2) => assert_eq!(want_1, allocation),
+                (3, 4) => assert_eq!(want_2, allocation),
+                _ => unreachable!("allocation for unknown specie repr"),
+            }
+        }
+    }
 }

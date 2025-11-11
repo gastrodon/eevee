@@ -1,6 +1,6 @@
 [package]
 name = "eevee"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "Generalized NeuroEvolution toolkit, based on NEAT"
 license = "AGPL-3.0-or-later"
@@ -22,7 +22,6 @@ rayon = { version = "~1.10", optional = true }
 [dev-dependencies]
 criterion = "~0.5"
 flamegraph = "~0.6"
-toml-cli = "~0.2"
 
 [features]
 approx = ["dep:approx"]
@@ -60,6 +59,10 @@ harness = false
 
 [[bench]]
 name = "random"
+harness = false
+
+[[bench]]
+name = "alloc"
 harness = false
 
 [[bench]]

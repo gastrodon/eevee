@@ -114,9 +114,9 @@ impl<'a, C: Connection, G: Genome<C> + ToNetwork<Continuous, C>, A: Fn(f64) -> f
 
                 decay_linear(w_positive, *c_positive) + decay_linear(w_negative, *c_negative)
             })
-            .sum();
+            .sum::<f64>();
 
-        fit
+        fit + 1.
     }
 }
 
