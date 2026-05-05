@@ -184,7 +184,7 @@ pub fn evolve<
         let p_truncated = species
             .into_iter()
             .map(|s| {
-                let (_, gen_achieved) = *scores_prev.get(&s.repr).unwrap_or(&(f64::MIN, gen_idx));
+                let (_, gen_achieved) = *scores.get(&s.repr).unwrap_or(&(f64::MIN, gen_idx));
 
                 if gen_achieved + NO_IMPROVEMENT_TRUNCATE <= gen_idx && s.members.len() > 2 {
                     Specie {
