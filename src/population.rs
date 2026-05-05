@@ -135,11 +135,18 @@ pub fn speciate<C: Connection, G: Genome<C>>(
     }));
 
     for (genome, fitness) in genomes {
-        match sp
+        let best = sp
             .iter_mut()
-            .find(|Specie { repr, .. }| repr.delta(genome.connections()) < SPECIE_THRESHOLD)
-        {
-            Some(Specie { members, .. }) => members.push((genome, fitness)),
+            .filter_map(|s| {
+                let d = s.repr.delta(genome.connections());
+                if d < SPECIE_THRESHOLD { Some((d, s)) } else { None }
+            })
+            .min_by(|(dl, _), (dr, _)| {
+                dl.partial_cmp(dr).unwrap_or(core::cmp::Ordering::Equal)
+            });
+
+        match best {
+            Some((_, Specie { members, .. })) => members.push((genome, fitness)),
             None => {
                 sp.push(Specie {
                     repr: SpecieRepr::new(genome.connections().to_vec()),
