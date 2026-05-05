@@ -176,7 +176,11 @@ pub fn evolve<
                         }
                     }
                     (Some((_, gen_max)), None) => Some((repr.clone(), (*gen_max, gen_idx))),
-                    (None, _) => None,
+                    // Species went empty but had history — keep its repr in scores so
+                    // speciation next generation can still match genomes to it. Without
+                    // this, the niche is permanently lost the moment a species empties.
+                    (None, Some(past)) => Some((repr.clone(), *past)),
+                    (None, None) => None,
                 }
             })
             .collect();
