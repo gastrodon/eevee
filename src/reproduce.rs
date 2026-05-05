@@ -182,10 +182,12 @@ pub fn population_reproduce<C: Connection, G: Genome<C>>(
         .iter()
         .zip(species_fitted)
         .map(|(specie, fit_adjusted)| {
-            (
-                specie.members.clone(),
-                f64::round(population_f * fit_adjusted / fit_total) as usize,
-            )
+            let alloc = f64::round(population_f * fit_adjusted / fit_total) as usize;
+            // Floor at 2 so every surviving species can at least mutate one genome.
+            // Size=1 would just re-clone the elite with no mutation, freezing the species.
+            // Stagnation truncation + kill is the extinction path instead.
+            let alloc = if specie.members.is_empty() { 0 } else { alloc.max(2) };
+            (specie.members.clone(), alloc)
         });
 
     (

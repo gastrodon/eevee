@@ -183,11 +183,12 @@ pub fn evolve<
 
         let p_truncated = species
             .into_iter()
-            .map(|s| {
+            .filter_map(|s| {
                 let (_, gen_achieved) = *scores.get(&s.repr).unwrap_or(&(f64::MIN, gen_idx));
+                let stagnant = gen_achieved + NO_IMPROVEMENT_TRUNCATE <= gen_idx;
 
-                if gen_achieved + NO_IMPROVEMENT_TRUNCATE <= gen_idx && s.members.len() > 2 {
-                    Specie {
+                if stagnant && s.members.len() > 2 {
+                    Some(Specie {
                         repr: s.repr,
                         members: {
                             let mut trunc = s.members;
@@ -197,9 +198,11 @@ pub fn evolve<
                             });
                             trunc[..2].to_vec()
                         },
-                    }
+                    })
+                } else if stagnant {
+                    None // already minimal and still stagnant — kill
                 } else {
-                    s
+                    Some(s)
                 }
             })
             .collect::<Vec<_>>();
