@@ -125,11 +125,10 @@ pub fn reproduce<C: Connection, G: Genome<C>>(
 
     let size = size - 1;
     let size_copy = size / 4;
-    let size_copy = if size_copy == 0 || genomes.len() == 1 {
-        size
-    } else {
-        size_copy
-    };
+    // Only fall back to all-copy when there's genuinely no second parent.
+    // Previously `size_copy == 0` also triggered this, suppressing crossover
+    // for any species with a small allocation — even ones with 2+ members.
+    let size_copy = if genomes.len() == 1 { size } else { size_copy };
 
     // TODO reproduce_crossover and reproduce_copy can potentially be made faster
     // if they're handed a slice to write into intead of returning a vec that we then need to copy
