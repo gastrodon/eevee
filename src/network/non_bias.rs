@@ -1,20 +1,20 @@
 use super::{FromGenome, Network, Recurrent, Stateful};
 use crate::{Connection, Genome};
-#[cfg(feature = "serialize-json")]
+#[cfg(feature = "serialize")]
 use crate::serialize::{deserialize_matrix_flat, deserialize_matrix_square, serialize_matrix};
 use rulinalg::matrix::{BaseMatrix, BaseMatrixMut, Matrix};
-#[cfg(feature = "serialize-json")]
+#[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug)]
-#[cfg_attr(feature = "serialize-json", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct NonBias {
-    #[cfg_attr(feature = "serialize-json", serde(
+    #[cfg_attr(feature = "serialize", serde(
         serialize_with = "serialize_matrix",
         deserialize_with = "deserialize_matrix_flat"
     ))]
     pub y: Matrix<f64>,
-    #[cfg_attr(feature = "serialize-json", serde(
+    #[cfg_attr(feature = "serialize", serde(
         serialize_with = "serialize_matrix",
         deserialize_with = "deserialize_matrix_square"
     ))]

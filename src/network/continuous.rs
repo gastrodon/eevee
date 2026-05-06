@@ -1,9 +1,9 @@
 use super::{FromGenome, Recurrent, Stateful};
 use crate::{genome::NodeKind, Connection, Genome, Network};
-#[cfg(feature = "serialize-json")]
+#[cfg(feature = "serialize")]
 use crate::serialize::{deserialize_matrix_flat, deserialize_matrix_square, serialize_matrix};
 use rulinalg::matrix::{BaseMatrix, BaseMatrixMut, Matrix};
-#[cfg(feature = "serialize-json")]
+#[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
 
 /// A stateful NN who receives input continuously, useful for realtime problems
@@ -13,28 +13,28 @@ use serde::{Deserialize, Serialize};
 /// on the dynamics of small continuous-time recurrent neural networks (beer 1995)
 /// and with some code stolen from [TLmaK0's neat implentation](https://github.com/TLmaK0/rustneat)
 #[derive(Debug)]
-#[cfg_attr(feature = "serialize-json", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct Continuous {
     /// 1d state of neurons 0-N
-    #[cfg_attr(feature = "serialize-json", serde(
+    #[cfg_attr(feature = "serialize", serde(
         serialize_with = "serialize_matrix",
         deserialize_with = "deserialize_matrix_flat"
     ))]
     pub y: Matrix<f64>,
     /// 1d bias of neurons 0-N
-    #[cfg_attr(feature = "serialize-json", serde(
+    #[cfg_attr(feature = "serialize", serde(
         serialize_with = "serialize_matrix",
         deserialize_with = "deserialize_matrix_flat"
     ))]
     pub θ: Matrix<f64>,
     /// 1d membrane resistance time constant
-    #[cfg_attr(feature = "serialize-json", serde(
+    #[cfg_attr(feature = "serialize", serde(
         serialize_with = "serialize_matrix",
         deserialize_with = "deserialize_matrix_flat"
     ))]
     pub τ: Matrix<f64>,
     /// Nd weights between neurons, indexed as [from, to]
-    #[cfg_attr(feature = "serialize-json", serde(
+    #[cfg_attr(feature = "serialize", serde(
         serialize_with = "serialize_matrix",
         deserialize_with = "deserialize_matrix_square"
     ))]

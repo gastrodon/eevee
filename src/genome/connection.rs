@@ -1,11 +1,11 @@
 use super::{Connection, InnoGen};
 use crate::{mutate_param, random::percent};
 use core::hash::Hash;
-#[cfg(feature = "serialize-json")]
+#[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serialize-json", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct WConnection {
     pub inno: usize,
     pub from: usize,
@@ -102,7 +102,7 @@ impl Hash for WConnection {
 
 /// A connection who has a per-connection bias
 #[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serialize-json", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct BWConnection {
     pub inno: usize,
     pub from: usize,
