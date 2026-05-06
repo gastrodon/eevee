@@ -13,7 +13,17 @@ pub mod recurrent;
 
 pub use connection::WConnection;
 pub use recurrent::Recurrent;
-pub use crate::serialize::NodeKind;
+
+/// This has no reason to exist, and will be replaced with ranges in the future.
+#[deprecated]
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serialize-json", derive(serde::Serialize, serde::Deserialize))]
+pub enum NodeKind {
+    Sensory,
+    Action,
+    Internal,
+    Static,
+}
 
 use crate::random::{percent, ConnectionEvent, EventKind, GenomeEvent};
 use core::{cmp::Ordering, error::Error, fmt::Debug, hash::Hash, ops::Range};
