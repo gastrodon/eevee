@@ -1,6 +1,6 @@
 # Eevee
 
-Generalized NEAT neuroevolution toolkit in Rust. WIP — the algorithm runs but gets stuck in local minima. See `.claude/memory/` for full project context.
+Generalized NEAT neuroevolution toolkit in Rust. The local-minima problem that previously blocked XOR has been resolved (see `.claude/memory/project_eevee_overview.md` for the 5 fixes that landed). See `.claude/memory/` for full project context.
 
 ## Memory
 
@@ -29,4 +29,4 @@ cargo bench <bench>
 - `parallel` feature enables rayon-based parallel genome evaluation
 - Genome and connection types are generic — use `WConnection` + `Recurrent` for most work
 - `SPECIE_THRESHOLD` in `src/population.rs` controls speciation sensitivity (currently `4.0` on main)
-- The local minima problem is the primary open issue — all active branches are investigating it
+- The local-minima problem (formerly the primary open issue) was resolved on `worktree-fix-local-minima` (merged at `7c0b15e`) via 5 fix commits in speciate/reproduce/evolve plus 4 mutation/CTRNN tunings
