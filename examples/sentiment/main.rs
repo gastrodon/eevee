@@ -7,9 +7,10 @@ use eevee::{
     genome::{Recurrent, WConnection},
     network::{loss::decay_linear, Continuous, ToNetwork},
     population::population_init,
-    serialize_json::{population_from_files, population_to_files},
     random::default_rng,
     scenario::{evolve, EvolutionHooks},
+    serialize::SerializeFile,
+    serialize::{population_from_files, population_to_files},
     Connection, Genome, Network, Scenario, Stats,
 };
 use std::{fs::create_dir_all, ops::ControlFlow};
@@ -121,10 +122,9 @@ impl<'a, C: Connection, G: Genome<C> + ToNetwork<Continuous, C>, A: Fn(f64) -> f
     }
 }
 
-fn hook<C: Connection, G: Genome<C>>(stats: &mut Stats<'_, C, G>) -> ControlFlow<()>
-where
-    G: serde::Serialize,
-{
+fn hook<C: Connection, G: Genome<C> + SerializeFile>(
+    stats: &mut Stats<'_, C, G>,
+) -> ControlFlow<()> {
     let fittest = stats.fittest().unwrap();
     println!("fittest of gen {}: {:.4}", stats.generation, fittest.1);
 

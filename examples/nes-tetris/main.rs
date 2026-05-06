@@ -9,7 +9,7 @@ use eevee::{
     population::population_init,
     random::default_rng,
     scenario::{evolve, EvolutionHooks},
-    serialize_json::{population_from_files, population_to_files},
+    serialize::{population_from_files, population_to_files},
     Connection, Network, Scenario, Stats,
 };
 use nes_rust_slim::{

@@ -13,15 +13,12 @@ pub mod recurrent;
 
 pub use connection::WConnection;
 pub use recurrent::Recurrent;
+pub use crate::serialize::NodeKind;
 
 use crate::random::{percent, ConnectionEvent, EventKind, GenomeEvent};
 use core::{cmp::Ordering, error::Error, fmt::Debug, hash::Hash, ops::Range};
 use fxhash::FxHashMap;
 use rand::{Rng, RngCore};
-#[cfg(feature = "serialize")]
-use serde::{Deserialize, Serialize};
-#[cfg(feature = "serialize-json")]
-use std::{fs, path::Path};
 
 /// InnoGen is a structure who's job is to associate an innovation ID uniquely with some
 /// connection path in the from (from, to). It typically lives generationally, ie every new
@@ -54,16 +51,6 @@ impl InnoGen {
     }
 }
 
-/// This has no reason to exist, and will be replaced with ranges in the future.
-#[deprecated]
-#[derive(Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
-pub enum NodeKind {
-    Sensory,
-    Action,
-    Internal,
-    Static,
-}
 
 /// A connection between 2 points. Connections may be arbitrarially parameterized, and those
 /// parameters mutated inside [mutate_param](Connection::mutate_param). For those params to
@@ -255,40 +242,4 @@ pub trait Genome<C: Connection>: Clone {
 
     /// Perform crossover reproduction with other, where our fitness is `fitness_cmp` compared to other
     fn reproduce_with(&self, other: &Self, fitness_cmp: Ordering, rng: &mut impl RngCore) -> Self;
-
-    /// Serialize this genome to a JSON string
-    #[cfg(feature = "serialize-json")]
-    fn to_string(&self) -> Result<String, Box<dyn Error>>
-    where
-        Self: serde::Serialize,
-    {
-        Ok(serde_json::to_string(self)?)
-    }
-
-    /// Deserialize this genome from a JSON string
-    #[cfg(feature = "serialize-json")]
-    #[allow(clippy::should_implement_trait)]
-    fn from_str(s: &str) -> Result<Self, Box<dyn Error>>
-    where
-        Self: for<'de> serde::Deserialize<'de>,
-    {
-        serde_json::from_str(s).map_err(|op| op.into())
-    }
-
-    #[cfg(feature = "serialize-json")]
-    fn to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), Box<dyn Error>>
-    where
-        Self: serde::Serialize,
-    {
-        fs::write(path, self.to_string()?)?;
-        Ok(())
-    }
-
-    #[cfg(feature = "serialize-json")]
-    fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, Box<dyn Error>>
-    where
-        Self: for<'de> serde::Deserialize<'de>,
-    {
-        Self::from_str(&fs::read_to_string(path)?)
-    }
 }

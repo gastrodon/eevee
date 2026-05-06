@@ -1,26 +1,16 @@
 use super::{FromGenome, Network};
 use crate::{genome::NodeKind, Connection, Genome};
-#[cfg(feature = "serialize")]
-use crate::serialize::deserialize_connections;
 use core::ops::Range;
-#[cfg(feature = "serialize")]
-use serde::{Deserialize, Serialize};
 
 /// A simple neural network, because man, what the fuck is going on. lol
 /// Walks through connections oldest to newest, evaluating them on a flat state
 #[derive(Debug)]
-#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serialize", serde(bound(deserialize = "C: serde::Deserialize<'de>")))]
 pub struct Simple<C: Connection> {
-    #[cfg_attr(feature = "serialize", serde(deserialize_with = "deserialize_connections"))]
-    connections: Vec<C>, // TODO this is copying because of deserialization
-    bias: Vec<f64>,
-    #[cfg_attr(feature = "serialize", serde(skip_serializing))]
-    state: Vec<f64>,
-    #[cfg_attr(feature = "serialize", serde(skip_serializing))]
-    sensory: Range<usize>,
-    #[cfg_attr(feature = "serialize", serde(skip_serializing))]
-    action: Range<usize>,
+    pub(crate) connections: Vec<C>,
+    pub(crate) bias: Vec<f64>,
+    pub(crate) state: Vec<f64>,
+    pub(crate) sensory: Range<usize>,
+    pub(crate) action: Range<usize>,
 }
 
 impl<C: Connection> Network for Simple<C> {
