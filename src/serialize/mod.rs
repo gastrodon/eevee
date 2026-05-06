@@ -12,8 +12,6 @@ use std::{
     path::Path,
 };
 
-pub use crate::genome::NodeKind;
-
 use crate::{
     population::{speciate, SpecieGroup},
     Connection, Genome, Specie,

@@ -1,6 +1,6 @@
 //! JSON serialization: blanket `SerializeFile` impl, field helpers, and per-type impls.
 
-use crate::serialize::{NodeKind, SerializeFile};
+use crate::serialize::SerializeFile;
 use crate::Connection;
 use rulinalg::matrix::Matrix;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -39,10 +39,6 @@ fn deserialize_matrix_square<'de, D: Deserializer<'de>>(de: D) -> Result<Matrix<
         debug_assert_eq!(n * n, float_data.len(), "non-square weight vec");
         Matrix::new(n, n, float_data)
     })
-}
-
-fn deserialize_nodes<'de, D: Deserializer<'de>>(de: D) -> Result<Vec<NodeKind>, D::Error> {
-    Vec::<NodeKind>::deserialize(de)
 }
 
 fn deserialize_connections<'de, C: Connection + Deserialize<'de>, D: Deserializer<'de>>(
@@ -222,8 +218,7 @@ json_impl! {
     Recurrent<C: Connection> {
         sensory: usize,
         action: usize,
-        #[serde(deserialize_with = "deserialize_nodes")]
-        nodes: Vec<NodeKind>,
+        node_count: usize,
         #[serde(deserialize_with = "deserialize_connections")]
         connections: Vec<C>,
     }

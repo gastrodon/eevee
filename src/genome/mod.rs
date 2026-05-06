@@ -14,17 +14,6 @@ pub mod recurrent;
 pub use connection::WConnection;
 pub use recurrent::Recurrent;
 
-/// This has no reason to exist, and will be replaced with ranges in the future.
-#[deprecated]
-#[derive(Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "serialize-json", derive(serde::Serialize, serde::Deserialize))]
-pub enum NodeKind {
-    Sensory,
-    Action,
-    Internal,
-    Static,
-}
-
 use crate::random::{percent, ConnectionEvent, EventKind, GenomeEvent};
 use core::{cmp::Ordering, error::Error, fmt::Debug, hash::Hash, ops::Range};
 use fxhash::FxHashMap;
@@ -147,13 +136,12 @@ pub trait Genome<C: Connection>: Clone {
 
     fn action(&self) -> Range<usize>;
 
-    fn nodes(&self) -> &[NodeKind];
+    /// Total number of nodes. Layout: `[0..sensory)` sensory, `[sensory..+action)` action,
+    /// `sensory+action` static bias, `(sensory+action..)` internal.
+    fn node_count(&self) -> usize;
 
-    #[deprecated]
-    fn nodes_mut(&mut self) -> &mut [NodeKind];
-
-    /// Push a new node onto the genome.
-    fn push_node(&mut self, node: NodeKind);
+    /// Push a new internal node.
+    fn push_node(&mut self);
 
     /// A collection to the connections comprising this genome.
     fn connections(&self) -> &[C];
@@ -215,7 +203,7 @@ pub trait Genome<C: Connection>: Clone {
             return Err("no connections available to bisect".into());
         }
 
-        let center = self.nodes().len();
+        let center = self.node_count();
         let source = rng.random_range(0..self.connections().len());
         let (lower, upper) = self
             .connections_mut()
@@ -223,7 +211,7 @@ pub trait Genome<C: Connection>: Clone {
             .unwrap()
             .bisect(center, inno);
 
-        self.push_node(NodeKind::Internal);
+        self.push_node();
         self.push_2_connections(lower, upper);
         Ok(())
     }

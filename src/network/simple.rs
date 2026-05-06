@@ -1,5 +1,5 @@
 use super::{FromGenome, Network};
-use crate::{genome::NodeKind, Connection, Genome};
+use crate::{Connection, Genome};
 use core::ops::Range;
 
 /// A simple neural network, because man, what the fuck is going on. lol
@@ -38,20 +38,13 @@ impl<C: Connection> Network for Simple<C> {
 
 impl<C: Connection, G: Genome<C>> FromGenome<C, G> for Simple<C> {
     fn from_genome(genome: &G) -> Self {
+        let static_idx = genome.action().end;
         Simple {
             connections: genome.connections().to_owned(),
-            bias: genome
-                .nodes()
-                .iter()
-                .map(|n| {
-                    if matches!(n, NodeKind::Static) {
-                        1.
-                    } else {
-                        0.
-                    }
-                })
+            bias: (0..genome.node_count())
+                .map(|i| if i == static_idx { 1. } else { 0. })
                 .collect(),
-            state: vec![0.; genome.nodes().len()],
+            state: vec![0.; genome.node_count()],
             sensory: genome.sensory(),
             action: genome.action(),
         }
