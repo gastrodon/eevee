@@ -15,8 +15,6 @@ pub use simple::Simple;
 use crate::{Connection, Genome};
 #[cfg(feature = "serialize-json")]
 use core::error::Error;
-#[cfg(feature = "serialize")]
-use serde::{Deserialize, Serialize};
 #[cfg(feature = "serialize-json")]
 use std::{fs, path::Path};
 
