@@ -8,6 +8,7 @@ use eevee::{
     population::population_init,
     random::default_rng,
     scenario::{evolve, EvolutionHooks},
+    serialize::SerializeFile,
     Connection, Scenario, Stats,
 };
 
@@ -46,10 +47,7 @@ impl<C: Connection, G: Genome<C> + ToNetwork<Continuous, C>, A: Fn(f64) -> f64> 
     }
 }
 
-fn dump_generation<C: Connection, G: Genome<C>>(stats: &Stats<'_, C, G>)
-where
-    G: serde::Serialize,
-{
+fn dump_generation<C: Connection, G: Genome<C> + SerializeFile>(stats: &Stats<'_, C, G>) {
     use std::io::Write;
 
     let gen = stats.generation;
@@ -108,10 +106,7 @@ where
     .unwrap();
 }
 
-fn hook<C: Connection, G: Genome<C>>(stats: &mut Stats<'_, C, G>) -> ControlFlow<()>
-where
-    G: serde::Serialize,
-{
+fn hook<C: Connection, G: Genome<C> + SerializeFile>(stats: &mut Stats<'_, C, G>) -> ControlFlow<()> {
     if stats.generation % 10 == 0 {
         dump_generation(stats);
     }

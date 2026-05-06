@@ -13,10 +13,10 @@ pub mod reproduce;
 pub mod scenario;
 #[cfg(feature = "serialize")]
 pub mod serialize;
-#[cfg(feature = "serialize-json")]
-pub mod serialize_json;
 
 pub use genome::{Connection, Genome};
 pub use network::{activate, Network};
 pub use population::Specie;
 pub use scenario::{Hook, Scenario, Stats};
+#[cfg(feature = "serialize")]
+pub use serialize::SerializeFile;

@@ -13,10 +13,6 @@ pub use non_bias::NonBias;
 pub use simple::Simple;
 
 use crate::{Connection, Genome};
-#[cfg(feature = "serialize-json")]
-use core::error::Error;
-#[cfg(feature = "serialize-json")]
-use std::{fs, path::Path};
 
 pub mod activate {
     use core::f64::consts::E;
@@ -60,39 +56,6 @@ pub trait Network {
     /// Get the network's most recent output, which should be some range of neurons defined by
     /// [Genome::action].
     fn output(&self) -> &[f64];
-
-    #[cfg(feature = "serialize-json")]
-    fn to_string(&self) -> Result<String, Box<dyn Error>>
-    where
-        Self: serde::Serialize,
-    {
-        Ok(serde_json::to_string(self)?)
-    }
-
-    #[cfg(feature = "serialize-json")]
-    fn from_str(s: &str) -> Result<Self, Box<dyn Error>>
-    where
-        Self: for<'de> serde::Deserialize<'de> + Sized,
-    {
-        serde_json::from_str(s).map_err(|op| op.into())
-    }
-
-    #[cfg(feature = "serialize-json")]
-    fn to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), Box<dyn Error>>
-    where
-        Self: serde::Serialize,
-    {
-        fs::write(path, self.to_string()?)?;
-        Ok(())
-    }
-
-    #[cfg(feature = "serialize-json")]
-    fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, Box<dyn Error>>
-    where
-        Self: for<'de> serde::Deserialize<'de> + Sized,
-    {
-        Self::from_str(&fs::read_to_string(path)?)
-    }
 }
 
 /// Marker for a network who propagates non-linearly, where propagation through recurrent

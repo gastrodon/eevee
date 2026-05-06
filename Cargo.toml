@@ -31,16 +31,16 @@ smol_bench = []
 
 [[example]]
 name = "xor"
-required-features = ["approx", "serialize-json"]
+required-features = ["approx", "serialize"]
 
 [[example]]
 name = "sentiment"
-required-features = ["serialize-json"]
+required-features = ["serialize"]
 
 [[bench]]
 name = "crossover"
 harness = false
-required-features = ["serialize-json"]
+required-features = ["serialize"]
 
 [[bench]]
 name = "innogen"
@@ -49,12 +49,12 @@ harness = false
 [[bench]]
 name = "mutate"
 harness = false
-required-features = ["serialize-json"]
+required-features = ["serialize"]
 
 [[bench]]
 name = "nn"
 harness = false
-required-features = ["serialize-json"]
+required-features = ["serialize"]
 
 [[bench]]
 name = "random"
@@ -63,14 +63,14 @@ harness = false
 [[bench]]
 name = "alloc"
 harness = false
-required-features = ["serialize-json"]
+required-features = ["serialize"]
 
 [[bench]]
 name = "reproduce"
 harness = false
-required-features = ["serialize-json"]
+required-features = ["serialize"]
 
 [[bench]]
 name = "speciate"
 harness = false
-required-features = ["serialize-json"]
+required-features = ["serialize"]
