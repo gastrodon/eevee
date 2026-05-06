@@ -12,20 +12,12 @@ use std::{
     path::Path,
 };
 
+pub use crate::genome::NodeKind;
+
 use crate::{
     population::{speciate, SpecieGroup},
     Connection, Genome, Specie,
 };
-
-/// This has no reason to exist, and will be replaced with ranges in the future.
-#[derive(Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "serialize-json", derive(serde::Serialize, serde::Deserialize))]
-pub enum NodeKind {
-    Sensory,
-    Action,
-    Internal,
-    Static,
-}
 
 /// Trait for types that can be serialized to/from a string and a file.
 ///
