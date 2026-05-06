@@ -119,6 +119,17 @@ impl<C: Connection, G: Genome<C>> FittedGroup<G> for Specie<C, G> {
     }
 }
 
+/// Compatibility distance threshold for speciation.
+///
+/// Two genomes are placed in the same species when `delta(a, b) < SPECIE_THRESHOLD`.
+/// `delta` is (disjoint + excess genes) / max_genome_size + 0.4 * avg_weight_diff,
+/// so it is roughly "fraction of genes that don't align, plus a weight penalty".
+///
+/// Practical intuition:
+/// - 0.0 → only identical genomes share a species (useless)
+/// - 0.5 → ~50% structural mismatch or large weight drift splits a species
+/// - 1.5 → two completely non-overlapping equal-size genomes (delta≈2.0) still split;
+///          a genome with one extra bisection (delta≈0.2) stays in the same species
 const SPECIE_THRESHOLD: f64 = 1.5;
 
 /// Partition an unordered collection of [Genome]s into species. An initial collection of empty
