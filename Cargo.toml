@@ -27,7 +27,8 @@ flamegraph = "~0.6"
 approx = ["dep:approx"]
 nes = ["dep:nes_rust_slim"]
 parallel = ["dep:rayon"]
-serialize-json = ["dep:serde", "dep:serde_json"]
+serialize = ["dep:serde"]
+serialize-json = ["serialize", "dep:serde_json"]
 smol_bench = []
 watch_game = []
 
@@ -46,6 +47,7 @@ required-features = ["serialize-json"]
 [[bench]]
 name = "crossover"
 harness = false
+required-features = ["serialize-json"]
 
 [[bench]]
 name = "innogen"
@@ -54,10 +56,12 @@ harness = false
 [[bench]]
 name = "mutate"
 harness = false
+required-features = ["serialize-json"]
 
 [[bench]]
 name = "nn"
 harness = false
+required-features = ["serialize-json"]
 
 [[bench]]
 name = "random"
@@ -66,11 +70,14 @@ harness = false
 [[bench]]
 name = "alloc"
 harness = false
+required-features = ["serialize-json"]
 
 [[bench]]
 name = "reproduce"
 harness = false
+required-features = ["serialize-json"]
 
 [[bench]]
 name = "speciate"
 harness = false
+required-features = ["serialize-json"]

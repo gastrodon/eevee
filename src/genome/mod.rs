@@ -18,7 +18,7 @@ use crate::random::{percent, ConnectionEvent, EventKind, GenomeEvent};
 use core::{cmp::Ordering, error::Error, fmt::Debug, hash::Hash, ops::Range};
 use fxhash::FxHashMap;
 use rand::{Rng, RngCore};
-#[cfg(feature = "serialize-json")]
+#[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "serialize-json")]
 use std::{fs, path::Path};
@@ -57,7 +57,7 @@ impl InnoGen {
 /// This has no reason to exist, and will be replaced with ranges in the future.
 #[deprecated]
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "serialize-json", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub enum NodeKind {
     Sensory,
     Action,
