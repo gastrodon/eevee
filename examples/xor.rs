@@ -12,7 +12,7 @@ use eevee::{
     Connection, Scenario, Stats,
 };
 
-const POPULATION: usize = 1000;
+const POPULATION: usize = 100;
 
 struct Xor;
 
@@ -128,7 +128,7 @@ fn hook<C: Connection, G: Genome<C> + SerializeFile>(stats: &mut Stats<'_, C, G>
         return ControlFlow::Break(());
     }
 
-    if stats.generation >= 500 {
+    if stats.generation >= 200 {
         println!("generation limit reached");
         return ControlFlow::Break(());
     }
