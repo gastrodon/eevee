@@ -25,8 +25,8 @@ flamegraph = "~0.6"
 [features]
 approx = ["dep:approx"]
 parallel = ["dep:rayon"]
-serialize = ["dep:serde"]
-serialize-json = ["serialize", "dep:serde_json"]
+serialize = ["dep:serde", "serialize_json"]
+serialize_json = ["dep:serde_json"]
 smol_bench = []
 
 [[example]]

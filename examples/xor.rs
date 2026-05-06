@@ -89,7 +89,7 @@ fn dump_generation<C: Connection, G: Genome<C> + SerializeFile>(stats: &Stats<'_
 
     let (best_nodes, best_conns, best_fitness) = stats
         .fittest()
-        .map(|(g, f)| (g.nodes().len(), g.connections().len(), *f))
+        .map(|(g, f)| (g.node_count(), g.connections().len(), *f))
         .unwrap_or((0, 0, 0.));
     let mean_fitness = if all.is_empty() {
         0.
@@ -117,7 +117,7 @@ fn hook<C: Connection, G: Genome<C> + SerializeFile>(stats: &mut Stats<'_, C, G>
             "gen {}: {:.4} ({} nodes, {} conns) of {} species",
             stats.generation,
             f,
-            g.nodes().len(),
+            g.node_count(),
             g.connections().len(),
             stats.species.len()
         );

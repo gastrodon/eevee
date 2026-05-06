@@ -2,7 +2,7 @@
 //!
 //! Format-specific implementations live in submodules (e.g. [`json`]).
 
-#[cfg(feature = "serialize-json")]
+#[cfg(feature = "serialize_json")]
 pub mod json;
 
 use core::error::Error;
