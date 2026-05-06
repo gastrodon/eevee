@@ -100,6 +100,53 @@ fn score(ram: &[u8]) -> f64 {
 }
 
 #[cfg(feature = "watch_game")]
+mod watch {
+    use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+    pub static GENERATION: AtomicUsize = AtomicUsize::new(0);
+    pub static SPECIES: AtomicUsize = AtomicUsize::new(0);
+    pub static MAX_FITNESS: AtomicU64 = AtomicU64::new(0);
+
+    pub fn update(generation: usize, species: usize, max_fitness: f64) {
+        GENERATION.store(generation, Ordering::Relaxed);
+        SPECIES.store(species, Ordering::Relaxed);
+        MAX_FITNESS.store(max_fitness.to_bits(), Ordering::Relaxed);
+    }
+
+    pub fn read() -> (usize, usize, f64) {
+        (
+            GENERATION.load(Ordering::Relaxed),
+            SPECIES.load(Ordering::Relaxed),
+            f64::from_bits(MAX_FITNESS.load(Ordering::Relaxed)),
+        )
+    }
+
+    /// Returns true if this caller should render.
+    /// In parallel mode only the worker on core 0 renders; otherwise always true.
+    pub fn should_render() -> bool {
+        #[cfg(feature = "parallel")]
+        {
+            rayon::current_thread_index() == Some(0)
+        }
+        #[cfg(not(feature = "parallel"))]
+        true
+    }
+}
+
+#[cfg(feature = "watch_game")]
+fn draw_stats(elapsed: std::time::Duration) {
+    let (gen, species, max_fitness) = watch::read();
+    let secs = elapsed.as_secs();
+    println!(
+        "gen {} | {} species | best: {:.1} | {:02}:{:02}",
+        gen,
+        species,
+        max_fitness,
+        secs / 60,
+        secs % 60,
+    );
+}
+
+#[cfg(feature = "watch_game")]
 fn draw_sense(sense: &[f64; INPUT_SIZE]) {
     for chunk in sense.chunks(10) {
         println!(
@@ -165,6 +212,10 @@ impl<C: Connection, G: Genome<C> + ToNetwork<Continuous, C>, A: Fn(f64) -> f64> 
 
         let mut network = genome.network();
         let mut sense = [0.; 200];
+        #[cfg(feature = "watch_game")]
+        let start = std::time::Instant::now();
+        #[cfg(feature = "watch_game")]
+        let rendering = watch::should_render();
         while nes.get_cpu().get_ram().data[GAME_OVER] == 0 {
             sense_board(&nes.get_cpu().get_ram().data, &mut sense);
             network.step(1, &sense, σ);
@@ -178,11 +229,12 @@ impl<C: Connection, G: Genome<C> + ToNetwork<Continuous, C>, A: Fn(f64) -> f64> 
             nes.step_frame();
 
             #[cfg(feature = "watch_game")]
-            {
+            if rendering {
                 print!("{}[2J", 27 as char);
+                draw_stats(start.elapsed());
                 draw_sense(&sense);
                 draw_act(&nes.get_cpu().joypad1.buttons);
-                println!("{}", score(&nes.get_cpu().get_ram().data),);
+                println!("score: {}", score(&nes.get_cpu().get_ram().data));
             }
 
             nes.get_mut_cpu().joypad1.buttons = [false; 8];
@@ -195,6 +247,12 @@ impl<C: Connection, G: Genome<C> + ToNetwork<Continuous, C>, A: Fn(f64) -> f64> 
 const POPULATION: usize = 1000;
 
 fn hook(stats: &mut Stats<'_, WConnection, Recurrent<WConnection>>) -> ControlFlow<()> {
+    #[cfg(feature = "watch_game")]
+    {
+        let max = stats.fittest().map(|(_, f)| *f).unwrap_or(0.0);
+        watch::update(stats.generation, stats.species.len(), max);
+    }
+
     if stats.generation % 10 != 0 {
         ControlFlow::Continue(())
     } else {
