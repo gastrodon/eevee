@@ -71,8 +71,9 @@ pub trait Connection:
     Serialize + for<'de> Deserialize<'de> + Clone + Hash + PartialEq + Default + Debug
 {
     const PROBABILITIES: [u64; ConnectionEvent::COUNT] = [percent(1), percent(99)];
-    const PARAM_REPLACE_PROBABILITY: u64 = percent(10);
-    const PARAM_PERTURB_FAC: f64 = 0.05;
+    const PARAM_REPLACE_PROBABILITY: u64 = percent(20);
+    const PARAM_PERTURB_FAC: f64 = 0.45;
+    const PARAM_STD: f64 = 3.;
 
     const EXCESS_COEFFICIENT: f64;
     const DISJOINT_COEFFICIENT: f64;
@@ -139,7 +140,7 @@ pub trait Genome<C: Connection>: Serialize + for<'de> Deserialize<'de> + Clone {
     const MUTATE_NODE_PROBABILITY: u64 = percent(20);
     const MUTATE_CONNECTION_PROBABILITY: u64 = percent(20);
     const PROBABILITIES: [u64; GenomeEvent::COUNT] =
-        [percent(5), percent(15), percent(80), percent(0)];
+        [percent(5), percent(5), percent(90), percent(0)];
 
     /// A new genome of this type, with a known input and output size.
     fn new(sensory: usize, action: usize) -> (Self, usize);

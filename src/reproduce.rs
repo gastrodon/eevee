@@ -8,6 +8,10 @@ use crate::{
 use core::{error::Error, f64};
 use rand::RngCore;
 
+/// Fraction of non-elite reproduction slots given to copy+mutate; the rest go to crossover.
+/// e.g. 4 means 1/4 copy, 3/4 crossover.
+const COPY_DENOM: usize = 4;
+
 fn reproduce_crossover<C: Connection, G: Genome<C>>(
     genomes: &[(G, f64)],
     size: usize,
@@ -124,7 +128,7 @@ pub fn reproduce<C: Connection, G: Genome<C>>(
     }
 
     let size = size - 1;
-    let size_copy = size / 4;
+    let size_copy = size / COPY_DENOM;
     // Only fall back to all-copy when there's genuinely no second parent.
     // Previously `size_copy == 0` also triggered this, suppressing crossover
     // for any species with a small allocation — even ones with 2+ members.
