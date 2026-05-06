@@ -99,7 +99,7 @@ macro_rules! mutate_param {
 
                 if let Some(evt) = ParamEvent::pick(rng, PARAM_PROBABILITIES) {
                     let replace = rng.next_u64() < Self::PARAM_REPLACE_PROBABILITY;
-                    let v: f64 = rng.sample(rand::distr::Uniform::new_inclusive(-3., 3.).expect("distribution of -3. ..= 3. failed"));
+                    let v: f64 = rng.sample(rand_distr::Normal::new(0., Self::PARAM_STD).expect("PARAM_STD must be positive"));
                     match evt {
                         $(ParamEvent::[<$evt:camel>] => self.[<$evt:lower>] = if replace {
                             v
