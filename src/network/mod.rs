@@ -13,8 +13,11 @@ pub use non_bias::NonBias;
 pub use simple::Simple;
 
 use crate::{Connection, Genome};
+#[cfg(feature = "serialize-json")]
 use core::error::Error;
+#[cfg(feature = "serialize-json")]
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "serialize-json")]
 use std::{fs, path::Path};
 
 pub mod activate {
@@ -48,7 +51,7 @@ pub mod loss {
 }
 
 /// The trait for all networks. Right now, only f64 values are used.
-pub trait Network: Serialize + for<'de> Deserialize<'de> {
+pub trait Network {
     /// Given some sensory input, step the network with it `prec` times, activating with σ.
     /// Input must be sized to fit within [Genome::sensory].
     fn step<F: Fn(f64) -> f64>(&mut self, prec: usize, input: &[f64], σ: F);
@@ -60,25 +63,35 @@ pub trait Network: Serialize + for<'de> Deserialize<'de> {
     /// [Genome::action].
     fn output(&self) -> &[f64];
 
-    fn to_string(&self) -> Result<String, Box<dyn Error>> {
+    #[cfg(feature = "serialize-json")]
+    fn to_string(&self) -> Result<String, Box<dyn Error>>
+    where
+        Self: serde::Serialize,
+    {
         Ok(serde_json::to_string(self)?)
     }
 
+    #[cfg(feature = "serialize-json")]
     fn from_str(s: &str) -> Result<Self, Box<dyn Error>>
     where
-        Self: Sized,
+        Self: for<'de> serde::Deserialize<'de> + Sized,
     {
         serde_json::from_str(s).map_err(|op| op.into())
     }
 
-    fn to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), Box<dyn Error>> {
+    #[cfg(feature = "serialize-json")]
+    fn to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), Box<dyn Error>>
+    where
+        Self: serde::Serialize,
+    {
         fs::write(path, self.to_string()?)?;
         Ok(())
     }
 
+    #[cfg(feature = "serialize-json")]
     fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, Box<dyn Error>>
     where
-        Self: Sized,
+        Self: for<'de> serde::Deserialize<'de> + Sized,
     {
         Self::from_str(&fs::read_to_string(path)?)
     }

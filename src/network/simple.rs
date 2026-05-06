@@ -1,20 +1,25 @@
 use super::{FromGenome, Network};
-use crate::{genome::NodeKind, serialize::deserialize_connections, Connection, Genome};
+use crate::{genome::NodeKind, Connection, Genome};
+#[cfg(feature = "serialize-json")]
+use crate::serialize::deserialize_connections;
 use core::ops::Range;
+#[cfg(feature = "serialize-json")]
 use serde::{Deserialize, Serialize};
 
 /// A simple neural network, because man, what the fuck is going on. lol
 /// Walks through connections oldest to newest, evaluating them on a flat state
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
+#[cfg_attr(feature = "serialize-json", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serialize-json", serde(bound(deserialize = "C: serde::Deserialize<'de>")))]
 pub struct Simple<C: Connection> {
-    #[serde(deserialize_with = "deserialize_connections")]
+    #[cfg_attr(feature = "serialize-json", serde(deserialize_with = "deserialize_connections"))]
     connections: Vec<C>, // TODO this is copying because of deserialization
     bias: Vec<f64>,
-    #[serde(skip_serializing)]
+    #[cfg_attr(feature = "serialize-json", serde(skip_serializing))]
     state: Vec<f64>,
-    #[serde(skip_serializing)]
+    #[cfg_attr(feature = "serialize-json", serde(skip_serializing))]
     sensory: Range<usize>,
-    #[serde(skip_serializing)]
+    #[cfg_attr(feature = "serialize-json", serde(skip_serializing))]
     action: Range<usize>,
 }
 

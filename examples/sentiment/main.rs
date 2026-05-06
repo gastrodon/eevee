@@ -120,7 +120,10 @@ impl<'a, C: Connection, G: Genome<C> + ToNetwork<Continuous, C>, A: Fn(f64) -> f
     }
 }
 
-fn hook<C: Connection, G: Genome<C>>(stats: &mut Stats<'_, C, G>) -> ControlFlow<()> {
+fn hook<C: Connection, G: Genome<C>>(stats: &mut Stats<'_, C, G>) -> ControlFlow<()>
+where
+    G: serde::Serialize,
+{
     let fittest = stats.fittest().unwrap();
     println!("fittest of gen {}: {:.4}", stats.generation, fittest.1);
 
