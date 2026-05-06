@@ -4,7 +4,7 @@
 use core::{f64, ops::ControlFlow};
 use eevee::{
     genome::{Genome, Recurrent, WConnection},
-    network::{activate::steep_sigmoid, Continuous, Network, ToNetwork},
+    network::{Binary, Network, ToNetwork},
     population::population_init,
     random::default_rng,
     scenario::{evolve, EvolutionHooks},
@@ -26,7 +26,7 @@ macro_rules! eval_pair {
     }};
 }
 
-impl<C: Connection, G: Genome<C> + ToNetwork<Continuous, C>, A: Fn(f64) -> f64> Scenario<C, G, A>
+impl<C: Connection, G: Genome<C> + ToNetwork<Binary, C>, A: Fn(f64) -> f64> Scenario<C, G, A>
     for Xor
 {
     fn io(&self) -> (usize, usize) {
@@ -37,10 +37,11 @@ impl<C: Connection, G: Genome<C> + ToNetwork<Continuous, C>, A: Fn(f64) -> f64> 
         let mut network = genome.network();
         let mut fit = 0.;
 
-        eval_pair!([0., 0.],  1., (network fit σ));
-        eval_pair!([1., 1.],  1., (network fit σ));
-        eval_pair!([1., 0.], -1., (network fit σ));
-        eval_pair!([0., 1.], -1., (network fit σ));
+        // inputs are {-1., 1.}: sign(0.) == sign(1.) so {0., 1.} can't be distinguished
+        eval_pair!([-1., -1.],  1., (network fit σ));
+        eval_pair!([ 1.,  1.],  1., (network fit σ));
+        eval_pair!([ 1., -1.], -1., (network fit σ));
+        eval_pair!([-1.,  1.], -1., (network fit σ));
 
         fit
     }
@@ -142,7 +143,7 @@ fn main() {
     evolve(
         Xor {},
         |(i, o)| population_init::<C, G>(i, o, POPULATION),
-        steep_sigmoid,
+        |x| x,
         default_rng(),
         EvolutionHooks::new(vec![Box::new(hook)]),
     );

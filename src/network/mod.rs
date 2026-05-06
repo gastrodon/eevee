@@ -4,10 +4,12 @@
 //! express their behaviour. The NEAT paper calls for a recurrent network with no per-connection
 //! bias, though maybe we can do more than that here. The code inside is quite experimental.
 
+pub mod binary;
 pub mod continuous;
 pub mod non_bias;
 pub mod simple;
 
+pub use binary::Binary;
 pub use continuous::Continuous;
 pub use non_bias::NonBias;
 pub use simple::Simple;
