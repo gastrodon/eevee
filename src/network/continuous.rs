@@ -1,10 +1,9 @@
 use super::{FromGenome, Recurrent, Stateful};
-use crate::{
-    genome::NodeKind,
-    serialize::{deserialize_matrix_flat, deserialize_matrix_square, serialize_matrix},
-    Connection, Genome, Network,
-};
+use crate::{genome::NodeKind, Connection, Genome, Network};
+#[cfg(feature = "serialize-json")]
+use crate::serialize::{deserialize_matrix_flat, deserialize_matrix_square, serialize_matrix};
 use rulinalg::matrix::{BaseMatrix, BaseMatrixMut, Matrix};
+#[cfg(feature = "serialize-json")]
 use serde::{Deserialize, Serialize};
 
 /// A stateful NN who receives input continuously, useful for realtime problems
@@ -13,31 +12,32 @@ use serde::{Deserialize, Serialize};
 /// Implementation based on the network described by
 /// on the dynamics of small continuous-time recurrent neural networks (beer 1995)
 /// and with some code stolen from [TLmaK0's neat implentation](https://github.com/TLmaK0/rustneat)
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
+#[cfg_attr(feature = "serialize-json", derive(Serialize, Deserialize))]
 pub struct Continuous {
     /// 1d state of neurons 0-N
-    #[serde(
+    #[cfg_attr(feature = "serialize-json", serde(
         serialize_with = "serialize_matrix",
         deserialize_with = "deserialize_matrix_flat"
-    )]
+    ))]
     pub y: Matrix<f64>,
     /// 1d bias of neurons 0-N
-    #[serde(
+    #[cfg_attr(feature = "serialize-json", serde(
         serialize_with = "serialize_matrix",
         deserialize_with = "deserialize_matrix_flat"
-    )]
+    ))]
     pub θ: Matrix<f64>,
     /// 1d membrane resistance time constant
-    #[serde(
+    #[cfg_attr(feature = "serialize-json", serde(
         serialize_with = "serialize_matrix",
         deserialize_with = "deserialize_matrix_flat"
-    )]
+    ))]
     pub τ: Matrix<f64>,
     /// Nd weights between neurons, indexed as [from, to]
-    #[serde(
+    #[cfg_attr(feature = "serialize-json", serde(
         serialize_with = "serialize_matrix",
         deserialize_with = "deserialize_matrix_square"
-    )]
+    ))]
     pub w: Matrix<f64>,
     /// Range of input neurons, indexing into y
     pub sensory: (usize, usize),
@@ -109,16 +109,20 @@ impl<C: Connection, G: Genome<C>> FromGenome<C, G> for Continuous {
 mod test {
     use super::*;
     use crate::{
-        activate, assert_f64_approx, assert_matrix_approx,
+        assert_f64_approx,
         genome::InnoGen,
         genome::{self, NodeKind, WConnection},
-        random::default_rng,
     };
+    #[cfg(feature = "serialize-json")]
+    use crate::{activate, assert_matrix_approx, random::default_rng};
+    #[cfg(feature = "serialize-json")]
     use rand_distr::{num_traits::Float, Distribution, Uniform};
+    #[cfg(feature = "serialize-json")]
     use rulinalg::matrix::Matrix;
 
     // Macro for comparing f64 arrays with epsilon tolerance
 
+    #[cfg(feature = "serialize-json")]
     #[test]
     fn test_ctrnn_serialization_deserialization() {
         let n_neurons = 10;
@@ -162,6 +166,7 @@ mod test {
         assert_eq!(original.action, deserialized.action);
     }
 
+    #[cfg(feature = "serialize-json")]
     #[test]
     fn test_ctrnn_behavioral_equivalence() {
         let n_neurons = 10;

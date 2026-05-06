@@ -5,11 +5,14 @@ use crate::{
     genome::{Connection, Genome},
 };
 use core::{
-    error::Error,
     f64,
     hash::{Hash, Hasher},
 };
-use std::{fs::read_dir, hash::DefaultHasher, iter::empty, path::Path};
+#[cfg(feature = "serialize-json")]
+use core::error::Error;
+use std::hash::DefaultHasher;
+#[cfg(feature = "serialize-json")]
+use std::{fs::read_dir, iter::empty, path::Path};
 
 /// The representative member of a particular specie. Is retained inter-generationally to better
 /// track when a specie deviates
@@ -180,10 +183,14 @@ pub fn population_init<C: Connection, G: Genome<C>>(
 }
 
 /// Save a population of [Genome]s to individual files inside of a directory at `path`
+#[cfg(feature = "serialize-json")]
 pub fn population_to_files<P: AsRef<Path>, C: Connection, G: Genome<C>>(
     path: P,
     pop: &[Specie<C, G>],
-) -> Result<(), Box<dyn Error>> {
+) -> Result<(), Box<dyn Error>>
+where
+    G: serde::Serialize,
+{
     for (idx, (member, _)) in pop
         .iter()
         .flat_map(|specie| specie.members.iter())
@@ -197,9 +204,13 @@ pub fn population_to_files<P: AsRef<Path>, C: Connection, G: Genome<C>>(
 
 /// Load a population of [Genome]s from individual files inside of a directory at `path`. Assumes
 /// that every file in `path` is a valid descriptor, and will parse it.
+#[cfg(feature = "serialize-json")]
 pub fn population_from_files<P: AsRef<Path>, C: Connection, G: Genome<C>>(
     path: P,
-) -> Result<SpecieGroup<C, G>, Box<dyn Error>> {
+) -> Result<SpecieGroup<C, G>, Box<dyn Error>>
+where
+    G: for<'de> serde::Deserialize<'de>,
+{
     let pop_flat = read_dir(path)?
         .map(|fp| Ok::<_, Box<dyn Error>>((G::from_file(fp?.path())?, f64::MIN)))
         .collect::<Result<Vec<_>, _>>()?;
@@ -219,10 +230,14 @@ pub fn population_from_files<P: AsRef<Path>, C: Connection, G: Genome<C>>(
 
 /// Load a single [Genome] from a single file, and clone it `population` times. Useful for
 /// resuming training from a single champion, or inspecting a particular genome.
+#[cfg(feature = "serialize-json")]
 pub fn population_from_genome<P: AsRef<Path>, C: Connection, G: Genome<C>>(
     path: P,
     population: usize,
-) -> Result<SpecieGroup<C, G>, Box<dyn Error>> {
+) -> Result<SpecieGroup<C, G>, Box<dyn Error>>
+where
+    G: for<'de> serde::Deserialize<'de>,
+{
     let muse = G::from_file(path)?;
     let inno_head = muse
         .connections()

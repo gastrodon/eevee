@@ -46,7 +46,10 @@ impl<C: Connection, G: Genome<C> + ToNetwork<Continuous, C>, A: Fn(f64) -> f64> 
     }
 }
 
-fn dump_generation<C: Connection, G: Genome<C>>(stats: &Stats<'_, C, G>) {
+fn dump_generation<C: Connection, G: Genome<C>>(stats: &Stats<'_, C, G>)
+where
+    G: serde::Serialize,
+{
     use std::io::Write;
 
     let gen = stats.generation;
@@ -105,7 +108,10 @@ fn dump_generation<C: Connection, G: Genome<C>>(stats: &Stats<'_, C, G>) {
     .unwrap();
 }
 
-fn hook<C: Connection, G: Genome<C>>(stats: &mut Stats<'_, C, G>) -> ControlFlow<()> {
+fn hook<C: Connection, G: Genome<C>>(stats: &mut Stats<'_, C, G>) -> ControlFlow<()>
+where
+    G: serde::Serialize,
+{
     if stats.generation % 10 == 0 {
         dump_generation(stats);
     }

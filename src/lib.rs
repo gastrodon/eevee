@@ -11,6 +11,7 @@ pub mod population;
 pub mod random;
 pub mod reproduce;
 pub mod scenario;
+#[cfg(feature = "serialize-json")]
 pub mod serialize;
 
 pub use genome::{Connection, Genome};
