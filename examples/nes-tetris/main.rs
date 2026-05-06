@@ -6,9 +6,10 @@ use eevee::{
     activate::relu,
     genome::{Genome, Recurrent, WConnection},
     network::{Continuous, ToNetwork},
-    population::{population_from_files, population_init, population_to_files},
+    population::population_init,
     random::default_rng,
     scenario::{evolve, EvolutionHooks},
+    serialize_json::{population_from_files, population_to_files},
     Connection, Network, Scenario, Stats,
 };
 use nes_rust_slim::{
@@ -80,7 +81,7 @@ fn sense_board(ram: &[u8], sense: &mut [f64; INPUT_SIZE]) {
             .filter_map(|(row, col)| {
                 let row = row + ram[Y];
                 let col = col + ram[X];
-                (row >= 2 && col >= 2).then(|| (((row - 2) as usize * 10) + (col - 2) as usize))
+                (row >= 2 && col >= 2).then(|| ((row - 2) as usize * 10) + (col - 2) as usize)
             })
             .filter(|index| *index < 200)
         {
@@ -136,12 +137,20 @@ fn draw_footer(current_score: f64) {
 fn draw_buttons(buttons: &[bool; 8]) {
     // (display_char, button_index) — indices from NES joypad order: 0=A 1=B 2=Sel 3=Start 4=Up 5=Down 6=Left 7=Right
     const MAP: [(char, usize); 8] = [
-        ('a', 0), ('b', 1), ('^', 4), ('<', 6),
-        ('>', 7), ('.', 5), ('!', 3), ('#', 2),
+        ('a', 0),
+        ('b', 1),
+        ('^', 4),
+        ('<', 6),
+        ('>', 7),
+        ('.', 5),
+        ('!', 3),
+        ('#', 2),
     ];
     let mut row = String::new();
     for (i, (ch, idx)) in MAP.iter().enumerate() {
-        if i > 0 { row.push(' '); }
+        if i > 0 {
+            row.push(' ');
+        }
         row.push(if buttons[*idx] { *ch } else { ' ' });
     }
     println!("{}", row);
@@ -199,7 +208,7 @@ fn run_exhibition_game(genome: &Recurrent<WConnection>) {
     let mut sense = [0.; INPUT_SIZE];
     while nes.get_cpu().get_ram().data[GAME_OVER] == 0 {
         sense_board(&nes.get_cpu().get_ram().data, &mut sense);
-        network.step(1, &sense, &relu);
+        network.step(1, &sense, relu);
 
         for (idx, x) in network.output().iter().enumerate() {
             if idx == 2 || idx == 3 {
@@ -272,7 +281,11 @@ fn main() {
 
     #[cfg(feature = "watch_game")]
     let best: std::sync::Arc<std::sync::Mutex<Option<G>>> = {
-        let seed = init.0.first().and_then(|s| s.members.first()).map(|(g, _)| g.clone());
+        let seed = init
+            .0
+            .first()
+            .and_then(|s| s.members.first())
+            .map(|(g, _)| g.clone());
         std::sync::Arc::new(std::sync::Mutex::new(seed))
     };
 
@@ -304,7 +317,7 @@ fn main() {
             }
         }
 
-        if stats.generation % 10 != 0 {
+        if !stats.generation.is_multiple_of(10) {
             return ControlFlow::Continue(());
         }
 
