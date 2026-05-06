@@ -33,10 +33,6 @@ smol_bench = []
 name = "xor"
 required-features = ["approx", "serialize_json"]
 
-[[example]]
-name = "sentiment"
-required-features = ["serialize"]
-
 [[bench]]
 name = "crossover"
 harness = false
