@@ -119,31 +119,32 @@ mod watch {
             f64::from_bits(MAX_FITNESS.load(Ordering::Relaxed)),
         )
     }
-
-    /// Returns true if this caller should render.
-    /// In parallel mode only the worker on core 0 renders; otherwise always true.
-    pub fn should_render() -> bool {
-        #[cfg(feature = "parallel")]
-        {
-            rayon::current_thread_index() == Some(0)
-        }
-        #[cfg(not(feature = "parallel"))]
-        true
-    }
 }
 
 #[cfg(feature = "watch_game")]
-fn draw_stats(elapsed: std::time::Duration) {
-    let (gen, species, max_fitness) = watch::read();
-    let secs = elapsed.as_secs();
-    println!(
-        "gen {} | {} species | best: {:.1} | {:02}:{:02}",
-        gen,
-        species,
-        max_fitness,
-        secs / 60,
-        secs % 60,
-    );
+fn draw_footer(current_score: f64) {
+    let (gen, _, _) = watch::read();
+    let left = format!("{}", current_score as u64);
+    let right = format!("{}", gen);
+    let inner = (left.len() + 1 + right.len()).max(8);
+    let spaces = inner - left.len() - right.len();
+    println!("|{}|", "-".repeat(inner));
+    println!("|{}{}{}|", left, " ".repeat(spaces), right);
+}
+
+#[cfg(feature = "watch_game")]
+fn draw_buttons(buttons: &[bool; 8]) {
+    // (display_char, button_index) — indices from NES joypad order: 0=A 1=B 2=Sel 3=Start 4=Up 5=Down 6=Left 7=Right
+    const MAP: [(char, usize); 8] = [
+        ('a', 0), ('b', 1), ('^', 4), ('<', 6),
+        ('>', 7), ('.', 5), ('!', 3), ('#', 2),
+    ];
+    let mut row = String::new();
+    for (i, (ch, idx)) in MAP.iter().enumerate() {
+        if i > 0 { row.push(' '); }
+        row.push(if buttons[*idx] { *ch } else { ' ' });
+    }
+    println!("{}", row);
 }
 
 #[cfg(feature = "watch_game")]
@@ -164,14 +165,6 @@ fn draw_sense(sense: &[f64; INPUT_SIZE]) {
     }
 }
 
-#[cfg(feature = "watch_game")]
-fn draw_act(act: &[bool; 8]) {
-    for b in act {
-        print!("{} ", if *b { 'x' } else { '_' })
-    }
-    println!("\na b - + ^ . < > \n")
-}
-
 fn enter_game(nes: &mut Nes) {
     while nes.get_cpu().get_ram().data[0xc3] == 0 {
         nes.step_frame();
@@ -189,6 +182,42 @@ fn enter_game(nes: &mut Nes) {
 
     nes.get_mut_cpu().get_mut_ram().data[SEED_L] = 0;
     nes.get_mut_cpu().get_mut_ram().data[SEED_R] = 0;
+}
+
+#[cfg(feature = "watch_game")]
+fn run_exhibition_game(genome: &Recurrent<WConnection>) {
+    let mut nes = Nes::new(
+        Box::new(DefaultInput::new()),
+        Box::new(DefaultDisplay::new()),
+        Box::new(DefaultAudio::new()),
+    );
+    nes.set_rom(Rom::new(include_bytes!("data/tetris.nes").to_vec()));
+    nes.bootup();
+    enter_game(&mut nes);
+
+    let mut network: Continuous = genome.network();
+    let mut sense = [0.; INPUT_SIZE];
+    while nes.get_cpu().get_ram().data[GAME_OVER] == 0 {
+        sense_board(&nes.get_cpu().get_ram().data, &mut sense);
+        network.step(1, &sense, &relu);
+
+        for (idx, x) in network.output().iter().enumerate() {
+            if idx == 2 || idx == 3 {
+                continue;
+            }
+            nes.get_mut_cpu().joypad1.buttons[idx] = *x >= 0.5;
+        }
+        let buttons = nes.get_cpu().joypad1.buttons;
+        nes.step_frame();
+
+        print!("\x1b[H");
+        draw_sense(&sense);
+        let current_score = score(&nes.get_cpu().get_ram().data);
+        draw_footer(current_score);
+        draw_buttons(&buttons);
+
+        nes.get_mut_cpu().joypad1.buttons = [false; 8];
+    }
 }
 
 struct NesTetris;
@@ -212,10 +241,6 @@ impl<C: Connection, G: Genome<C> + ToNetwork<Continuous, C>, A: Fn(f64) -> f64> 
 
         let mut network = genome.network();
         let mut sense = [0.; 200];
-        #[cfg(feature = "watch_game")]
-        let start = std::time::Instant::now();
-        #[cfg(feature = "watch_game")]
-        let rendering = watch::should_render();
         while nes.get_cpu().get_ram().data[GAME_OVER] == 0 {
             sense_board(&nes.get_cpu().get_ram().data, &mut sense);
             network.step(1, &sense, σ);
@@ -227,16 +252,6 @@ impl<C: Connection, G: Genome<C> + ToNetwork<Continuous, C>, A: Fn(f64) -> f64> 
                 nes.get_mut_cpu().joypad1.buttons[idx] = *x >= 0.5;
             }
             nes.step_frame();
-
-            #[cfg(feature = "watch_game")]
-            if rendering {
-                print!("{}[2J", 27 as char);
-                draw_stats(start.elapsed());
-                draw_sense(&sense);
-                draw_act(&nes.get_cpu().joypad1.buttons);
-                println!("score: {}", score(&nes.get_cpu().get_ram().data));
-            }
-
             nes.get_mut_cpu().joypad1.buttons = [false; 8];
         }
 
@@ -244,32 +259,7 @@ impl<C: Connection, G: Genome<C> + ToNetwork<Continuous, C>, A: Fn(f64) -> f64> 
     }
 }
 
-const POPULATION: usize = 1000;
-
-fn hook(stats: &mut Stats<'_, WConnection, Recurrent<WConnection>>) -> ControlFlow<()> {
-    #[cfg(feature = "watch_game")]
-    {
-        let max = stats.fittest().map(|(_, f)| *f).unwrap_or(0.0);
-        watch::update(stats.generation, stats.species.len(), max);
-    }
-
-    if stats.generation % 10 != 0 {
-        ControlFlow::Continue(())
-    } else {
-        let fittest = stats.fittest().unwrap();
-        println!("gen {} best: {:.3}", stats.generation, fittest.1);
-
-        if stats.generation % 10 == 0 {
-            population_to_files("output/sentiment", stats.species).unwrap();
-        }
-
-        if stats.generation == 400 {
-            ControlFlow::Break(())
-        } else {
-            ControlFlow::Continue(())
-        }
-    }
-}
+const POPULATION: usize = 100;
 
 fn main() {
     type C = WConnection;
@@ -277,12 +267,61 @@ fn main() {
 
     create_dir_all("output/nes-tetris").expect("failed to create genome output");
 
+    let init = population_from_files("output/nes-tetris")
+        .unwrap_or_else(|_| population_init::<C, G>(INPUT_SIZE, 8, POPULATION));
+
+    #[cfg(feature = "watch_game")]
+    let best: std::sync::Arc<std::sync::Mutex<Option<G>>> = {
+        let seed = init.0.first().and_then(|s| s.members.first()).map(|(g, _)| g.clone());
+        std::sync::Arc::new(std::sync::Mutex::new(seed))
+    };
+
+    #[cfg(feature = "watch_game")]
+    {
+        let slot = std::sync::Arc::clone(&best);
+        std::thread::spawn(move || {
+            print!("\x1b[2J\x1b[H");
+            loop {
+                let genome = slot.lock().unwrap().clone();
+                match genome {
+                    Some(g) => run_exhibition_game(&g),
+                    None => std::thread::sleep(std::time::Duration::from_millis(50)),
+                }
+            }
+        });
+    }
+
+    #[cfg(feature = "watch_game")]
+    let hook_best = std::sync::Arc::clone(&best);
+
+    let hook = move |stats: &mut Stats<'_, C, G>| -> ControlFlow<()> {
+        #[cfg(feature = "watch_game")]
+        {
+            let max = stats.fittest().map(|(_, f)| *f).unwrap_or(0.0);
+            watch::update(stats.generation, stats.species.len(), max);
+            if let Some((genome, _)) = stats.species.first().and_then(|s| s.members.first()) {
+                *hook_best.lock().unwrap() = Some(genome.clone());
+            }
+        }
+
+        if stats.generation % 10 != 0 {
+            return ControlFlow::Continue(());
+        }
+
+        let fittest = stats.fittest().unwrap();
+        println!("gen {} best: {:.3}", stats.generation, fittest.1);
+        population_to_files("output/nes-tetris", stats.species).unwrap();
+
+        if stats.generation == 400 {
+            ControlFlow::Break(())
+        } else {
+            ControlFlow::Continue(())
+        }
+    };
+
     evolve(
         NesTetris {},
-        |(i, o)| {
-            population_from_files("output/nes-tetris")
-                .unwrap_or_else(|_| population_init::<C, G>(i, o, POPULATION))
-        },
+        |_| init,
         relu,
         default_rng(),
         EvolutionHooks::new(vec![Box::new(hook)]),
