@@ -38,7 +38,7 @@
         # Build all dependency crates once with every optional feature enabled,
         # so individual example builds can reuse the same artifact cache.
         cargoArtifacts = craneLib.buildDepsOnly (commonArgs // {
-          cargoExtraArgs = "--features approx,nes,parallel";
+          cargoExtraArgs = "--features approx,parallel";
         });
 
         buildExample = { name, features ? [ ] }:
@@ -65,10 +65,6 @@
             xor = buildExample {
               name = "xor";
               features = [ "approx" ];
-            };
-            nes-tetris = buildExample {
-              name = "nes-tetris";
-              features = [ "nes" ];
             };
             sentiment = buildExample {
               name = "sentiment";

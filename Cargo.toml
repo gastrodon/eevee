@@ -16,7 +16,6 @@ serde = { version = "~1.0", features = ["derive"] }
 serde_json = { version = "~1.0", features = ["preserve_order"] }
 
 approx = { version = "~0.5", optional = true }
-nes_rust_slim = { version = "~0.2", optional = true }
 rayon = { version = "~1.10", optional = true }
 
 [dev-dependencies]
@@ -25,18 +24,12 @@ flamegraph = "~0.6"
 
 [features]
 approx = ["dep:approx"]
-nes = ["dep:nes_rust_slim"]
 parallel = ["dep:rayon"]
 smol_bench = []
-watch_game = []
 
 [[example]]
 name = "xor"
 required-features = ["approx"]
-
-[[example]]
-name = "nes-tetris"
-required-features = ["nes"]
 
 [[example]]
 name = "sentiment"
