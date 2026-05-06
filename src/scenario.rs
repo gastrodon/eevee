@@ -176,18 +176,23 @@ pub fn evolve<
                         }
                     }
                     (Some((_, gen_max)), None) => Some((repr.clone(), (*gen_max, gen_idx))),
-                    (None, _) => None,
+                    // Species went empty but had history — keep its repr in scores so
+                    // speciation next generation can still match genomes to it. Without
+                    // this, the niche is permanently lost the moment a species empties.
+                    (None, Some(past)) => Some((repr.clone(), *past)),
+                    (None, None) => None,
                 }
             })
             .collect();
 
         let p_truncated = species
             .into_iter()
-            .map(|s| {
-                let (_, gen_achieved) = *scores_prev.get(&s.repr).unwrap_or(&(f64::MIN, gen_idx));
+            .filter_map(|s| {
+                let (_, gen_achieved) = *scores.get(&s.repr).unwrap_or(&(f64::MIN, gen_idx));
+                let stagnant = gen_achieved + NO_IMPROVEMENT_TRUNCATE <= gen_idx;
 
-                if gen_achieved + NO_IMPROVEMENT_TRUNCATE <= gen_idx && s.members.len() > 2 {
-                    Specie {
+                if stagnant && s.members.len() > 2 {
+                    Some(Specie {
                         repr: s.repr,
                         members: {
                             let mut trunc = s.members;
@@ -197,9 +202,11 @@ pub fn evolve<
                             });
                             trunc[..2].to_vec()
                         },
-                    }
+                    })
+                } else if stagnant {
+                    None // already minimal and still stagnant — kill
                 } else {
-                    s
+                    Some(s)
                 }
             })
             .collect::<Vec<_>>();

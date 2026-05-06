@@ -8,6 +8,10 @@ use crate::{
 use core::{error::Error, f64};
 use rand::RngCore;
 
+/// Fraction of non-elite reproduction slots given to copy+mutate; the rest go to crossover.
+/// e.g. 4 means 1/4 copy, 3/4 crossover.
+const COPY_DENOM: usize = 4;
+
 fn reproduce_crossover<C: Connection, G: Genome<C>>(
     genomes: &[(G, f64)],
     size: usize,
@@ -124,12 +128,11 @@ pub fn reproduce<C: Connection, G: Genome<C>>(
     }
 
     let size = size - 1;
-    let size_copy = size / 4;
-    let size_copy = if size_copy == 0 || genomes.len() == 1 {
-        size
-    } else {
-        size_copy
-    };
+    let size_copy = size / COPY_DENOM;
+    // Only fall back to all-copy when there's genuinely no second parent.
+    // Previously `size_copy == 0` also triggered this, suppressing crossover
+    // for any species with a small allocation — even ones with 2+ members.
+    let size_copy = if genomes.len() == 1 { size } else { size_copy };
 
     // TODO reproduce_crossover and reproduce_copy can potentially be made faster
     // if they're handed a slice to write into intead of returning a vec that we then need to copy
@@ -182,10 +185,12 @@ pub fn population_reproduce<C: Connection, G: Genome<C>>(
         .iter()
         .zip(species_fitted)
         .map(|(specie, fit_adjusted)| {
-            (
-                specie.members.clone(),
-                f64::round(population_f * fit_adjusted / fit_total) as usize,
-            )
+            let alloc = f64::round(population_f * fit_adjusted / fit_total) as usize;
+            // Floor at 2 so every surviving species can at least mutate one genome.
+            // Size=1 would just re-clone the elite with no mutation, freezing the species.
+            // Stagnation truncation + kill is the extinction path instead.
+            let alloc = if specie.members.is_empty() { 0 } else { alloc.max(2) };
+            (specie.members.clone(), alloc)
         });
 
     (

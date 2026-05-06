@@ -91,7 +91,7 @@ impl<C: Connection, G: Genome<C>> FromGenome<C, G> for Continuous {
                     })
                     .collect::<Vec<_>>(),
             ),
-            τ: Matrix::new(1, cols, vec![0.1; cols]),
+            τ: Matrix::new(1, cols, vec![1.0; cols]),
             w: {
                 let mut w = vec![0.; cols * cols];
                 for c in genome.connections().iter().filter(|c| c.enabled()) {
