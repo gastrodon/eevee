@@ -21,6 +21,7 @@ serde_json = { version = "~1.0", features = ["preserve_order"], optional = true 
 [dev-dependencies]
 criterion = "~0.5"
 flamegraph = "~0.6"
+serde_json = { version = "~1.0", features = ["preserve_order"] }
 
 [features]
 approx = ["dep:approx"]
@@ -32,6 +33,10 @@ smol_bench = []
 [[example]]
 name = "xor"
 required-features = ["approx", "serialize_json"]
+
+[[example]]
+name = "gen-bench-fixtures"
+required-features = ["serialize_json"]
 
 [[bench]]
 name = "crossover"
