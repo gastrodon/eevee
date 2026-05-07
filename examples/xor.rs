@@ -9,7 +9,7 @@ use eevee::{
     random::default_rng,
     scenario::{evolve, EvolutionHooks},
     serialize::SerializeFile,
-    Connection, Scenario, Stats,
+    Connection, EvolutionConfig, Scenario, Stats,
 };
 use rand::Rng;
 
@@ -163,5 +163,6 @@ fn main() {
         steep_sigmoid,
         default_rng(),
         EvolutionHooks::new(vec![Box::new(hook)]),
+        EvolutionConfig::default(),
     );
 }
