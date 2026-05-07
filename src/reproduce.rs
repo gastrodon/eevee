@@ -3,13 +3,11 @@
 use crate::{
     genome::{Connection, Genome, InnoGen},
     population::FittedGroup,
+    scenario::EvolutionConfig,
     Specie,
 };
 use core::{error::Error, f64};
 use rand::RngCore;
-
-/// 1/COPY_DENOM of the population is from mutated copies in [reproduce] output
-const COPY_DENOM: usize = 4;
 
 fn reproduce_crossover<C: Connection, G: Genome<C>>(
     genomes: &[(G, f64)],
@@ -104,6 +102,7 @@ fn reproduce_copy<C: Connection, G: Genome<C>>(
 pub fn reproduce<C: Connection, G: Genome<C>>(
     genomes: Vec<(G, f64)>,
     size: usize,
+    copy_denom: usize,
     innogen: &mut InnoGen,
     rng: &mut impl RngCore,
 ) -> Result<Vec<G>, Box<dyn Error>> {
@@ -127,8 +126,10 @@ pub fn reproduce<C: Connection, G: Genome<C>>(
     }
 
     let size = size - 1;
-    let size_copy = size / COPY_DENOM;
-    // Only fall back to all-copy when there's no second parent.
+    let size_copy = size / copy_denom;
+    // Only fall back to all-copy when there's genuinely no second parent.
+    // Previously `size_copy == 0` also triggered this, suppressing crossover
+    // for any species with a small allocation — even ones with 2+ members.
     let size_copy = if genomes.len() == 1 { size } else { size_copy };
 
     // TODO reproduce_crossover and reproduce_copy can potentially be made faster
@@ -164,21 +165,29 @@ pub fn population_alloc<'a, C: Connection + 'a, G: Genome<C> + 'a>(
         })
 }
 
+// reproduce a whole speciated population into a non-speciated population
 pub fn population_reproduce<C: Connection, G: Genome<C>>(
     species: &[Specie<C, G>],
     population: usize,
+    gen_idx: usize,
     inno_head: usize,
     rng: &mut impl RngCore,
-    generation: usize,
+    config: &EvolutionConfig,
 ) -> (Vec<G>, usize) {
     let mut innogen = InnoGen::new(inno_head);
 
-    // Youth boost: age 0 → 2×, linearly decays to 1× by age 10.
+    // Adjusted fitness, boosted by a linear youth factor that starts at `specie_youth_fac`
+    // at age 0 and decays to 1.0 by `specie_youth_dropoff`.
     let species_fitted = species
         .iter()
         .map(|s| {
-            let age = generation.saturating_sub(s.born);
-            let youth = 1.0 + (1.0 - age.min(10) as f64 / 10.0);
+            let age = gen_idx.saturating_sub(s.born);
+            let youth = if age < config.specie_youth_dropoff {
+                1.0 + (config.specie_youth_fac - 1.0)
+                    * (1.0 - age as f64 / config.specie_youth_dropoff as f64)
+            } else {
+                1.0
+            };
             s.fit_adjusted() * youth
         })
         .collect::<Vec<_>>();
@@ -190,20 +199,19 @@ pub fn population_reproduce<C: Connection, G: Genome<C>>(
         .zip(species_fitted)
         .map(|(specie, fit_adjusted)| {
             let alloc = f64::round(population_f * fit_adjusted / fit_total) as usize;
-            // Floor at 2 so every surviving species can at least mutate one genome.
+            // Floor at specie_min_pop so every surviving species can at least mutate one genome.
             // Size=1 would just re-clone the elite with no mutation, freezing the species.
             // Stagnation truncation + kill is the extinction path instead.
-            let alloc = if specie.members.is_empty() {
-                0
-            } else {
-                alloc.max(2)
-            };
+            let alloc =
+                if specie.members.is_empty() { 0 } else { alloc.max(config.specie_min_pop) };
             (specie.members.clone(), alloc)
         });
 
     (
         allocated
-            .flat_map(|(members, pop)| reproduce(members, pop, &mut innogen, rng).unwrap())
+            .flat_map(|(members, pop)| {
+                reproduce(members, pop, config.copy_denom, &mut innogen, rng).unwrap()
+            })
             .collect::<Vec<_>>(),
         innogen.head,
     )
@@ -248,6 +256,7 @@ mod test {
                     reproduce(
                         specie.members.clone(),
                         i,
+                        4,
                         &mut InnoGen::new(inno_head),
                         &mut rng
                     )

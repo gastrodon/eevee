@@ -15,7 +15,37 @@ use rayon::{
 };
 use std::collections::HashMap;
 
-const NO_IMPROVEMENT_TRUNCATE: usize = 10;
+/// Tunable parameters governing speciation, stagnation, and reproduction.
+pub struct EvolutionConfig {
+    /// Compatibility distance below which two genomes are placed in the same species.
+    pub specie_threshold: f64,
+    /// Consecutive generations without fitness improvement before a species is penalised.
+    pub no_improvement_truncate: usize,
+    /// Members retained when a stagnant species is truncated (kill if at or below this).
+    pub no_improvement_floor: usize,
+    /// Crossover/copy split denominator: 1/n offspring are copy-mutants, rest are crossover.
+    pub copy_denom: usize,
+    /// Fitness multiplier for a brand-new species (age 0); decays linearly to 1.0.
+    pub specie_youth_fac: f64,
+    /// Age at which the youth multiplier reaches 1.0.
+    pub specie_youth_dropoff: usize,
+    /// Minimum population slots allocated to any surviving species.
+    pub specie_min_pop: usize,
+}
+
+impl Default for EvolutionConfig {
+    fn default() -> Self {
+        Self {
+            specie_threshold: 4.0,
+            no_improvement_truncate: 10,
+            no_improvement_floor: 2,
+            copy_denom: 4,
+            specie_youth_fac: 2.0,
+            specie_youth_dropoff: 10,
+            specie_min_pop: 2,
+        }
+    }
+}
 
 /// Stats passed to a hook fn
 pub struct Stats<'a, C: Connection, G: Genome<C>> {
@@ -99,6 +129,7 @@ pub fn evolve<
     σ: A,
     mut rng: impl RngCore,
     hooks: EvolutionHooks<C, G>,
+    config: EvolutionConfig,
 ) -> (Vec<Specie<C, G>>, usize) {
     let (mut pop_flat, mut inno_head) = {
         let (species, inno_head) = init(scenario.io());
@@ -115,7 +146,8 @@ pub fn evolve<
     let thread_pool = ThreadPoolBuilder::new().build().unwrap();
     let population_lim = pop_flat.len();
 
-    let mut scores: HashMap<SpecieRepr<C>, _> = HashMap::new();
+    // scores: repr → (best_fitness, gen_last_improved, gen_born)
+    let mut scores: HashMap<SpecieRepr<C>, (f64, usize, usize)> = HashMap::new();
     let mut gen_idx = 0;
     loop {
         let species = {
@@ -138,12 +170,13 @@ pub fn evolve<
             let reprs = scores.iter().map(|(repr, (_, _, born))| (repr.clone(), *born));
 
             #[cfg(not(feature = "smol_bench"))]
-            let species = speciate(genomes, reprs, gen_idx);
+            let species = speciate(genomes, reprs, gen_idx, config.specie_threshold);
             #[cfg(feature = "smol_bench")]
             let species = speciate(
                 genomes.collect::<Vec<_>>().into_iter(),
                 reprs.collect::<Vec<_>>().into_iter(),
                 gen_idx,
+                config.specie_threshold,
             );
             species
         };
@@ -169,11 +202,11 @@ pub fn evolve<
                 let past_max = scores_prev.get(repr);
 
                 match (gen_max, past_max) {
-                    (Some((_, gen_max)), Some((past_max, past_idx, _))) => {
+                    (Some((_, gen_max)), Some((past_max, past_idx, past_born))) => {
                         if gen_max > past_max {
-                            Some((repr.clone(), (*gen_max, gen_idx, *born)))
+                            Some((repr.clone(), (*gen_max, gen_idx, *past_born)))
                         } else {
-                            Some((repr.clone(), (*past_max, *past_idx, *born)))
+                            Some((repr.clone(), (*past_max, *past_idx, *past_born)))
                         }
                     }
                     (Some((_, gen_max)), None) => Some((repr.clone(), (*gen_max, gen_idx, *born))),
@@ -189,21 +222,22 @@ pub fn evolve<
         let p_truncated = species
             .into_iter()
             .filter_map(|s| {
-                let (_, gen_achieved, _) = *scores.get(&s.repr).unwrap_or(&(f64::MIN, gen_idx, gen_idx));
-                let stagnant = gen_achieved + NO_IMPROVEMENT_TRUNCATE <= gen_idx;
+                let (_, gen_achieved, _) =
+                    *scores.get(&s.repr).unwrap_or(&(f64::MIN, gen_idx, gen_idx));
+                let stagnant = gen_achieved + config.no_improvement_truncate <= gen_idx;
 
-                if stagnant && s.members.len() > 2 {
+                if stagnant && s.members.len() > config.no_improvement_floor {
                     Some(Specie {
                         repr: s.repr,
+                        born: s.born,
                         members: {
                             let mut trunc = s.members;
                             trunc.sort_by(|(_, l), (_, r)| {
                                 r.partial_cmp(l)
                                     .unwrap_or_else(|| panic!("cannot partial_cmp {l} and {r}"))
                             });
-                            trunc[..2].to_vec()
+                            trunc[..config.no_improvement_floor].to_vec()
                         },
-                        born: s.born,
                     })
                 } else if stagnant {
                     None // already minimal and still stagnant — kill
@@ -214,7 +248,7 @@ pub fn evolve<
             .collect::<Vec<_>>();
 
         (pop_flat, inno_head) =
-            population_reproduce(&p_truncated, population_lim, inno_head, &mut rng, gen_idx);
+            population_reproduce(&p_truncated, population_lim, gen_idx, inno_head, &mut rng, &config);
         debug_assert!(!pop_flat.is_empty(), "nobody past {gen_idx}");
         gen_idx += 1
     }
