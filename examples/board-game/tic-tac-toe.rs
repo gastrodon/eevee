@@ -23,6 +23,7 @@ const POPULATION: usize = 500;
 const GAMES_PER_EVAL: usize = 8;
 const HALL_OF_FAME_MAX: usize = 64;
 const HALL_REFRESH_EVERY: usize = 1;
+const TOP_K_FALLBACK: usize = 5;
 const NETWORK_PREC: usize = 20;
 const MAX_GENERATIONS: usize = 200;
 
@@ -183,18 +184,43 @@ impl<A: Fn(f64) -> f64> Scenario<C, G, A> for TttScenario {
 
 fn refresh_hook(pool: Arc<RwLock<Vec<G>>>) -> Box<dyn Fn(&mut Stats<'_, C, G>) -> ControlFlow<()>> {
     Box::new(move |stats| {
-        if stats.generation % HALL_REFRESH_EVERY == 0 {
-            let overall_champ: Option<G> =
-                stats.fittest().map(|(g, _)| g.clone());
+        if stats.generation % HALL_REFRESH_EVERY != 0 {
+            return ControlFlow::Continue(());
+        }
 
-            if let Some(champ) = overall_champ {
-                let mut pool = pool.write().unwrap();
-                pool.push(champ);
-                let drop_n = pool.len().saturating_sub(HALL_OF_FAME_MAX);
-                if drop_n > 0 {
-                    pool.drain(0..drop_n);
+        let mut additions: Vec<G> = Vec::new();
+
+        if stats.species.len() > 1 {
+            for sp in stats.species.iter() {
+                if let Some((g, _)) = sp.members.iter().max_by(|(_, l), (_, r)| {
+                    l.partial_cmp(r).unwrap_or(std::cmp::Ordering::Equal)
+                }) {
+                    additions.push(g.clone());
                 }
             }
+        } else {
+            let mut ranked: Vec<&(G, f64)> = stats
+                .species
+                .iter()
+                .flat_map(|s| s.members.iter())
+                .collect();
+            ranked.sort_by(|a, b| {
+                b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal)
+            });
+            for (g, _) in ranked.iter().take(TOP_K_FALLBACK) {
+                additions.push((*g).clone());
+            }
+        }
+
+        if additions.is_empty() {
+            return ControlFlow::Continue(());
+        }
+
+        let mut pool = pool.write().unwrap();
+        pool.extend(additions);
+        let drop_n = pool.len().saturating_sub(HALL_OF_FAME_MAX);
+        if drop_n > 0 {
+            pool.drain(0..drop_n);
         }
         ControlFlow::Continue(())
     })
