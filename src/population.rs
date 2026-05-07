@@ -82,6 +82,8 @@ impl<T> FittedGroup<T> for [(T, f64)] {
 pub struct Specie<C: Connection, G: Genome<C>> {
     pub repr: SpecieRepr<C>,
     pub members: Vec<(G, f64)>,
+    /// Generation in which this species was first created.
+    pub born: usize,
 }
 
 impl<C: Connection, G: Genome<C>> Specie<C, G> {
@@ -137,11 +139,13 @@ const SPECIE_THRESHOLD: f64 = 1.5;
 /// formed with them as the repr.
 pub fn speciate<C: Connection, G: Genome<C>>(
     genomes: impl Iterator<Item = (G, f64)>,
-    reprs: impl Iterator<Item = SpecieRepr<C>>,
+    reprs: impl Iterator<Item = (SpecieRepr<C>, usize)>,
+    generation: usize,
 ) -> Vec<Specie<C, G>> {
-    let mut sp = Vec::from_iter(reprs.map(|repr| Specie {
+    let mut sp = Vec::from_iter(reprs.map(|(repr, born)| Specie {
         repr,
         members: Vec::new(),
+        born,
     }));
 
     for (genome, fitness) in genomes {
@@ -161,6 +165,7 @@ pub fn speciate<C: Connection, G: Genome<C>>(
                 sp.push(Specie {
                     repr: SpecieRepr::new(genome.connections().to_vec()),
                     members: vec![(genome, fitness)],
+                    born: generation,
                 });
             }
         }
@@ -184,6 +189,7 @@ pub fn population_init<C: Connection, G: Genome<C>>(
         vec![Specie {
             repr: SpecieRepr::new(genome.connections().to_vec()),
             members: vec![(genome, f64::MIN); population],
+            born: 0,
         }],
         inno_head,
     )

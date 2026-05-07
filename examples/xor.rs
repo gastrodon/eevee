@@ -113,13 +113,21 @@ fn hook<C: Connection, G: Genome<C> + SerializeFile>(stats: &mut Stats<'_, C, G>
 
     if stats.generation % 10 == 0 {
         let (g, f) = stats.fittest().unwrap();
+        let total = stats.species.iter().map(|s| s.len()).sum::<usize>() as f64;
+        let breakdown = stats
+            .species
+            .iter()
+            .map(|s| format!("{:.0}%", 100. * s.len() as f64 / total))
+            .collect::<Vec<_>>()
+            .join(", ");
         println!(
-            "gen {}: {:.4} ({} nodes, {} conns) of {} species",
+            "gen {}: {:.4} ({} nodes, {} conns) of {} species [{}]",
             stats.generation,
             f,
             g.node_count(),
             g.connections().len(),
-            stats.species.len()
+            stats.species.len(),
+            breakdown,
         );
     }
 

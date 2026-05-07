@@ -169,10 +169,19 @@ pub fn population_reproduce<C: Connection, G: Genome<C>>(
     population: usize,
     inno_head: usize,
     rng: &mut impl RngCore,
+    generation: usize,
 ) -> (Vec<G>, usize) {
     let mut innogen = InnoGen::new(inno_head);
 
-    let species_fitted = species.iter().map(|s| s.fit_adjusted()).collect::<Vec<_>>();
+    // Youth boost: age 0 → 2×, linearly decays to 1× by age 10.
+    let species_fitted = species
+        .iter()
+        .map(|s| {
+            let age = generation.saturating_sub(s.born);
+            let youth = 1.0 + (1.0 - age.min(10) as f64 / 10.0);
+            s.fit_adjusted() * youth
+        })
+        .collect::<Vec<_>>();
     let fit_total = species_fitted.iter().sum::<f64>();
     let population_f = population as f64;
 
@@ -270,6 +279,7 @@ mod test {
                     )
                 })
                 .collect(),
+            born: 0,
         };
 
         let connection_2 = C::new(3, 4, &mut InnoGen::new(1));
@@ -288,6 +298,7 @@ mod test {
                     )
                 })
                 .collect(),
+            born: 0,
         };
 
         let adjusted_1 = specie_1.fit_adjusted();

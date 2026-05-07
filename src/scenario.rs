@@ -15,7 +15,7 @@ use rayon::{
 };
 use std::collections::HashMap;
 
-const NO_IMPROVEMENT_TRUNCATE: usize = 10;
+const NO_IMPROVEMENT_TRUNCATE: usize = 40;
 
 /// Stats passed to a hook fn
 pub struct Stats<'a, C: Connection, G: Genome<C>> {
@@ -135,14 +135,15 @@ pub fn evolve<
                     .collect::<Vec<_>>()
                     .into_iter()
             });
-            let reprs = scores.keys().cloned();
+            let reprs = scores.iter().map(|(repr, (_, _, born))| (repr.clone(), *born));
 
             #[cfg(not(feature = "smol_bench"))]
-            let species = speciate(genomes, reprs);
+            let species = speciate(genomes, reprs, gen_idx);
             #[cfg(feature = "smol_bench")]
             let species = speciate(
                 genomes.collect::<Vec<_>>().into_iter(),
                 reprs.collect::<Vec<_>>().into_iter(),
+                gen_idx,
             );
             species
         };
@@ -160,7 +161,7 @@ pub fn evolve<
         let scores_prev = scores;
         scores = species
             .iter()
-            .filter_map(|Specie { repr, members, .. }| {
+            .filter_map(|Specie { repr, members, born, .. }| {
                 let gen_max = members.iter().max_by(|(_, l), (_, r)| {
                     l.partial_cmp(r)
                         .unwrap_or_else(|| panic!("cannot partial_cmp {l} and {r}"))
@@ -168,14 +169,14 @@ pub fn evolve<
                 let past_max = scores_prev.get(repr);
 
                 match (gen_max, past_max) {
-                    (Some((_, gen_max)), Some((past_max, past_idx))) => {
+                    (Some((_, gen_max)), Some((past_max, past_idx, _))) => {
                         if gen_max > past_max {
-                            Some((repr.clone(), (*gen_max, gen_idx)))
+                            Some((repr.clone(), (*gen_max, gen_idx, *born)))
                         } else {
-                            Some((repr.clone(), (*past_max, *past_idx)))
+                            Some((repr.clone(), (*past_max, *past_idx, *born)))
                         }
                     }
-                    (Some((_, gen_max)), None) => Some((repr.clone(), (*gen_max, gen_idx))),
+                    (Some((_, gen_max)), None) => Some((repr.clone(), (*gen_max, gen_idx, *born))),
                     // Species went empty but had history — keep its repr in scores so
                     // speciation next generation can still match genomes to it. Without
                     // this, the niche is permanently lost the moment a species empties.
@@ -188,7 +189,7 @@ pub fn evolve<
         let p_truncated = species
             .into_iter()
             .filter_map(|s| {
-                let (_, gen_achieved) = *scores.get(&s.repr).unwrap_or(&(f64::MIN, gen_idx));
+                let (_, gen_achieved, _) = *scores.get(&s.repr).unwrap_or(&(f64::MIN, gen_idx, gen_idx));
                 let stagnant = gen_achieved + NO_IMPROVEMENT_TRUNCATE <= gen_idx;
 
                 if stagnant && s.members.len() > 2 {
@@ -202,6 +203,7 @@ pub fn evolve<
                             });
                             trunc[..2].to_vec()
                         },
+                        born: s.born,
                     })
                 } else if stagnant {
                     None // already minimal and still stagnant — kill
@@ -212,7 +214,7 @@ pub fn evolve<
             .collect::<Vec<_>>();
 
         (pop_flat, inno_head) =
-            population_reproduce(&p_truncated, population_lim, inno_head, &mut rng);
+            population_reproduce(&p_truncated, population_lim, inno_head, &mut rng, gen_idx);
         debug_assert!(!pop_flat.is_empty(), "nobody past {gen_idx}");
         gen_idx += 1
     }
