@@ -13,7 +13,6 @@ rand = "~0.9"
 rand_distr = "~0.5"
 rulinalg = "~0.4"
 
-approx = { version = "~0.5", optional = true }
 rayon = { version = "~1.10", optional = true }
 serde = { version = "~1.0", features = ["derive"], optional = true }
 serde_json = { version = "~1.0", features = ["preserve_order"], optional = true }
@@ -24,7 +23,6 @@ flamegraph = "~0.6"
 serde_json = { version = "~1.0", features = ["preserve_order"] }
 
 [features]
-approx = ["dep:approx"]
 parallel = ["dep:rayon"]
 serialize = ["dep:serde"]
 serialize_json = ["dep:serde_json", "serialize"]
@@ -32,7 +30,7 @@ smol_bench = []
 
 [[example]]
 name = "xor"
-required-features = ["approx", "serialize_json"]
+required-features = ["serialize_json"]
 
 [[example]]
 name = "gen-bench-fixtures"
