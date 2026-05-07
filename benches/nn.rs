@@ -5,10 +5,16 @@ use criterion::Criterion;
 use eevee::{activate::relu, network::Continuous, Network, SerializeFile as _};
 
 fn bench_nn(bench: &mut Criterion) {
-    let net = &mut Continuous::from_str(include_str!("data/ctrnn-rand-100.json")).unwrap();
+    let net = Continuous::from_str(include_str!("data/ctrnn-rand-100.json")).unwrap();
     let i = vec![0.7, 0.3];
 
-    bench.bench_function("ctrnn-step", |b| b.iter(|| net.step(100, &i, relu)));
+    bench.bench_function("ctrnn-step", |b| {
+        b.iter_batched(
+            || net.clone(),
+            |mut net| net.step(100, &i, relu),
+            criterion::BatchSize::SmallInput,
+        )
+    });
 }
 
 pub fn benches() {

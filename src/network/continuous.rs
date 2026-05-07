@@ -8,7 +8,7 @@ use rulinalg::matrix::{BaseMatrix, BaseMatrixMut, Matrix};
 /// Implementation based on the network described by
 /// on the dynamics of small continuous-time recurrent neural networks (beer 1995)
 /// and with some code stolen from [TLmaK0's neat implentation](https://github.com/TLmaK0/rustneat)
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Continuous {
     /// 1d state of neurons 0-N
     pub y: Matrix<f64>,
