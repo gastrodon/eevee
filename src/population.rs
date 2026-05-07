@@ -132,7 +132,7 @@ impl<C: Connection, G: Genome<C>> FittedGroup<G> for Specie<C, G> {
 /// - 0.5 → ~50% structural mismatch or large weight drift splits a species
 /// - 1.5 → two completely non-overlapping equal-size genomes (delta≈2.0) still split;
 ///          a genome with one extra bisection (delta≈0.2) stays in the same species
-const SPECIE_THRESHOLD: f64 = 1.5;
+const SPECIE_THRESHOLD: f64 = 4.0;
 
 /// Partition an unordered collection of [Genome]s into species. An initial collection of empty
 /// species is created from repr, and if some genome matches none of them, a new specie is
