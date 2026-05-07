@@ -95,7 +95,7 @@ pub fn population_from_files<P: AsRef<Path>, C: Connection, G: Genome<C> + Seria
         .max()
         .unwrap_or(0);
 
-    Ok((speciate(pop_flat.into_iter(), empty::<(_, usize)>(), 0), inno_head))
+    Ok((speciate(pop_flat.into_iter(), empty::<(_, usize)>(), 0, 4.0), inno_head))
 }
 
 /// Load a single [Genome] from a file and clone it `population` times. Useful for resuming
@@ -117,7 +117,7 @@ pub fn population_from_genome<
         .unwrap_or(0);
 
     Ok((
-        speciate(vec![(muse, f64::MIN); population].into_iter(), empty::<(_, usize)>(), 0),
+        speciate(vec![(muse, f64::MIN); population].into_iter(), empty::<(_, usize)>(), 0, 4.0),
         inno_head,
     ))
 }

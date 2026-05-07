@@ -9,10 +9,7 @@ use crate::{
 use core::{f64, ops::ControlFlow};
 use rand::RngCore;
 #[cfg(feature = "parallel")]
-use rayon::{
-    iter::{IntoParallelIterator, ParallelIterator},
-    ThreadPoolBuilder,
-};
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::collections::HashMap;
 
 /// Tunable parameters governing speciation, stagnation, and reproduction.
@@ -142,8 +139,6 @@ pub fn evolve<
         )
     };
 
-    #[cfg(feature = "parallel")]
-    let thread_pool = ThreadPoolBuilder::new().build().unwrap();
     let population_lim = pop_flat.len();
 
     // scores: repr → (best_fitness, gen_last_improved, gen_born)
@@ -157,16 +152,14 @@ pub fn evolve<
                 (genome, fitness)
             });
             #[cfg(feature = "parallel")]
-            let genomes = thread_pool.install(|| {
-                pop_flat
-                    .into_par_iter()
-                    .map(|genome| {
-                        let fitness = scenario.eval(&genome, &σ);
-                        (genome, fitness)
-                    })
-                    .collect::<Vec<_>>()
-                    .into_iter()
-            });
+            let genomes = pop_flat
+                .into_par_iter()
+                .map(|genome| {
+                    let fitness = scenario.eval(&genome, &σ);
+                    (genome, fitness)
+                })
+                .collect::<Vec<_>>()
+                .into_iter();
             let reprs = scores.iter().map(|(repr, (_, _, born))| (repr.clone(), *born));
 
             #[cfg(not(feature = "smol_bench"))]
