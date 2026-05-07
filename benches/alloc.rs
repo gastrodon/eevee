@@ -15,6 +15,7 @@ fn bench_alloc(bench: &mut Criterion) {
             .unwrap()
             .into_iter(),
         vec![].into_iter(),
+        0,
     );
 
     bench.bench_function("alloc", |b| {
