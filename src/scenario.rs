@@ -15,7 +15,7 @@ use rayon::{
 };
 use std::collections::HashMap;
 
-const NO_IMPROVEMENT_TRUNCATE: usize = 40;
+const NO_IMPROVEMENT_TRUNCATE: usize = 10;
 
 /// Stats passed to a hook fn
 pub struct Stats<'a, C: Connection, G: Genome<C>> {
