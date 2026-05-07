@@ -11,8 +11,20 @@ use eevee::{
     serialize::SerializeFile,
     Connection, Scenario, Stats,
 };
+use rand::Rng;
 
 const POPULATION: usize = 100;
+
+const XOR_PAIRS: [([f64; 2], f64); 4] = [
+    ([0., 0.], 1.),
+    ([1., 1.], 1.),
+    ([1., 0.], -1.),
+    ([0., 1.], -1.),
+];
+
+fn xor_training_data(n: usize, rng: &mut impl Rng) -> Vec<([f64; 2], f64)> {
+    (0..n).map(|_| XOR_PAIRS[rng.random_range(0..4)]).collect()
+}
 
 struct Xor;
 
@@ -38,10 +50,9 @@ impl<C: Connection, G: Genome<C> + ToNetwork<Continuous, C>, A: Fn(f64) -> f64> 
         let mut network = genome.network();
         let mut fit = 0.;
 
-        eval_pair!([0., 0.],  1., (network fit σ));
-        eval_pair!([1., 1.],  1., (network fit σ));
-        eval_pair!([1., 0.], -1., (network fit σ));
-        eval_pair!([0., 1.], -1., (network fit σ));
+        for (input, want) in xor_training_data(10, &mut rand::rng()) {
+            eval_pair!(input, want, (network fit σ));
+        }
 
         fit
     }
@@ -111,27 +122,25 @@ fn hook<C: Connection, G: Genome<C> + SerializeFile>(stats: &mut Stats<'_, C, G>
         dump_generation(stats);
     }
 
-    if stats.generation % 10 == 0 {
-        let (g, f) = stats.fittest().unwrap();
-        let total = stats.species.iter().map(|s| s.len()).sum::<usize>() as f64;
-        let breakdown = stats
-            .species
-            .iter()
-            .map(|s| format!("{:.0}%", 100. * s.len() as f64 / total))
-            .collect::<Vec<_>>()
-            .join(", ");
-        println!(
-            "gen {}: {:.4} ({} nodes, {} conns) of {} species [{}]",
-            stats.generation,
-            f,
-            g.node_count(),
-            g.connections().len(),
-            stats.species.len(),
-            breakdown,
-        );
-    }
+    let (g, f) = stats.fittest().unwrap();
+    let total = stats.species.iter().map(|s| s.len()).sum::<usize>() as f64;
+    let breakdown = stats
+        .species
+        .iter()
+        .map(|s| format!("{:.0}%", 100. * s.len() as f64 / total))
+        .collect::<Vec<_>>()
+        .join(", ");
+    println!(
+        "gen {}: {:.4} ({} nodes, {} conns) of {} species [{}]",
+        stats.generation,
+        f,
+        g.node_count(),
+        g.connections().len(),
+        stats.species.len(),
+        breakdown,
+    );
 
-    if stats.any_fitter_than(3.9) {
+    if stats.any_fitter_than(9.5) {
         println!("target met in gen {}", stats.generation);
         return ControlFlow::Break(());
     }
