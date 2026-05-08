@@ -5,10 +5,12 @@
 //! bias, though maybe we can do more than that here. The code inside is quite experimental.
 
 pub mod continuous;
+pub mod feedforward;
 pub mod non_bias;
 pub mod simple;
 
 pub use continuous::Continuous;
+pub use feedforward::Feedforward;
 pub use non_bias::NonBias;
 pub use simple::Simple;
 
