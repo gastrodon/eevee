@@ -14,7 +14,6 @@ pub mod recurrent;
 pub use connection::WConnection;
 pub use recurrent::Recurrent;
 
-
 use crate::random::{percent, ConnectionEvent, EventKind, GenomeEvent};
 use core::{cmp::Ordering, error::Error, fmt::Debug, hash::Hash, ops::Range};
 use fxhash::FxHashMap;

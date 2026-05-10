@@ -59,7 +59,6 @@ fn strip_header<'a>(s: &'a str, expected_id: &str) -> Result<&'a str, Box<dyn Er
     }
 }
 
-
 /// Save a population of [Genome]s to individual files inside of a directory at `path`.
 pub fn population_to_files<P: AsRef<Path>, C: Connection, G: Genome<C> + SerializeFile>(
     path: P,
