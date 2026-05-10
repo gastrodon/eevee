@@ -189,7 +189,11 @@ pub fn population_reproduce<C: Connection, G: Genome<C>>(
             // Floor at 2 so every surviving species can at least mutate one genome.
             // Size=1 would just re-clone the elite with no mutation, freezing the species.
             // Stagnation truncation + kill is the extinction path instead.
-            let alloc = if specie.members.is_empty() { 0 } else { alloc.max(2) };
+            let alloc = if specie.members.is_empty() {
+                0
+            } else {
+                alloc.max(2)
+            };
             (specie.members.clone(), alloc)
         });
 
