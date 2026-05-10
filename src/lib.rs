@@ -21,3 +21,9 @@ pub use population::Specie;
 pub use scenario::{Hook, Scenario, Stats};
 #[cfg(feature = "serialize")]
 pub use serialize::SerializeFile;
+
+/// Topology marker: network or genome allows recurrent (cyclic) connections.
+pub trait Recurrent {}
+
+/// Topology marker: network or genome guarantees acyclic (feedforward) connections.
+pub trait Forward {}

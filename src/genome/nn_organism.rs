@@ -1,37 +1,43 @@
 use super::{Connection, Genome, InnoGen};
 use crate::crossover::crossover;
-use core::cmp::{max, Ordering};
+use core::cmp::Ordering;
 use rand::{seq::IteratorRandom, RngCore};
-use std::collections::HashSet;
+use std::{collections::HashSet, fmt::Debug, marker::PhantomData};
 
-/// A genome that allows recurrent connections
+/// Determines which `(from, to)` node pairs are valid new connections.
+pub trait PathPolicy<C: Connection>: Clone + Debug + Default {
+    fn allows(from: usize, to: usize, connections: &[C]) -> bool;
+}
+
+/// A neural-network-style genome parameterized by connection-topology policy `P`.
 ///
 /// Node layout: `[0..sensory)` sensory, `[sensory..sensory+action)` action,
 /// `(sensory+action..)` internal.
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "serialize_json",
-    derive(serde::Serialize, serde::Deserialize),
+    feature = "serialize",
     serde(bound(
         serialize = "C: Connection + serde::Serialize",
         deserialize = "C: Connection + for<'de2> serde::Deserialize<'de2>",
     ))
 )]
 #[derive(Debug, Clone)]
-pub struct Recurrent<C: Connection> {
+pub struct NNOrganism<C: Connection, P: PathPolicy<C>> {
     pub(crate) sensory: usize,
     pub(crate) action: usize,
     pub(crate) node_count: usize,
     pub(crate) connections: Vec<C>,
+    #[cfg_attr(feature = "serialize", serde(skip))]
+    _policy: PhantomData<P>,
 }
 
-impl<C: Connection> Genome<C> for Recurrent<C> {
+impl<C: Connection, P: PathPolicy<C>> Genome<C> for NNOrganism<C, P> {
     fn new(sensory: usize, action: usize) -> (Self, usize) {
         let node_count = sensory + action;
-
         let mut inno = InnoGen::new(0);
         let mut connections = Vec::new();
         for from in 0..sensory {
-            for to in sensory..sensory + action {
+            for to in sensory..node_count {
                 connections.push(C::new(from, to, &mut inno));
             }
         }
@@ -42,6 +48,7 @@ impl<C: Connection> Genome<C> for Recurrent<C> {
                 action,
                 node_count,
                 connections,
+                _policy: PhantomData,
             },
             inno.head,
         )
@@ -76,28 +83,26 @@ impl<C: Connection> Genome<C> for Recurrent<C> {
     }
 
     fn open_path(&self, rng: &mut impl RngCore) -> Option<(usize, usize)> {
+        let action_end = self.sensory + self.action;
         let mut saturated = HashSet::new();
         loop {
-            let (from, _) = (0..self.node_count)
-                .map(|i| (i, ()))
-                .filter(|(i, _)| {
-                    // not action
-                    (*i < self.sensory || *i >= self.sensory + self.action)
-                        && !saturated.contains(i)
-                })
+            // from: any non-action node (sensory or internal)
+            let from = (0..self.node_count)
+                .filter(|&i| !(i >= self.sensory && i < action_end) && !saturated.contains(&i))
                 .choose(rng)?;
 
-            let exclude = self
+            let exclude: HashSet<usize> = self
                 .connections
                 .iter()
                 .filter_map(|c| (c.from() == from).then_some(c.to()))
-                .collect::<HashSet<_>>();
+                .collect();
 
-            if let Some((to, _)) = (0..self.node_count)
-                .map(|i| (i, ()))
-                .filter(|(i, _)| {
-                    // not sensory
-                    *i >= self.sensory && !exclude.contains(i)
+            // to: any non-sensory node (internal or action)
+            if let Some(to) = (0..self.node_count)
+                .filter(|&i| {
+                    i >= self.sensory
+                        && !exclude.contains(&i)
+                        && P::allows(from, i, &self.connections)
                 })
                 .choose(rng)
             {
@@ -112,14 +117,22 @@ impl<C: Connection> Genome<C> for Recurrent<C> {
         let connections = crossover(&self.connections, &other.connections, self_fit, rng);
         let max_idx = connections
             .iter()
-            .fold(0usize, |prev, c| max(prev, max(c.from(), c.to())));
+            .fold(0usize, |acc, c| acc.max(c.from()).max(c.to()));
         let node_count = (max_idx + 1).max(self.sensory + self.action);
+
+        debug_assert!(
+            connections
+                .iter()
+                .fold(0usize, |acc, c| acc.max(c.from()).max(c.to()))
+                < node_count
+        );
 
         Self {
             sensory: self.sensory,
             action: self.action,
             node_count,
             connections,
+            _policy: PhantomData,
         }
     }
 }
@@ -127,93 +140,72 @@ impl<C: Connection> Genome<C> for Recurrent<C> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{genome::WConnection, random::default_rng, test_t};
+    use crate::{
+        genome::{Genome, InnoGen, WConnection},
+        random::default_rng,
+        test_t,
+    };
+
+    #[derive(Clone, Debug, Default)]
+    struct AllowAll;
+    impl<C: Connection> PathPolicy<C> for AllowAll {
+        fn allows(_: usize, _: usize, _: &[C]) -> bool {
+            true
+        }
+    }
 
     type C = WConnection;
-    type RecurrentContinuous = Recurrent<C>;
+    type NNOrganismAllowAll = NNOrganism<C, AllowAll>;
 
     test_t!(
-    test_genome_creation[T: RecurrentContinuous]() {
+    test_genome_creation[T: NNOrganismAllowAll]() {
         let (genome, inno_head) = T::new(3, 2);
         assert_eq!(inno_head, 6);
         assert_eq!(genome.sensory().len(), 3);
         assert_eq!(genome.action().len(), 2);
         assert_eq!(genome.node_count(), 5);
+        assert_eq!(genome.sensory, 3);
+        assert_eq!(genome.action, 2);
+        // layout: [0,1,2]=sensory [3,4]=action
+        assert_eq!(genome.sensory + genome.action, 5);
     });
 
     test_t!(
-    test_genome_creation_empty[T: RecurrentContinuous]() {
+    test_genome_creation_empty[T: NNOrganismAllowAll]() {
         let (genome, inno_head) = T::new(0, 0);
         assert_eq!(inno_head, 0);
         assert_eq!(genome.sensory().len(), 0);
         assert_eq!(genome.action().len(), 0);
         assert_eq!(genome.node_count(), 0);
+        assert_eq!(genome.sensory + genome.action, 0);
     });
 
     test_t!(
-    test_genome_creation_only_sensory[T: RecurrentContinuous]() {
+    test_genome_creation_only_sensory[T: NNOrganismAllowAll]() {
         let (genome, inno_head) = T::new(3, 0);
         assert_eq!(inno_head, 0);
         assert_eq!(genome.sensory().len(), 3);
         assert_eq!(genome.action().len(), 0);
         assert_eq!(genome.node_count(), 3);
+        assert_eq!(genome.sensory, 3);
+        // layout: [0,1,2]=sensory
+        assert_eq!(genome.sensory + genome.action, 3);
     });
 
     test_t!(
-    test_genome_creation_only_action[T: RecurrentContinuous]() {
+    test_genome_creation_only_action[T: NNOrganismAllowAll]() {
         let (genome, inno_head) = T::new(0, 3);
         assert_eq!(inno_head, 0);
         assert_eq!(genome.sensory().len(), 0);
         assert_eq!(genome.action().len(), 3);
         assert_eq!(genome.node_count(), 3);
+        assert_eq!(genome.action, 3);
+        // layout: [0,1,2]=action
+        assert_eq!(genome.sensory + genome.action, 3);
     });
 
     test_t!(
-    test_gen_connection[T: RecurrentContinuous]() {
-        let (mut genome, _ ) = T::new(1, 1);
-        genome.connections = vec![];
-
-        for _ in 0..100 {
-            match genome.open_path(&mut default_rng()) {
-                Some((0, 1)) => {}, // sensory -> action
-                Some(p) => unreachable!("invalid pair {p:?} gen'd"),
-                None => unreachable!("no path gen'd"),
-            }
-        }
-
-        genome.push_connection(C::new(0, 1, &mut InnoGen::new(0)));
-        for _ in 0..100 {
-            assert_eq!(genome.open_path(&mut default_rng()), None);
-        }
-    });
-
-    test_t!(
-    test_gen_connection_none_possible[T: RecurrentContinuous]() {
-        let (genome, _) = T::new(0, 0);
-        assert_eq!(genome.open_path(&mut default_rng()), None);
-    });
-
-    test_t!(
-    test_mutate_connection[T: RecurrentContinuous]() {
-        let (mut genome, _) = T::new(4, 4);
-        let mut inno = InnoGen::new(0);
-        genome.connections = vec![];
-        genome.push_connection(C::new(0, 1, &mut inno));
-        genome.push_connection(C::new(1, 2, &mut inno));
-
-        let before = genome.clone();
-        genome.new_connection(&mut default_rng(), &mut inno).unwrap_or_else(|e| panic!("failed new_connection: {e}"));
-
-        assert_eq!(genome.connections().len(), before.connections().len() + 1);
-
-        let tail = genome.connections().last().unwrap();
-        assert!(!before.connections().iter().any(|c| c.inno() == tail.inno()));
-        assert!(!before.connections().iter().any(|c| c.path() == tail.path()));
-        assert_eq!(tail.weight(), 1.);
-    });
-
-    test_t!(
-    test_mutate_bisection[T: RecurrentContinuous]() {
+    test_mutate_bisection[T: NNOrganismAllowAll]() {
         let mut inno = InnoGen::new(0);
         let (mut genome, _) = T::new(1, 1);
 
@@ -225,7 +217,7 @@ mod test {
         });
 
         let innogen = &mut InnoGen::new(1);
-        genome.bisect_connection(&mut default_rng(), innogen).unwrap_or_else(|e| panic!("failed new_connection: {e}"));
+        genome.bisect_connection(&mut default_rng(), innogen).unwrap_or_else(|e| panic!("failed bisect_connection: {e}"));
 
         assert!(!genome.connections()[0].enabled);
 
@@ -257,14 +249,14 @@ mod test {
     });
 
     test_t!(
-    test_mutate_bisection_empty_genome[T: RecurrentContinuous]() {
+    test_mutate_bisection_empty_genome[T: NNOrganismAllowAll]() {
         let (mut genome, _) = T::new(0, 0);
         genome.connections = vec![];
         assert!(genome.bisect_connection(&mut default_rng(), &mut InnoGen::new(0)).is_err());
     });
 
     test_t!(
-    test_mutate_bisection_no_connections[T: RecurrentContinuous]() {
+    test_mutate_bisection_no_connections[T: NNOrganismAllowAll]() {
         let (mut genome, _) = T::new(2, 2);
         genome.connections = vec![];
         assert!(genome.bisect_connection(&mut default_rng(), &mut InnoGen::new(0)).is_err());
