@@ -73,7 +73,7 @@
         };
 
         devShells.default = craneLib.devShell {
-          packages = [ pkgs.cargo-flamegraph ];
+          packages = [ pkgs.cargo-flamegraph pkgs.gnuplot ];
         };
       }
     );
