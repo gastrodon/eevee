@@ -5,7 +5,7 @@ use crate::{Connection, Forward, Genome};
 /// Internal neurons activate via `sign(sum)`; action neurons output the raw sum,
 /// giving real-valued output for fitness evaluation.
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BinaryFeedForward {
     /// Topologically-ordered neuron evaluations: `(node_idx, [(from_idx, sign(weight)), ...])`.
     eval_order: Vec<(usize, Vec<(usize, f64)>)>,
