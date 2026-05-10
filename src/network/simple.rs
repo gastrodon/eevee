@@ -1,5 +1,5 @@
 use super::{FromGenome, Network};
-use crate::{genome::NodeKind, serialize::deserialize_connections, Connection, Genome};
+use crate::{serialize::deserialize_connections, Connection, Genome};
 use core::ops::Range;
 use serde::{Deserialize, Serialize};
 
@@ -43,20 +43,13 @@ impl<C: Connection> Network for Simple<C> {
 
 impl<C: Connection, G: Genome<C>> FromGenome<C, G> for Simple<C> {
     fn from_genome(genome: &G) -> Self {
+        let static_idx = genome.action().end;
         Simple {
             connections: genome.connections().to_owned(),
-            bias: genome
-                .nodes()
-                .iter()
-                .map(|n| {
-                    if matches!(n, NodeKind::Static) {
-                        1.
-                    } else {
-                        0.
-                    }
-                })
+            bias: (0..genome.node_count())
+                .map(|i| if i == static_idx { 1. } else { 0. })
                 .collect(),
-            state: vec![0.; genome.nodes().len()],
+            state: vec![0.; genome.node_count()],
             sensory: genome.sensory(),
             action: genome.action(),
         }

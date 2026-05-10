@@ -48,7 +48,7 @@ impl Stateful for NonBias {}
 
 impl<C: Connection, G: Genome<C>> FromGenome<C, G> for NonBias {
     fn from_genome(genome: &G) -> Self {
-        let cols = genome.nodes().len();
+        let cols = genome.node_count();
         Self {
             y: Matrix::zeros(1, cols),
             w: {

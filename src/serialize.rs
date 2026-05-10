@@ -1,6 +1,6 @@
 //! Helpers for de/serializing NeuroEvoluiton components
 
-use crate::{genome::NodeKind, Connection};
+use crate::Connection;
 use rulinalg::matrix::Matrix;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -36,12 +36,6 @@ pub fn deserialize_matrix_square<'de, D: Deserializer<'de>>(
         debug_assert_eq!(n * n, float_data.len(), "non-square weight vec");
         Matrix::new(n, n, float_data)
     })
-}
-
-pub fn deserialize_nodes<'de, D: Deserializer<'de>>(
-    deserializer: D,
-) -> Result<Vec<NodeKind>, D::Error> {
-    Vec::<NodeKind>::deserialize(deserializer)
 }
 
 pub fn deserialize_connections<'de, C: Connection, D: Deserializer<'de>>(

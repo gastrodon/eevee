@@ -1,6 +1,5 @@
 use super::{FromGenome, Recurrent, Stateful};
 use crate::{
-    genome::NodeKind,
     serialize::{deserialize_matrix_flat, deserialize_matrix_square, serialize_matrix},
     Connection, Genome, Network,
 };
@@ -73,22 +72,15 @@ impl Stateful for Continuous {}
 
 impl<C: Connection, G: Genome<C>> FromGenome<C, G> for Continuous {
     fn from_genome(genome: &G) -> Self {
-        let cols = genome.nodes().len();
+        let cols = genome.node_count();
+        let static_idx = genome.action().end;
         Self {
             y: Matrix::zeros(1, cols),
             θ: Matrix::new(
                 1,
                 cols,
-                genome
-                    .nodes()
-                    .iter()
-                    .map(|n| {
-                        if matches!(n, NodeKind::Static) {
-                            1.
-                        } else {
-                            0.
-                        }
-                    })
+                (0..cols)
+                    .map(|i| if i == static_idx { 1. } else { 0. })
                     .collect::<Vec<_>>(),
             ),
             τ: Matrix::new(1, cols, vec![1.0; cols]),
@@ -110,8 +102,7 @@ mod test {
     use super::*;
     use crate::{
         activate, assert_f64_approx, assert_matrix_approx,
-        genome::InnoGen,
-        genome::{self, NodeKind, WConnection},
+        genome::{self, InnoGen, WConnection},
         random::default_rng,
     };
     use rand_distr::{num_traits::Float, Distribution, Uniform};
@@ -230,29 +221,16 @@ mod test {
                 }
             }
 
-            for (i, node) in genome.nodes().iter().enumerate() {
+            let static_idx = genome.action().end;
+            for i in 0..genome.node_count() {
                 assert_f64_approx!(
                     nn.θ.get_unchecked([0, i]),
-                    if matches!(node, NodeKind::Static) {
-                        1.
-                    } else {
-                        0.
-                    }
+                    if i == static_idx { 1. } else { 0. }
                 )
             }
         }
 
-        for i in nn.sensory.0..nn.sensory.1 {
-            assert!(genome
-                .nodes()
-                .get(i)
-                .is_some_and(|n| matches!(n, NodeKind::Sensory)))
-        }
-        for i in nn.action.0..nn.action.1 {
-            assert!(genome
-                .nodes()
-                .get(i)
-                .is_some_and(|n| matches!(n, NodeKind::Action)))
-        }
+        assert_eq!((nn.sensory.0, nn.sensory.1), (genome.sensory().start, genome.sensory().end));
+        assert_eq!((nn.action.0, nn.action.1), (genome.action().start, genome.action().end));
     }
 }
