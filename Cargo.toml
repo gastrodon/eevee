@@ -30,7 +30,6 @@ smol_bench = []
 
 [[example]]
 name = "xor"
-required-features = ["approx"]
 
 [[bench]]
 name = "xor"

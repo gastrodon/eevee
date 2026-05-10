@@ -1,5 +1,3 @@
-#![allow(mixed_script_confusables)]
-
 use crate::{network::ToNetwork, Connection, Genome, Network, Scenario};
 use core::marker::PhantomData;
 use rand::Rng;
@@ -12,7 +10,7 @@ pub const XOR_PAIRS: [([f64; 2], f64); 4] = [
 ];
 
 /// Fitness at which XOR is considered solved.
-pub const XOR_TARGET: f64 = 9.5;
+pub const XOR_TARGET: f64 = 9.99;
 
 /// Scenario that evaluates a genome on 10 randomly sampled XOR pairs.
 /// Parameterised over the network type so it can be reused across different
