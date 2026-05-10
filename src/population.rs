@@ -82,6 +82,8 @@ impl<T> FittedGroup<T> for [(T, f64)] {
 pub struct Specie<C: Connection, G: Genome<C>> {
     pub repr: SpecieRepr<C>,
     pub members: Vec<(G, f64)>,
+    /// Generation in which this species was first created.
+    pub born: usize,
 }
 
 impl<C: Connection, G: Genome<C>> Specie<C, G> {
@@ -101,10 +103,11 @@ impl<C: Connection, G: Genome<C>> Specie<C, G> {
     }
 
     #[inline]
-    pub fn cloned(&self) -> (Vec<C>, Vec<(G, f64)>) {
+    pub fn cloned(&self) -> (Vec<C>, Vec<(G, f64)>, usize) {
         (
             self.repr.cloned(),
             self.members.iter().map(|(g, s)| (g.clone(), *s)).collect(),
+            self.born,
         )
     }
 }
@@ -119,18 +122,19 @@ impl<C: Connection, G: Genome<C>> FittedGroup<G> for Specie<C, G> {
     }
 }
 
-const SPECIE_THRESHOLD: f64 = 4.;
-
 /// Partition an unordered collection of [Genome]s into species. An initial collection of empty
-/// species is created from repr, and if some genome matches none of them, a new specie is
-/// formed with them as the repr.
+/// species is seeded from `reprs` (each paired with its birth generation); genomes that match
+/// no existing repr start a new species born at `gen_idx`.
 pub fn speciate<C: Connection, G: Genome<C>>(
     genomes: impl Iterator<Item = (G, f64)>,
-    reprs: impl Iterator<Item = SpecieRepr<C>>,
+    reprs: impl Iterator<Item = (SpecieRepr<C>, usize)>,
+    gen_idx: usize,
+    threshold: f64,
 ) -> Vec<Specie<C, G>> {
-    let mut sp = Vec::from_iter(reprs.map(|repr| Specie {
+    let mut sp = Vec::from_iter(reprs.map(|(repr, born)| Specie {
         repr,
         members: Vec::new(),
+        born,
     }));
 
     for (genome, fitness) in genomes {
@@ -138,7 +142,7 @@ pub fn speciate<C: Connection, G: Genome<C>>(
             .iter_mut()
             .filter_map(|s| {
                 let d = s.repr.delta(genome.connections());
-                if d < SPECIE_THRESHOLD {
+                if d < threshold {
                     Some((d, s))
                 } else {
                     None
@@ -152,6 +156,7 @@ pub fn speciate<C: Connection, G: Genome<C>>(
                 sp.push(Specie {
                     repr: SpecieRepr::new(genome.connections().to_vec()),
                     members: vec![(genome, fitness)],
+                    born: gen_idx,
                 });
             }
         }
@@ -175,6 +180,7 @@ pub fn population_init<C: Connection, G: Genome<C>>(
         vec![Specie {
             repr: SpecieRepr::new(genome.connections().to_vec()),
             members: vec![(genome, f64::MIN); population],
+            born: 0,
         }],
         inno_head,
     )

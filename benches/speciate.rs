@@ -28,7 +28,7 @@ fn bench_speciate(bench: &mut Criterion) {
     let genomes =
         serde_json::from_str::<Vec<(G, _)>>(include_str!("data/ctr-genome-xor-100.json")).unwrap();
     bench.bench_function("speciate", |b| {
-        b.iter(|| speciate(genomes.iter().cloned(), empty(), 0, 4.0))
+        b.iter(|| speciate(genomes.iter().cloned(), empty::<(_, usize)>(), 0, 4.0))
     });
 }
 
