@@ -8,7 +8,7 @@ use eevee::{
     playground::xor::{XorScenario, XOR_TARGET},
     population::population_init,
     random::default_rng,
-    scenario::{evolve, EvolutionHooks},
+    scenario::{evolve, EvolutionConfig, EvolutionHooks},
     Connection, Genome, Stats,
 };
 
@@ -56,5 +56,6 @@ fn main() {
         steep_sigmoid,
         default_rng(),
         EvolutionHooks::new(vec![Box::new(hook)]),
+        EvolutionConfig::default(),
     );
 }
