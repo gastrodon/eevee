@@ -295,8 +295,16 @@ mod test {
         let dist = Uniform::new(-10f64, 10.).unwrap();
 
         let mut original = Continuous {
-            y: Matrix::new(1, n, (0..n).map(|_| dist.sample(&mut rng)).collect::<Vec<_>>()),
-            θ: Matrix::new(1, n, (0..n).map(|_| dist.sample(&mut rng)).collect::<Vec<_>>()),
+            y: Matrix::new(
+                1,
+                n,
+                (0..n).map(|_| dist.sample(&mut rng)).collect::<Vec<_>>(),
+            ),
+            θ: Matrix::new(
+                1,
+                n,
+                (0..n).map(|_| dist.sample(&mut rng)).collect::<Vec<_>>(),
+            ),
             τ: Matrix::new(
                 1,
                 n,
@@ -307,7 +315,9 @@ mod test {
             w: Matrix::new(
                 n,
                 n,
-                (0..n * n).map(|_| dist.sample(&mut rng)).collect::<Vec<_>>(),
+                (0..n * n)
+                    .map(|_| dist.sample(&mut rng))
+                    .collect::<Vec<_>>(),
             ),
             sensory: (0, 2),
             action: (3, 5),
