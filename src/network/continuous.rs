@@ -53,16 +53,9 @@ impl Stateful for Continuous {}
 impl<C: Connection, G: Genome<C>> FromGenome<C, G> for Continuous {
     fn from_genome(genome: &G) -> Self {
         let cols = genome.node_count();
-        let static_idx = genome.action().end;
         Self {
             y: Matrix::zeros(1, cols),
-            θ: Matrix::new(
-                1,
-                cols,
-                (0..cols)
-                    .map(|i| if i == static_idx { 1. } else { 0. })
-                    .collect::<Vec<_>>(),
-            ),
+            θ: Matrix::zeros(1, cols),
             τ: Matrix::new(1, cols, vec![1.0; cols]),
             w: {
                 let mut w = vec![0.; cols * cols];
@@ -104,12 +97,8 @@ mod test {
                 }
             }
 
-            let static_idx = genome.action().end;
             for i in 0..genome.node_count() {
-                assert_f64_approx!(
-                    nn.θ.get_unchecked([0, i]),
-                    if i == static_idx { 1. } else { 0. }
-                )
+                assert_f64_approx!(nn.θ.get_unchecked([0, i]), 0.)
             }
         }
 

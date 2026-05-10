@@ -38,12 +38,9 @@ impl<C: Connection> Network for Simple<C> {
 
 impl<C: Connection, G: Genome<C>> FromGenome<C, G> for Simple<C> {
     fn from_genome(genome: &G) -> Self {
-        let static_idx = genome.action().end;
         Simple {
             connections: genome.connections().to_owned(),
-            bias: (0..genome.node_count())
-                .map(|i| if i == static_idx { 1. } else { 0. })
-                .collect(),
+            bias: vec![0.; genome.node_count()],
             state: vec![0.; genome.node_count()],
             sensory: genome.sensory(),
             action: genome.action(),

@@ -5,6 +5,9 @@ use rand::{seq::IteratorRandom, RngCore};
 use std::collections::HashSet;
 
 /// A genome that allows recurrent connections
+///
+/// Node layout: `[0..sensory)` sensory, `[sensory..sensory+action)` action,
+/// `(sensory+action..)` internal.
 #[derive(Debug, Clone)]
 pub struct Recurrent<C: Connection> {
     pub(crate) sensory: usize,
@@ -13,25 +16,14 @@ pub struct Recurrent<C: Connection> {
     pub(crate) connections: Vec<C>,
 }
 
-impl<C: Connection> Recurrent<C> {
-    fn static_idx(&self) -> usize {
-        self.sensory + self.action
-    }
-}
-
 impl<C: Connection> Genome<C> for Recurrent<C> {
     fn new(sensory: usize, action: usize) -> (Self, usize) {
-        // Layout: [0..sensory) sensory, [sensory..+action) action, sensory+action static
-        let node_count = sensory + action + 1;
+        let node_count = sensory + action;
 
         let mut inno = InnoGen::new(0);
         let mut connections = Vec::new();
-        for from in (0..node_count)
-            .filter(|&i| i < sensory || i >= sensory + action) // not action
-        {
-            for to in (0..node_count)
-                .filter(|&i| i != from && i >= sensory && i != sensory + action) // action or internal
-            {
+        for from in 0..sensory {
+            for to in sensory..sensory + action {
                 connections.push(C::new(from, to, &mut inno));
             }
         }
@@ -76,7 +68,6 @@ impl<C: Connection> Genome<C> for Recurrent<C> {
     }
 
     fn open_path(&self, rng: &mut impl RngCore) -> Option<(usize, usize)> {
-        let static_idx = self.static_idx();
         let mut saturated = HashSet::new();
         loop {
             let (from, _) = (0..self.node_count)
@@ -97,8 +88,8 @@ impl<C: Connection> Genome<C> for Recurrent<C> {
             if let Some((to, _)) = (0..self.node_count)
                 .map(|i| (i, ()))
                 .filter(|(i, _)| {
-                    // not sensory and not static
-                    *i >= self.sensory && *i != static_idx && !exclude.contains(i)
+                    // not sensory
+                    *i >= self.sensory && !exclude.contains(i)
                 })
                 .choose(rng)
             {
@@ -113,8 +104,8 @@ impl<C: Connection> Genome<C> for Recurrent<C> {
         let connections = crossover(&self.connections, &other.connections, self_fit, rng);
         let max_idx = connections
             .iter()
-            .fold(0, |prev, c| max(prev, max(c.from(), c.to())));
-        let node_count = max(self.sensory + self.action + 1, max_idx + 1);
+            .fold(0usize, |prev, c| max(prev, max(c.from(), c.to())));
+        let node_count = (max_idx + 1).max(self.sensory + self.action);
 
         Self {
             sensory: self.sensory,
@@ -136,10 +127,10 @@ mod test {
     test_t!(
     test_genome_creation[T: RecurrentContinuous]() {
         let (genome, inno_head) = T::new(3, 2);
-        assert_eq!(inno_head, 8);
+        assert_eq!(inno_head, 6);
         assert_eq!(genome.sensory().len(), 3);
         assert_eq!(genome.action().len(), 2);
-        assert_eq!(genome.node_count(), 6);
+        assert_eq!(genome.node_count(), 5);
     });
 
     test_t!(
@@ -148,7 +139,7 @@ mod test {
         assert_eq!(inno_head, 0);
         assert_eq!(genome.sensory().len(), 0);
         assert_eq!(genome.action().len(), 0);
-        assert_eq!(genome.node_count(), 1);
+        assert_eq!(genome.node_count(), 0);
     });
 
     test_t!(
@@ -157,16 +148,16 @@ mod test {
         assert_eq!(inno_head, 0);
         assert_eq!(genome.sensory().len(), 3);
         assert_eq!(genome.action().len(), 0);
-        assert_eq!(genome.node_count(), 4);
+        assert_eq!(genome.node_count(), 3);
     });
 
     test_t!(
     test_genome_creation_only_action[T: RecurrentContinuous]() {
         let (genome, inno_head) = T::new(0, 3);
-        assert_eq!(inno_head, 3);
+        assert_eq!(inno_head, 0);
         assert_eq!(genome.sensory().len(), 0);
         assert_eq!(genome.action().len(), 3);
-        assert_eq!(genome.node_count(), 4);
+        assert_eq!(genome.node_count(), 3);
     });
 
     test_t!(
@@ -176,15 +167,15 @@ mod test {
 
         for _ in 0..100 {
             match genome.open_path(&mut default_rng()) {
-                Some((0, 1)) | Some((2, 1)) => {}, // sensory -> action, bias -> action
+                Some((0, 1)) => {}, // sensory -> action
                 Some(p) => unreachable!("invalid pair {p:?} gen'd"),
                 None => unreachable!("no path gen'd"),
             }
         }
 
-        genome.push_connection(C::new(2, 1, &mut InnoGen::new(0)));
+        genome.push_connection(C::new(0, 1, &mut InnoGen::new(0)));
         for _ in 0..100 {
-            assert_eq!(genome.open_path(&mut default_rng()), Some((0, 1)));
+            assert_eq!(genome.open_path(&mut default_rng()), None);
         }
     });
 
@@ -220,7 +211,7 @@ mod test {
     test_t!(
     test_mutate_bisection[T: RecurrentContinuous]() {
         let mut inno = InnoGen::new(0);
-        let (mut genome, _) = T::new(0, 1);
+        let (mut genome, _) = T::new(1, 1);
 
         genome.connections = vec![]; // TODO generalize empty connection state
         genome.push_connection({
