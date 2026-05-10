@@ -2,17 +2,17 @@
 #![allow(confusable_idents)]
 
 use criterion::Criterion;
-use eevee::{activate::relu, network::Continuous, Network as _};
+use eevee::{activate::relu, network::Realtime, Network as _, SerializeFile as _};
 
 fn bench_nn(bench: &mut Criterion) {
-    let net: Continuous = serde_json::from_str(include_str!("data/ctrnn-rand-100.json")).unwrap();
-    let prec = 100;
+    let mut net = Realtime::from_str(include_str!("data/ctrnn-rand-100.json")).unwrap();
+    net.prec = 100;
     let i = vec![0.7, 0.3];
 
     bench.bench_function("ctrnn-step", |b| {
         b.iter_batched(
             || net.clone(),
-            |mut net| net.step(prec, &i, relu),
+            |mut net| net.step(&i, relu),
             criterion::BatchSize::SmallInput,
         )
     });

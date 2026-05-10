@@ -36,15 +36,13 @@ where
     }
 
     fn eval(&self, genome: &G, σ: &A) -> f64 {
-        // Explicit disambiguation: G may implement ToNetwork for multiple NN types.
         let mut network = <G as ToNetwork<NN, C>>::network(genome);
         let mut fit = 0.0;
         for _ in 0..10 {
             let (input, want) = XOR_PAIRS[rand::rng().random_range(0..4)];
-            network.step(20, &input, σ);
+            network.step(&input, σ);
             let v = network.output()[0].tanh();
             fit += 1.0 - 0.5 * (want - v).abs();
-            network.flush();
         }
         fit
     }
