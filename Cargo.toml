@@ -1,3 +1,6 @@
+[workspace]
+members = [".", "eevee-macros"]
+
 [package]
 name = "eevee"
 version = "0.2.0"
@@ -20,6 +23,7 @@ serde_json = { version = "~1.0", features = ["preserve_order"], optional = true 
 [dev-dependencies]
 criterion = "~0.5"
 flamegraph = "~0.6"
+eevee-macros = { path = "eevee-macros" }
 
 [features]
 approx = ["dep:approx"]

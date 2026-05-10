@@ -1,0 +1,13 @@
+[package]
+name = "eevee-macros"
+version = "0.2.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1.0"
+quote = "1.0"
+syn = { version = "2.0", features = ["full"] }

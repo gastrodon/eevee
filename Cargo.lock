@@ -592,6 +592,7 @@ version = "0.2.0"
 dependencies = [
  "approx",
  "criterion",
+ "eevee-macros",
  "find-fold",
  "flamegraph",
  "fxhash",
@@ -602,6 +603,15 @@ dependencies = [
  "rulinalg",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "eevee-macros"
+version = "0.2.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
