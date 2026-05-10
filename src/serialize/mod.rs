@@ -79,6 +79,7 @@ pub fn population_to_files<P: AsRef<Path>, C: Connection, G: Genome<C> + Seriali
 /// that every file in `path` is a valid descriptor, and will parse it.
 pub fn population_from_files<P: AsRef<Path>, C: Connection, G: Genome<C> + SerializeFile>(
     path: P,
+    threshold: f64,
 ) -> Result<SpecieGroup<C, G>, Box<dyn Error>> {
     let pop_flat = read_dir(path)?
         .map(|fp| Ok::<_, Box<dyn Error>>((G::from_file(fp?.path())?, f64::MIN)))
@@ -94,7 +95,10 @@ pub fn population_from_files<P: AsRef<Path>, C: Connection, G: Genome<C> + Seria
         .max()
         .unwrap_or(0);
 
-    Ok((speciate(pop_flat.into_iter(), empty()), inno_head))
+    Ok((
+        speciate(pop_flat.into_iter(), empty::<(_, usize)>(), 0, threshold),
+        inno_head,
+    ))
 }
 
 /// Load a single [Genome] from a file and clone it `population` times. Useful for resuming
@@ -106,6 +110,7 @@ pub fn population_from_genome<
 >(
     path: P,
     population: usize,
+    threshold: f64,
 ) -> Result<SpecieGroup<C, G>, Box<dyn Error>> {
     let muse = G::from_file(path)?;
     let inno_head = muse
@@ -116,7 +121,12 @@ pub fn population_from_genome<
         .unwrap_or(0);
 
     Ok((
-        speciate(vec![(muse, f64::MIN); population].into_iter(), empty()),
+        speciate(
+            vec![(muse, f64::MIN); population].into_iter(),
+            empty::<(_, usize)>(),
+            0,
+            threshold,
+        ),
         inno_head,
     ))
 }
