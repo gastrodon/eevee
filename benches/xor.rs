@@ -3,8 +3,8 @@
 use core::ops::ControlFlow;
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use eevee::{
-    genome::{connection::BWConnection, Recurrent, WConnection},
-    network::{activate::steep_sigmoid, Continuous, NonBias},
+    genome::{Recurrent, WConnection},
+    network::{activate::steep_sigmoid, Continuous},
     playground::xor::{XorScenario, XOR_TARGET},
     population::population_init,
     random::default_rng,

@@ -74,9 +74,8 @@ impl<C: Connection, G: Genome<C>> FromGenome<C, G> for Continuous {
 mod test {
     use super::*;
     use crate::{
-        activate, assert_f64_approx, assert_matrix_approx,
+        assert_f64_approx,
         genome::{self, InnoGen, WConnection},
-        random::default_rng,
     };
 
     #[test]
