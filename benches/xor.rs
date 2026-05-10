@@ -1,60 +1,19 @@
 #![allow(mixed_script_confusables)]
 
-use core::{marker::PhantomData, ops::ControlFlow};
+use core::ops::ControlFlow;
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use eevee::{
     genome::{connection::BWConnection, Recurrent, WConnection},
-    network::{activate::steep_sigmoid, Continuous, NonBias, ToNetwork},
+    network::{activate::steep_sigmoid, Continuous, NonBias},
+    playground::xor::{XorScenario, XOR_TARGET},
     population::population_init,
     random::default_rng,
     scenario::{evolve, EvolutionHooks},
-    Connection, Genome, Network, Scenario, Stats,
+    Connection, Genome, Stats,
 };
-use rand::Rng;
 
 const POPULATION: usize = 100;
-
-const XOR_PAIRS: [([f64; 2], f64); 4] = [
-    ([0., 0.], 1.),
-    ([1., 1.], 1.),
-    ([1., 0.], -1.),
-    ([0., 1.], -1.),
-];
-
-const XOR_TARGET: f64 = 9.5;
 const XOR_GEN_LIMIT: usize = 500;
-
-// ---------------------------------------------------------------------------
-// Generic XOR scenario
-// ---------------------------------------------------------------------------
-
-struct XorScenario<NN>(PhantomData<NN>);
-
-impl<C, G, A, NN> Scenario<C, G, A> for XorScenario<NN>
-where
-    C: Connection,
-    G: Genome<C> + ToNetwork<NN, C>,
-    A: Fn(f64) -> f64,
-    NN: Network,
-{
-    fn io(&self) -> (usize, usize) {
-        (2, 1)
-    }
-
-    fn eval(&self, genome: &G, σ: &A) -> f64 {
-        // Explicit disambiguation: G may implement ToNetwork for multiple NN types.
-        let mut network = <G as ToNetwork<NN, C>>::network(genome);
-        let mut fit = 0.0;
-        for _ in 0..10 {
-            let (input, want) = XOR_PAIRS[rand::rng().random_range(0..4)];
-            network.step(20, &input, σ);
-            let v = network.output()[0].tanh();
-            fit += 1.0 - 0.5 * (want - v).abs();
-            network.flush();
-        }
-        fit
-    }
-}
 
 fn xor_stop_hook<C: Connection, G: Genome<C>>(stats: &mut Stats<'_, C, G>) -> ControlFlow<()> {
     if stats.any_fitter_than(XOR_TARGET) || stats.generation >= XOR_GEN_LIMIT {
@@ -126,7 +85,7 @@ macro_rules! xor_evolve_bench {
                         || population_init::<$C, $G<$C>>(2, 1, POPULATION),
                         |(pop, inno_head)| {
                             evolve(
-                                XorScenario::<$N>(PhantomData),
+                                XorScenario::<$N>::default(),
                                 move |_| (pop, inno_head),
                                 steep_sigmoid,
                                 default_rng(),
@@ -142,14 +101,6 @@ macro_rules! xor_evolve_bench {
         )*
     };
 }
-
-// ---------------------------------------------------------------------------
-// Benchmark registration
-// ---------------------------------------------------------------------------
-//
-// The macro is called twice to show how to restrict the matrix to valid
-// combinations.  Continuous / NonBias work with any connection type;
-// Simple<C> is parameterised by C and lives in networks_c.
 
 fn bench_xor(c: &mut Criterion) {
     let mut group = c.benchmark_group("xor");
