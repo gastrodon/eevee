@@ -1,0 +1,188 @@
+//! JSON serialization: blanket `SerializeFile` impl, field helpers, and per-type impls.
+
+use crate::serialize::SerializeFile;
+use rulinalg::matrix::Matrix;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+const SERIALIZER_ID: &str = "json-1";
+
+impl<T: Serialize + for<'de> Deserialize<'de>> SerializeFile for T {
+    const SERIALIZER_ID: &'static str = SERIALIZER_ID;
+
+    fn to_str(&self) -> Result<String, Box<dyn std::error::Error>> {
+        Ok(serde_json::to_string(self)?)
+    }
+
+    fn from_str(s: &str) -> Result<Self, Box<dyn std::error::Error>> {
+        serde_json::from_str(s).map_err(|e| e.into())
+    }
+}
+
+pub(crate) fn serialize_matrix<S: Serializer>(
+    matrix: &Matrix<f64>,
+    ser: S,
+) -> Result<S::Ok, S::Error> {
+    let bits: Vec<u64> = matrix.data().iter().map(|&f| f64::to_bits(f)).collect();
+    bits.serialize(ser)
+}
+
+pub(crate) fn deserialize_matrix_flat<'de, D: Deserializer<'de>>(
+    de: D,
+) -> Result<Matrix<f64>, D::Error> {
+    Vec::<u64>::deserialize(de).map(|v| {
+        let float_data: Vec<f64> = v.into_iter().map(f64::from_bits).collect();
+        Matrix::new(1, float_data.len(), float_data)
+    })
+}
+
+pub(crate) fn deserialize_matrix_square<'de, D: Deserializer<'de>>(
+    de: D,
+) -> Result<Matrix<f64>, D::Error> {
+    Vec::<u64>::deserialize(de).map(|v| {
+        let float_data: Vec<f64> = v.into_iter().map(f64::from_bits).collect();
+        let n = (float_data.len() as f64).sqrt() as usize;
+        debug_assert_eq!(n * n, float_data.len(), "non-square weight vec");
+        Matrix::new(n, n, float_data)
+    })
+}
+
+/// Generate `Serialize`/`Deserialize` impls for a type, wrapped in a private module named
+/// after the type in snake_case.
+///
+/// Each field may carry any number of `#[serde(...)]` attributes placed on both the `Ref`
+/// (serialize) and `Data` (deserialize) proxy structs.  Serde silently ignores attributes
+/// that don't apply to the current derive direction, so combining `serialize_with` and
+/// `deserialize_with` on the same field is safe.
+///
+/// Optional `#[...]` attributes before the `use` are forwarded to the generated module
+/// (useful for `#[allow(deprecated)]` etc.).
+///
+/// # Non-generic
+/// ```ignore
+/// json_impl! {
+///     use crate::network::Realtime;
+///     Realtime {
+///         plain_field: u32,
+///         #[serde(serialize_with = "ser_fn", deserialize_with = "de_fn")]
+///         matrix_field: Matrix<f64>,
+///     }
+/// }
+/// ```
+///
+/// # Single generic type parameter
+/// ```ignore
+/// json_impl! {
+///     use crate::genome::Recurrent;
+///     Recurrent<C: Connection> { items: Vec<C> }
+/// }
+/// ```
+/// The macro adds `+ Serialize` for the `Serialize` impl and `+ for<'de2> Deserialize<'de2>`
+/// for the `Deserialize` impl automatically.
+macro_rules! json_impl {
+    // Non-generic
+    (
+        $(#[$mod_attr:meta])*
+        use $use_path:path;
+        $Type:ident {
+            $($(#[$attr:meta])* $field:ident : $ftype:ty),* $(,)?
+        }
+        $($extra:item)*
+    ) => {
+        ::paste::paste! {
+            $(#[$mod_attr])*
+            mod [<$Type:snake>] {
+                use super::*;
+                use $use_path;
+
+                #[derive(Serialize)]
+                struct Ref<'a> {
+                    $($(#[$attr])* $field: &'a $ftype,)*
+                }
+
+                #[derive(Deserialize)]
+                struct Data {
+                    $($(#[$attr])* $field: $ftype,)*
+                }
+
+                impl Serialize for $Type {
+                    fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+                        Ref { $($field: &self.$field,)* }.serialize(s)
+                    }
+                }
+
+                impl<'de> Deserialize<'de> for $Type {
+                    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+                        let v = Data::deserialize(d)?;
+                        Ok($Type { $($field: v.$field,)* })
+                    }
+                }
+
+                $($extra)*
+            }
+        }
+    };
+
+    // Single generic type parameter with a single base trait bound
+    (
+        $(#[$mod_attr:meta])*
+        use $use_path:path;
+        $Type:ident < $GP:ident : $Bound:path > {
+            $($(#[$attr:meta])* $field:ident : $ftype:ty),* $(,)?
+        }
+        $($extra:item)*
+    ) => {
+        ::paste::paste! {
+            $(#[$mod_attr])*
+            mod [<$Type:snake>] {
+                use super::*;
+                use $use_path;
+
+                #[derive(Serialize)]
+                struct Ref<'a, $GP: $Bound + Serialize> {
+                    $($(#[$attr])* $field: &'a $ftype,)*
+                }
+
+                #[derive(Deserialize)]
+                struct Data<$GP: $Bound + for<'de2> Deserialize<'de2>> {
+                    $($(#[$attr])* $field: $ftype,)*
+                }
+
+                impl<$GP: $Bound + Serialize> Serialize for $Type<$GP> {
+                    fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+                        Ref { $($field: &self.$field,)* }.serialize(s)
+                    }
+                }
+
+                impl<'de, $GP: $Bound + for<'de2> Deserialize<'de2>> Deserialize<'de>
+                    for $Type<$GP>
+                {
+                    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+                        let v = Data::deserialize(d)?;
+                        Ok($Type { $($field: v.$field,)* })
+                    }
+                }
+
+                $($extra)*
+            }
+        }
+    };
+}
+
+json_impl! {
+    use crate::network::continuous::Continuous;
+
+    Continuous {
+        #[serde(serialize_with = "serialize_matrix", deserialize_with = "deserialize_matrix_flat")]
+        y: Matrix<f64>,
+        #[serde(serialize_with = "serialize_matrix", deserialize_with = "deserialize_matrix_flat")]
+        θ: Matrix<f64>,
+        #[serde(serialize_with = "serialize_matrix", deserialize_with = "deserialize_matrix_flat")]
+        τ: Matrix<f64>,
+        #[serde(serialize_with = "serialize_matrix", deserialize_with = "deserialize_matrix_square")]
+        w: Matrix<f64>,
+        sensory: (usize, usize),
+        action: (usize, usize),
+    }
+}
+
+pub(crate) use json_impl;

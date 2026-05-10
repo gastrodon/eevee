@@ -4,17 +4,20 @@
 #![allow(mixed_script_confusables)]
 
 pub mod crossover;
-pub mod playground;
 pub mod genome;
 pub mod macros;
 pub mod network;
+pub mod playground;
 pub mod population;
 pub mod random;
 pub mod reproduce;
 pub mod scenario;
+#[cfg(feature = "serialize")]
 pub mod serialize;
 
 pub use genome::{Connection, Genome};
 pub use network::{activate, Network};
 pub use population::Specie;
 pub use scenario::{Hook, Scenario, Stats};
+#[cfg(feature = "serialize")]
+pub use serialize::SerializeFile;

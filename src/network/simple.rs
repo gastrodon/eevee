@@ -1,20 +1,15 @@
 use super::{FromGenome, Network};
-use crate::{serialize::deserialize_connections, Connection, Genome};
+use crate::{Connection, Genome};
 use core::ops::Range;
-use serde::{Deserialize, Serialize};
 
-/// A simple neural network, because man, what the fuck is going on. lol
-/// Walks through connections oldest to newest, evaluating them on a flat state
-#[derive(Debug, Serialize, Deserialize)]
+/// A simple neural network.
+/// Walks through connections oldest to newest, evaluating them on a flat state.
+#[derive(Debug)]
 pub struct Simple<C: Connection> {
-    #[serde(deserialize_with = "deserialize_connections")]
-    connections: Vec<C>, // TODO this is copying because of deserialization
+    connections: Vec<C>,
     bias: Vec<f64>,
-    #[serde(skip_serializing)]
     state: Vec<f64>,
-    #[serde(skip_serializing)]
     sensory: Range<usize>,
-    #[serde(skip_serializing)]
     action: Range<usize>,
 }
 

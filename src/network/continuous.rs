@@ -1,10 +1,6 @@
 use super::{FromGenome, Recurrent, Stateful};
-use crate::{
-    serialize::{deserialize_matrix_flat, deserialize_matrix_square, serialize_matrix},
-    Connection, Genome, Network,
-};
+use crate::{Connection, Genome, Network};
 use rulinalg::matrix::{BaseMatrix, BaseMatrixMut, Matrix};
-use serde::{Deserialize, Serialize};
 
 /// A stateful NN who receives input continuously, useful for realtime problems
 /// and genomes whos connections may be recurrent.
@@ -12,31 +8,15 @@ use serde::{Deserialize, Serialize};
 /// Implementation based on the network described by
 /// on the dynamics of small continuous-time recurrent neural networks (beer 1995)
 /// and with some code stolen from [TLmaK0's neat implentation](https://github.com/TLmaK0/rustneat)
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct Continuous {
     /// 1d state of neurons 0-N
-    #[serde(
-        serialize_with = "serialize_matrix",
-        deserialize_with = "deserialize_matrix_flat"
-    )]
     pub y: Matrix<f64>,
     /// 1d bias of neurons 0-N
-    #[serde(
-        serialize_with = "serialize_matrix",
-        deserialize_with = "deserialize_matrix_flat"
-    )]
     pub θ: Matrix<f64>,
     /// 1d membrane resistance time constant
-    #[serde(
-        serialize_with = "serialize_matrix",
-        deserialize_with = "deserialize_matrix_flat"
-    )]
     pub τ: Matrix<f64>,
     /// Nd weights between neurons, indexed as [from, to]
-    #[serde(
-        serialize_with = "serialize_matrix",
-        deserialize_with = "deserialize_matrix_square"
-    )]
     pub w: Matrix<f64>,
     /// Range of input neurons, indexing into y
     pub sensory: (usize, usize),
@@ -101,101 +81,6 @@ mod test {
     use rand_distr::{num_traits::Float, Distribution, Uniform};
     use rulinalg::matrix::Matrix;
 
-    // Macro for comparing f64 arrays with epsilon tolerance
-
-    #[test]
-    fn test_ctrnn_serialization_deserialization() {
-        let n_neurons = 10;
-        let mut rng = default_rng();
-        let dist = Uniform::new(-10., 10.).unwrap();
-
-        let mut y_data = vec![0.0; n_neurons];
-        let mut theta_data = vec![0.0; n_neurons];
-        let mut tau_data = vec![0.0; n_neurons];
-        let mut w_data = vec![0.0; n_neurons * n_neurons];
-
-        for i in 0..n_neurons {
-            y_data[i] = dist.sample(&mut rng);
-            theta_data[i] = dist.sample(&mut rng);
-            tau_data[i] = dist.sample(&mut rng).abs() + 0.1;
-
-            for j in 0..n_neurons {
-                w_data[i * n_neurons + j] = dist.sample(&mut rng);
-            }
-        }
-
-        let original = Continuous {
-            y: Matrix::new(1, n_neurons, y_data),
-            θ: Matrix::new(1, n_neurons, theta_data),
-            τ: Matrix::new(1, n_neurons, tau_data),
-            w: Matrix::new(n_neurons, n_neurons, w_data),
-            sensory: (0, 2),
-            action: (3, 5),
-        };
-
-        let serialized = original.to_string().expect("Failed to serialize");
-
-        let deserialized = Continuous::from_str(&serialized).expect("Failed to deserialize");
-
-        assert_matrix_approx!(original.y.data(), deserialized.y.data());
-        assert_matrix_approx!(original.θ.data(), deserialized.θ.data());
-        assert_matrix_approx!(original.τ.data(), deserialized.τ.data());
-        assert_matrix_approx!(original.w.data(), deserialized.w.data());
-
-        assert_eq!(original.sensory, deserialized.sensory);
-        assert_eq!(original.action, deserialized.action);
-    }
-
-    #[test]
-    fn test_ctrnn_behavioral_equivalence() {
-        let n_neurons = 10;
-        let mut rng = default_rng();
-        let dist = Uniform::new(-10., 10.).unwrap();
-
-        let mut y_data = vec![0.0; n_neurons];
-        let mut θ_data = vec![0.0; n_neurons];
-        let mut τ_data = vec![0.0; n_neurons];
-        let mut w_data = vec![0.0; n_neurons * n_neurons];
-
-        for i in 0..n_neurons {
-            y_data[i] = dist.sample(&mut rng);
-            θ_data[i] = dist.sample(&mut rng);
-            τ_data[i] = dist.sample(&mut rng).abs() + 0.1;
-
-            for j in 0..n_neurons {
-                w_data[i * n_neurons + j] = dist.sample(&mut rng);
-            }
-        }
-
-        let mut original = Continuous {
-            y: Matrix::new(1, n_neurons, y_data),
-            θ: Matrix::new(1, n_neurons, θ_data),
-            τ: Matrix::new(1, n_neurons, τ_data),
-            w: Matrix::new(n_neurons, n_neurons, w_data),
-            sensory: (0, 2),
-            action: (3, 5),
-        };
-
-        let mut deserialized =
-            Continuous::from_str(&original.to_string().expect("Failed to serialize"))
-                .expect("Failed to deserialize");
-
-        let precision = 10;
-        let n_steps = 500;
-
-        for __ in 0..n_steps {
-            let input: Vec<f64> = (0..2).map(|_| dist.sample(&mut rng)).collect();
-
-            original.step(precision, &input, activate::steep_sigmoid);
-            deserialized.step(precision, &input, activate::steep_sigmoid);
-
-            let original_output = original.output();
-            let deserialized_output = deserialized.output();
-
-            assert_matrix_approx!(original_output, deserialized_output);
-        }
-    }
-
     #[test]
     fn test_from_genome() {
         type C = WConnection;
@@ -227,5 +112,53 @@ mod test {
             (nn.action.0, nn.action.1),
             (genome.action().start, genome.action().end)
         );
+    }
+
+    #[test]
+    fn test_ctrnn_behavioral_equivalence() {
+        let n_neurons = 10;
+        let mut rng = default_rng();
+        let dist = Uniform::new(-10., 10.).unwrap();
+
+        let mut y_data = vec![0.0; n_neurons];
+        let mut θ_data = vec![0.0; n_neurons];
+        let mut τ_data = vec![0.0; n_neurons];
+        let mut w_data = vec![0.0; n_neurons * n_neurons];
+
+        for i in 0..n_neurons {
+            y_data[i] = dist.sample(&mut rng);
+            θ_data[i] = dist.sample(&mut rng);
+            τ_data[i] = dist.sample(&mut rng).abs() + 0.1;
+
+            for j in 0..n_neurons {
+                w_data[i * n_neurons + j] = dist.sample(&mut rng);
+            }
+        }
+
+        let mut net1 = Continuous {
+            y: Matrix::new(1, n_neurons, y_data.clone()),
+            θ: Matrix::new(1, n_neurons, θ_data.clone()),
+            τ: Matrix::new(1, n_neurons, τ_data.clone()),
+            w: Matrix::new(n_neurons, n_neurons, w_data.clone()),
+            sensory: (0, 2),
+            action: (3, 5),
+        };
+
+        let mut net2 = Continuous {
+            y: Matrix::new(1, n_neurons, y_data),
+            θ: Matrix::new(1, n_neurons, θ_data),
+            τ: Matrix::new(1, n_neurons, τ_data),
+            w: Matrix::new(n_neurons, n_neurons, w_data),
+            sensory: (0, 2),
+            action: (3, 5),
+        };
+
+        let precision = 10;
+        for _ in 0..50 {
+            let input: Vec<f64> = (0..2).map(|_| dist.sample(&mut rng)).collect();
+            net1.step(precision, &input, activate::steep_sigmoid);
+            net2.step(precision, &input, activate::steep_sigmoid);
+            assert_matrix_approx!(net1.output(), net2.output());
+        }
     }
 }
