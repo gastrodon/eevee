@@ -4,10 +4,10 @@
 #![allow(mixed_script_confusables)]
 
 pub mod crossover;
-pub mod playground;
 pub mod genome;
 pub mod macros;
 pub mod network;
+pub mod playground;
 pub mod population;
 pub mod random;
 pub mod reproduce;
