@@ -70,7 +70,7 @@ fn hook<C: Connection, G: Genome<C>>(stats: &mut Stats<'_, C, G>) -> ControlFlow
         "gen {}: {:.4} ({} nodes, {} conns) of {} species [{}]",
         stats.generation,
         f,
-        g.nodes().len(),
+        g.node_count(),
         g.connections().len(),
         stats.species.len(),
         breakdown,
