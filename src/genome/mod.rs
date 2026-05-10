@@ -9,10 +9,12 @@
 //! complex behavior. Through evolution, that complex behavior is refined towards increasing
 //! some one-dimensional fitness.
 pub mod connection;
-pub mod recurrent;
+pub mod nn_organism;
+pub mod nn_policies;
 
 pub use connection::WConnection;
-pub use recurrent::Recurrent;
+pub use nn_organism::{NNOrganism, PathPolicy};
+pub use nn_policies::{NonRecurrent, Recurrent};
 
 use crate::random::{percent, ConnectionEvent, EventKind, GenomeEvent};
 use core::{cmp::Ordering, error::Error, fmt::Debug, hash::Hash, ops::Range};
