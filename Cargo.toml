@@ -31,9 +31,6 @@ smol_bench = []
 name = "xor"
 required-features = ["approx"]
 
-[[example]]
-name = "sentiment"
-
 [[bench]]
 name = "crossover"
 harness = false
