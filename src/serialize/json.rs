@@ -202,8 +202,6 @@ json_impl! {
     }
 }
 
-pub(crate) use json_impl;
-
 #[cfg(test)]
 mod test {
     use crate::{
