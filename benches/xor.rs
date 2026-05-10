@@ -104,15 +104,13 @@ macro_rules! xor_evolve_bench {
 
 fn bench_xor(c: &mut Criterion) {
     let mut group = c.benchmark_group("xor");
-    // Evolution runs can take seconds each; keep sample count low so the
-    // suite finishes in a reasonable time.
-    group.sample_size(10);
+    group.sample_size(250);
 
     xor_evolve_bench!(
         group,
-        connections: [WConnection, BWConnection],
+        connections: [WConnection],
         genomes:     [Recurrent],
-        networks:    [Continuous, NonBias],
+        networks:    [Continuous],
     );
 
     group.finish();
