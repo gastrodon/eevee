@@ -19,7 +19,6 @@ serde_json = { version = "~1.0", features = ["preserve_order"], optional = true 
 [dev-dependencies]
 criterion = "~0.5"
 flamegraph = "~0.6"
-serde_json = { version = "~1.0", features = ["preserve_order"] }
 
 [features]
 parallel = ["dep:rayon"]
@@ -31,39 +30,5 @@ smol_bench = []
 name = "xor"
 
 [[bench]]
-name = "crossover"
+name = "xor"
 harness = false
-required-features = ["serialize_json"]
-
-[[bench]]
-name = "innogen"
-harness = false
-
-[[bench]]
-name = "mutate"
-harness = false
-required-features = ["serialize_json"]
-
-[[bench]]
-name = "nn"
-harness = false
-required-features = ["serialize_json"]
-
-[[bench]]
-name = "random"
-harness = false
-
-[[bench]]
-name = "alloc"
-harness = false
-required-features = ["serialize_json"]
-
-[[bench]]
-name = "reproduce"
-harness = false
-required-features = ["serialize_json"]
-
-[[bench]]
-name = "speciate"
-harness = false
-required-features = ["serialize_json"]
