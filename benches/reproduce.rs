@@ -26,7 +26,11 @@ fn bench_reproduce(bench: &mut Criterion) {
 
     let mut rng = default_rng();
     bench.bench_function("reproduce", |b| {
-        b.iter(|| reproduce(genomes.clone(), 100, &mut InnoGen::new(inno_head), &mut rng))
+        b.iter_batched(
+            || genomes.clone(),
+            |genomes| reproduce(genomes, 100, &mut InnoGen::new(inno_head), &mut rng),
+            criterion::BatchSize::SmallInput,
+        )
     });
 }
 

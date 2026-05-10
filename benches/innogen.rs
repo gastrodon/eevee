@@ -4,9 +4,18 @@ use rand::Rng;
 
 fn bench_innogen(bench: &mut Criterion) {
     let mut rng = default_rng();
-    let mut inno = InnoGen::new(0);
+    // Pre-generate pairs so rng cost is outside the hot path and each
+    // iteration sees the same sequence on a fresh InnoGen.
+    let pairs: Vec<(usize, usize)> = (0..100)
+        .map(|_| (rng.random_range(0..=10_000), rng.random_range(0..=10_000)))
+        .collect();
+
     bench.bench_function("innogen", |b| {
-        b.iter(|| inno.path((rng.random_range(0..=10_000), rng.random_range(0..=10_000))))
+        b.iter_batched(
+            || InnoGen::new(0),
+            |mut inno| pairs.iter().for_each(|&p| { inno.path(p); }),
+            criterion::BatchSize::SmallInput,
+        )
     });
 }
 
