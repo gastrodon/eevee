@@ -40,6 +40,10 @@ name = "xor_generate_fixture"
 required-features = ["serialize_json"]
 
 [[bench]]
+name = "innogen"
+harness = false
+
+[[bench]]
 name = "xor"
 harness = false
 

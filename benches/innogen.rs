@@ -27,7 +27,8 @@ pub fn benches() {
     #[cfg(not(feature = "smol_bench"))]
     let mut criterion: criterion::Criterion<_> = Criterion::default()
         .sample_size(2000)
-        .significance_level(0.1);
+        .significance_level(0.1)
+        .configure_from_args();
     #[cfg(feature = "smol_bench")]
     let mut criterion: criterion::Criterion<_> = {
         use core::time::Duration;
