@@ -32,33 +32,5 @@ name = "xor"
 required-features = ["approx"]
 
 [[bench]]
-name = "crossover"
-harness = false
-
-[[bench]]
-name = "innogen"
-harness = false
-
-[[bench]]
-name = "mutate"
-harness = false
-
-[[bench]]
-name = "nn"
-harness = false
-
-[[bench]]
-name = "random"
-harness = false
-
-[[bench]]
-name = "alloc"
-harness = false
-
-[[bench]]
-name = "reproduce"
-harness = false
-
-[[bench]]
-name = "speciate"
+name = "xor"
 harness = false
