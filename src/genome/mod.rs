@@ -135,8 +135,8 @@ pub trait Genome<C: Connection>: Clone {
 
     fn action(&self) -> Range<usize>;
 
-    /// Total number of nodes. Layout: `[0..sensory)` sensory, `[sensory..+action)` action,
-    /// `sensory+action` static bias, `(sensory+action..)` internal.
+    /// Total number of nodes. Layout:
+    /// `[0..sensory)` sensory, `[sensory..+action)` action, `(sensory+action..)` internal.
     fn node_count(&self) -> usize;
 
     /// Push a new internal node.

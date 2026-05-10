@@ -2,6 +2,7 @@ use crate::{network::ToNetwork, Connection, Genome, Network, Scenario};
 use core::marker::PhantomData;
 use rand::Rng;
 
+/// All permutations of xor for 2 bits
 pub const XOR_PAIRS: [([f64; 2], f64); 4] = [
     ([0., 0.], 1.),
     ([1., 1.], 1.),
