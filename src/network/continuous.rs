@@ -128,8 +128,9 @@ mod test {
     use rand_distr::{num_traits::Float, Distribution, Uniform};
 
     #[test]
-    #[cfg(feature = "serialize")]
+    #[cfg(feature = "serialize_json")]
     fn test_ctrnn_serialization_deserialization() {
+        use crate::serialize::SerializeFile;
         let n_neurons = 10;
         let mut rng = default_rng();
         let dist = Uniform::new(-10., 10.).unwrap();
@@ -158,7 +159,7 @@ mod test {
             action: (3, 5),
         };
 
-        let serialized = original.to_string().expect("Failed to serialize");
+        let serialized = original.to_str().expect("Failed to serialize");
 
         let deserialized = Continuous::from_str(&serialized).expect("Failed to deserialize");
 
@@ -172,8 +173,9 @@ mod test {
     }
 
     #[test]
-    #[cfg(feature = "serialize")]
+    #[cfg(feature = "serialize_json")]
     fn test_ctrnn_behavioral_equivalence() {
+        use crate::serialize::SerializeFile;
         let n_neurons = 10;
         let mut rng = default_rng();
         let dist = Uniform::new(-10., 10.).unwrap();
@@ -203,7 +205,7 @@ mod test {
         };
 
         let mut deserialized =
-            Continuous::from_str(&original.to_string().expect("Failed to serialize"))
+            Continuous::from_str(&original.to_str().expect("Failed to serialize"))
                 .expect("Failed to deserialize");
 
         let precision = 10;

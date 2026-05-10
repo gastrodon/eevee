@@ -26,7 +26,7 @@ fn serialize_matrix<S: Serializer>(matrix: &na::DMatrix<f64>, ser: S) -> Result<
 fn deserialize_matrix_flat<'de, D: Deserializer<'de>>(de: D) -> Result<na::DMatrix<f64>, D::Error> {
     Vec::<u64>::deserialize(de).map(|v| {
         let float_data: Vec<f64> = v.into_iter().map(f64::from_bits).collect();
-        na::DMatrix::from_row_slice(1, float_data.len(), &float_data)
+        na::DMatrix::from_vec(1, float_data.len(), float_data)
     })
 }
 
@@ -37,7 +37,7 @@ fn deserialize_matrix_square<'de, D: Deserializer<'de>>(
         let float_data: Vec<f64> = v.into_iter().map(f64::from_bits).collect();
         let n = (float_data.len() as f64).sqrt() as usize;
         debug_assert_eq!(n * n, float_data.len(), "non-square weight vec");
-        na::DMatrix::from_row_slice(n, n, &float_data)
+        na::DMatrix::from_vec(n, n, float_data)
     })
 }
 
@@ -287,6 +287,7 @@ mod test {
         random::default_rng,
         SerializeFile,
     };
+    use nalgebra as na;
     use rand_distr::{Distribution, Uniform};
 
     #[test]
@@ -295,35 +296,21 @@ mod test {
         let mut rng = default_rng();
         let dist = Uniform::new(-10f64, 10.).unwrap();
 
+        let y_data: Vec<f64> = (0..n).map(|_| dist.sample(&mut rng)).collect();
+        let θ_data: Vec<f64> = (0..n).map(|_| dist.sample(&mut rng)).collect();
+        let τ_data: Vec<f64> = (0..n).map(|_| dist.sample(&mut rng).abs() + 0.1).collect();
+        let w_data: Vec<f64> = (0..n * n).map(|_| dist.sample(&mut rng)).collect();
+
         let mut original = Continuous {
-            y: Matrix::new(
-                1,
-                n,
-                (0..n).map(|_| dist.sample(&mut rng)).collect::<Vec<_>>(),
-            ),
-            θ: Matrix::new(
-                1,
-                n,
-                (0..n).map(|_| dist.sample(&mut rng)).collect::<Vec<_>>(),
-            ),
-            τ: Matrix::new(
-                1,
-                n,
-                (0..n)
-                    .map(|_| dist.sample(&mut rng).abs() + 0.1)
-                    .collect::<Vec<_>>(),
-            ),
-            w: Matrix::new(
-                n,
-                n,
-                (0..n * n)
-                    .map(|_| dist.sample(&mut rng))
-                    .collect::<Vec<_>>(),
-            ),
+            y: na::DMatrix::from_row_slice(1, n, &y_data),
+            θ: na::DMatrix::from_row_slice(1, n, &θ_data),
+            τ: na::DMatrix::from_row_slice(1, n, &τ_data),
+            w: na::DMatrix::from_row_slice(n, n, &w_data),
             sensory: (0, 2),
             action: (3, 5),
         };
-        let mut deserialized = Continuous::from_str(&original.to_str().unwrap()).unwrap();
+        let serialized = original.to_str().expect("Failed to serialize");
+        let mut deserialized = Continuous::from_str(&serialized).expect("Failed to deserialize");
 
         for _ in 0..500 {
             let input: Vec<f64> = (0..2).map(|_| dist.sample(&mut rng)).collect();
