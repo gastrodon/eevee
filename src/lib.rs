@@ -18,5 +18,7 @@ pub use genome::{Connection, Genome};
 pub use network::{activate, Network};
 pub use population::Specie;
 pub use scenario::{Hook, Scenario, Stats};
+#[cfg(feature = "serialize_binary")]
+pub use serialize::SerializeBytes;
 #[cfg(feature = "serialize")]
 pub use serialize::SerializeFile;

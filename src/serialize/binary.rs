@@ -1,19 +1,19 @@
-//! JSON serialization: blanket `SerializeFile` impl for any `Serialize + Deserialize` type.
+//! Binary serialization via bincode: blanket `SerializeBytes` impl for any `Serialize + Deserialize` type.
 
-use crate::serialize::SerializeFile;
+use crate::serialize::SerializeBytes;
 use serde::{Deserialize, Serialize};
 
-const SERIALIZER_ID: &str = "json-1";
+const SERIALIZER_ID: &str = "binary-1";
 
-impl<T: Serialize + for<'de> Deserialize<'de>> SerializeFile for T {
+impl<T: Serialize + for<'de> Deserialize<'de>> SerializeBytes for T {
     const SERIALIZER_ID: &'static str = SERIALIZER_ID;
 
-    fn to_str(&self) -> Result<String, Box<dyn std::error::Error>> {
-        Ok(serde_json::to_string(self)?)
+    fn to_bytes(&self) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+        Ok(bincode::serialize(self)?)
     }
 
-    fn from_str(s: &str) -> Result<Self, Box<dyn std::error::Error>> {
-        serde_json::from_str(s).map_err(|e| e.into())
+    fn from_bytes(bytes: &[u8]) -> Result<Self, Box<dyn std::error::Error>> {
+        bincode::deserialize(bytes).map_err(|e| e.into())
     }
 }
 
@@ -21,15 +21,16 @@ impl<T: Serialize + for<'de> Deserialize<'de>> SerializeFile for T {
 mod test {
     use crate::{
         activate, assert_matrix_approx,
+        genome::{Recurrent, WConnection},
         network::{Continuous, Network},
         random::default_rng,
-        SerializeFile,
+        SerializeBytes,
     };
     use rand_distr::{Distribution, Uniform};
     use rulinalg::matrix::Matrix;
 
     #[test]
-    fn test_ctrnn_behavioral_equivalence() {
+    fn test_ctrnn_binary_roundtrip() {
         let n = 10;
         let mut rng = default_rng();
         let dist = Uniform::new(-10f64, 10.).unwrap();
@@ -62,7 +63,7 @@ mod test {
             sensory: (0, 2),
             action: (3, 5),
         };
-        let mut deserialized = Continuous::from_str(&original.to_str().unwrap()).unwrap();
+        let mut deserialized = Continuous::from_bytes(&original.to_bytes().unwrap()).unwrap();
 
         for _ in 0..500 {
             let input: Vec<f64> = (0..2).map(|_| dist.sample(&mut rng)).collect();
@@ -70,5 +71,18 @@ mod test {
             deserialized.step(10, &input, activate::steep_sigmoid);
             assert_matrix_approx!(original.output(), deserialized.output());
         }
+    }
+
+    #[test]
+    fn test_genome_binary_roundtrip() {
+        use crate::genome::Genome;
+        let (genome, _) = Recurrent::<WConnection>::new(2, 1);
+
+        let bytes = genome.to_bytes().unwrap();
+        let restored = Recurrent::<WConnection>::from_bytes(&bytes).unwrap();
+
+        assert_eq!(genome.connections().len(), restored.connections().len());
+        assert_eq!(genome.sensory(), restored.sensory());
+        assert_eq!(genome.action(), restored.action());
     }
 }
