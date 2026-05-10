@@ -8,11 +8,20 @@ use crate::serialize::dmatrix;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug)]
-#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", not(feature = "serialize_json")),
+    derive(Serialize, Deserialize)
+)]
 pub struct NonBias {
-    #[cfg_attr(feature = "serialize", serde(with = "dmatrix"))]
+    #[cfg_attr(
+        all(feature = "serialize", not(feature = "serialize_json")),
+        serde(with = "dmatrix")
+    )]
     pub y: na::DMatrix<f64>,
-    #[cfg_attr(feature = "serialize", serde(with = "dmatrix"))]
+    #[cfg_attr(
+        all(feature = "serialize", not(feature = "serialize_json")),
+        serde(with = "dmatrix")
+    )]
     pub w: na::DMatrix<f64>,
     pub sensory: (usize, usize),
     pub action: (usize, usize),

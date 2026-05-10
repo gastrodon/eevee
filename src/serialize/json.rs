@@ -1,7 +1,7 @@
 //! JSON serialization: blanket `SerializeFile` impl, field helpers, and per-type impls.
 
 use crate::serialize::SerializeFile;
-use rulinalg::matrix::Matrix;
+use nalgebra as na;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 const SERIALIZER_ID: &str = "json-1";
@@ -18,24 +18,26 @@ impl<T: Serialize + for<'de> Deserialize<'de>> SerializeFile for T {
     }
 }
 
-fn serialize_matrix<S: Serializer>(matrix: &Matrix<f64>, ser: S) -> Result<S::Ok, S::Error> {
-    let bits: Vec<u64> = matrix.data().iter().map(|&f| f64::to_bits(f)).collect();
+fn serialize_matrix<S: Serializer>(matrix: &na::DMatrix<f64>, ser: S) -> Result<S::Ok, S::Error> {
+    let bits: Vec<u64> = matrix.as_slice().iter().map(|&f| f64::to_bits(f)).collect();
     bits.serialize(ser)
 }
 
-fn deserialize_matrix_flat<'de, D: Deserializer<'de>>(de: D) -> Result<Matrix<f64>, D::Error> {
+fn deserialize_matrix_flat<'de, D: Deserializer<'de>>(de: D) -> Result<na::DMatrix<f64>, D::Error> {
     Vec::<u64>::deserialize(de).map(|v| {
         let float_data: Vec<f64> = v.into_iter().map(f64::from_bits).collect();
-        Matrix::new(1, float_data.len(), float_data)
+        na::DMatrix::from_row_slice(1, float_data.len(), &float_data)
     })
 }
 
-fn deserialize_matrix_square<'de, D: Deserializer<'de>>(de: D) -> Result<Matrix<f64>, D::Error> {
+fn deserialize_matrix_square<'de, D: Deserializer<'de>>(
+    de: D,
+) -> Result<na::DMatrix<f64>, D::Error> {
     Vec::<u64>::deserialize(de).map(|v| {
         let float_data: Vec<f64> = v.into_iter().map(f64::from_bits).collect();
         let n = (float_data.len() as f64).sqrt() as usize;
         debug_assert_eq!(n * n, float_data.len(), "non-square weight vec");
-        Matrix::new(n, n, float_data)
+        na::DMatrix::from_row_slice(n, n, &float_data)
     })
 }
 
@@ -172,13 +174,13 @@ json_impl! {
 
     Continuous {
         #[serde(serialize_with = "serialize_matrix", deserialize_with = "deserialize_matrix_flat")]
-        y: Matrix<f64>,
+        y: na::DMatrix<f64>,
         #[serde(serialize_with = "serialize_matrix", deserialize_with = "deserialize_matrix_flat")]
-        θ: Matrix<f64>,
+        θ: na::DMatrix<f64>,
         #[serde(serialize_with = "serialize_matrix", deserialize_with = "deserialize_matrix_flat")]
-        τ: Matrix<f64>,
+        τ: na::DMatrix<f64>,
         #[serde(serialize_with = "serialize_matrix", deserialize_with = "deserialize_matrix_square")]
-        w: Matrix<f64>,
+        w: na::DMatrix<f64>,
         sensory: (usize, usize),
         action: (usize, usize),
     }
@@ -189,9 +191,9 @@ json_impl! {
 
     NonBias {
         #[serde(serialize_with = "serialize_matrix", deserialize_with = "deserialize_matrix_flat")]
-        y: Matrix<f64>,
+        y: na::DMatrix<f64>,
         #[serde(serialize_with = "serialize_matrix", deserialize_with = "deserialize_matrix_square")]
-        w: Matrix<f64>,
+        w: na::DMatrix<f64>,
         sensory: (usize, usize),
         action: (usize, usize),
     }
@@ -286,7 +288,6 @@ mod test {
         SerializeFile,
     };
     use rand_distr::{Distribution, Uniform};
-    use rulinalg::matrix::Matrix;
 
     #[test]
     fn test_ctrnn_behavioral_equivalence() {

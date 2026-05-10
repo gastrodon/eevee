@@ -6,8 +6,14 @@ use std::collections::HashSet;
 
 /// A genome that allows recurrent connections
 #[derive(Debug, Clone)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serialize", serde(bound = "C: Connection"))]
+#[cfg_attr(
+    all(feature = "serialize", not(feature = "serialize_json")),
+    derive(serde::Serialize, serde::Deserialize),
+    serde(bound(
+        serialize = "C: serde::Serialize",
+        deserialize = "C: serde::Deserialize<'de>"
+    ))
+)]
 pub struct Recurrent<C: Connection> {
     pub(crate) sensory: usize,
     pub(crate) action: usize,

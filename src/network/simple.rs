@@ -5,16 +5,31 @@ use core::ops::Range;
 /// A simple neural network, because man, what the fuck is going on. lol
 /// Walks through connections oldest to newest, evaluating them on a flat state
 #[derive(Debug)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serialize", serde(bound = "C: Connection"))]
+#[cfg_attr(
+    all(feature = "serialize", not(feature = "serialize_json")),
+    derive(serde::Serialize, serde::Deserialize),
+    serde(bound(
+        serialize = "C: serde::Serialize",
+        deserialize = "C: serde::Deserialize<'de>"
+    ))
+)]
 pub struct Simple<C: Connection> {
     pub(crate) connections: Vec<C>,
     pub(crate) bias: Vec<f64>,
-    #[cfg_attr(feature = "serialize", serde(skip_serializing))]
+    #[cfg_attr(
+        all(feature = "serialize", not(feature = "serialize_json")),
+        serde(skip_serializing)
+    )]
     pub(crate) state: Vec<f64>,
-    #[cfg_attr(feature = "serialize", serde(skip_serializing))]
+    #[cfg_attr(
+        all(feature = "serialize", not(feature = "serialize_json")),
+        serde(skip_serializing)
+    )]
     pub(crate) sensory: Range<usize>,
-    #[cfg_attr(feature = "serialize", serde(skip_serializing))]
+    #[cfg_attr(
+        all(feature = "serialize", not(feature = "serialize_json")),
+        serde(skip_serializing)
+    )]
     pub(crate) action: Range<usize>,
 }
 
