@@ -13,7 +13,11 @@ fn bench_innogen(bench: &mut Criterion) {
     bench.bench_function("innogen", |b| {
         b.iter_batched(
             || InnoGen::new(0),
-            |mut inno| pairs.iter().for_each(|&p| { inno.path(p); }),
+            |mut inno| {
+                pairs.iter().for_each(|&p| {
+                    inno.path(p);
+                })
+            },
             criterion::BatchSize::SmallInput,
         )
     });

@@ -33,7 +33,7 @@ macro_rules! eval_pair {
         // tanh maps unbounded y → (-1, 1); targets are ±1
         let v = $network.output()[0].tanh();
         let error = ($want - v).abs(); // max error is 2.0 (e.g. want=1, v≈-1)
-        $fit += 1.0 - 0.5 * error;    // scale so worst case = 0.0, perfect = 1.0
+        $fit += 1.0 - 0.5 * error; // scale so worst case = 0.0, perfect = 1.0
         $network.flush();
     }};
 }

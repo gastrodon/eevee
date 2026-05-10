@@ -8,6 +8,13 @@ Read `.claude/memory/MEMORY.md` at the start of each session.
 
 ## Build & Test
 
+Always run `cargo fmt` after any code edits 
+
+```sh
+cargo fmt <file>
+cargo fmt <dir>
+cargo fmt # no args - 
+
 ```sh
 cargo build
 cargo test

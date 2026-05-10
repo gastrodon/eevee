@@ -102,7 +102,13 @@ mod test {
             }
         }
 
-        assert_eq!((nn.sensory.0, nn.sensory.1), (genome.sensory().start, genome.sensory().end));
-        assert_eq!((nn.action.0, nn.action.1), (genome.action().start, genome.action().end));
+        assert_eq!(
+            (nn.sensory.0, nn.sensory.1),
+            (genome.sensory().start, genome.sensory().end)
+        );
+        assert_eq!(
+            (nn.action.0, nn.action.1),
+            (genome.action().start, genome.action().end)
+        );
     }
 }
