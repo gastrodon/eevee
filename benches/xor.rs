@@ -4,7 +4,7 @@ use core::{marker::PhantomData, ops::ControlFlow};
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use eevee::{
     genome::{connection::BWConnection, Recurrent, WConnection},
-    network::{activate::steep_sigmoid, Continuous, NonBias, Simple, ToNetwork},
+    network::{activate::steep_sigmoid, Continuous, NonBias, ToNetwork},
     population::population_init,
     random::default_rng,
     scenario::{evolve, EvolutionHooks},
@@ -74,10 +74,9 @@ fn xor_stop_hook<C: Connection, G: Genome<C>>(stats: &mut Stats<'_, C, G>) -> Co
 // Usage:
 //   xor_evolve_bench!(
 //       group,
-//       connections:  [WConnection, BWConnection],
-//       genomes:      [Recurrent],          // each becomes Recurrent<C>
-//       networks:     [Continuous, NonBias], // plain types — used as-is
-//       networks_c:   [Simple],             // parameterised — used as Simple<C>
+//       connections: [WConnection, BWConnection],
+//       genomes:     [Recurrent],               // each becomes Recurrent<C>
+//       networks:    [Continuous, NonBias],      // plain types — used as-is
 //   );
 //
 // Why recursive rules instead of nested $(...)+?
@@ -85,48 +84,40 @@ fn xor_stop_hook<C: Connection, G: Genome<C>>(stats: &mut Stats<'_, C, G>) -> Co
 //   $(...) — all metavariables inside a repetition must come from the same
 //   capture group and share the same count.  The fix is TT-munching: peel off
 //   one Connection, call a helper that peels off one Genome, then call a leaf
-//   rule that can freely iterate both Network lists because C and G are now
+//   rule that can freely iterate the Network list because C and G are now
 //   single idents (not in any repetition group).
 
 macro_rules! xor_evolve_bench {
     // Entry point: normalise lists, hand off to @foreach_c
     (
         $group:expr,
-        connections:  [$($C:ident),+ $(,)?],
-        genomes:      [$($G:ident),+ $(,)?],
-        networks:     [$($N:ident),*  $(,)?],
-        networks_c:   [$($NC:ident),* $(,)?] $(,)?
+        connections: [$($C:ident),+ $(,)?],
+        genomes:     [$($G:ident),+ $(,)?],
+        networks:    [$($N:ident),* $(,)?] $(,)?
     ) => {
-        xor_evolve_bench!(
-            @foreach_c $group,
-            [$($C),+],
-            [$($G),+],
-            [$($N),*],
-            [$($NC),*]
-        )
+        xor_evolve_bench!(@foreach_c $group, [$($C),+], [$($G),+], [$($N),*])
     };
 
     // @foreach_c — base case: no connections left
-    (@foreach_c $group:expr, [], $Gs:tt, $Ns:tt, $NCs:tt) => {};
+    (@foreach_c $group:expr, [], $Gs:tt, $Ns:tt) => {};
 
     // @foreach_c — peel off the first C, recurse for the rest
-    (@foreach_c $group:expr, [$C:ident $(, $Cs:ident)*], $Gs:tt, $Ns:tt, $NCs:tt) => {
-        xor_evolve_bench!(@foreach_g $group, $C, $Gs, $Ns, $NCs);
-        xor_evolve_bench!(@foreach_c $group, [$($Cs),*], $Gs, $Ns, $NCs);
+    (@foreach_c $group:expr, [$C:ident $(, $Cs:ident)*], $Gs:tt, $Ns:tt) => {
+        xor_evolve_bench!(@foreach_g $group, $C, $Gs, $Ns);
+        xor_evolve_bench!(@foreach_c $group, [$($Cs),*], $Gs, $Ns);
     };
 
     // @foreach_g — base case: no genomes left for this C
-    (@foreach_g $group:expr, $C:ident, [], $Ns:tt, $NCs:tt) => {};
+    (@foreach_g $group:expr, $C:ident, [], $Ns:tt) => {};
 
     // @foreach_g — peel off the first G, recurse for the rest
-    (@foreach_g $group:expr, $C:ident, [$G:ident $(, $Gs:ident)*], $Ns:tt, $NCs:tt) => {
-        xor_evolve_bench!(@bench $group, $C, $G, $Ns, $NCs);
-        xor_evolve_bench!(@foreach_g $group, $C, [$($Gs),*], $Ns, $NCs);
+    (@foreach_g $group:expr, $C:ident, [$G:ident $(, $Gs:ident)*], $Ns:tt) => {
+        xor_evolve_bench!(@bench $group, $C, $G, $Ns);
+        xor_evolve_bench!(@foreach_g $group, $C, [$($Gs),*], $Ns);
     };
 
-    // @bench — C and G are now concrete; iterate both network lists freely
-    (@bench $group:expr, $C:ident, $G:ident, [$($N:ident),*], [$($NC:ident),*]) => {
-        // Plain network types (Continuous, NonBias, …)
+    // @bench — C and G are now concrete; iterate the network list freely
+    (@bench $group:expr, $C:ident, $G:ident, [$($N:ident),*]) => {
         $(
             $group.bench_function(
                 concat!(stringify!($C), "/", stringify!($G), "/", stringify!($N)),
@@ -136,29 +127,6 @@ macro_rules! xor_evolve_bench {
                         |(pop, inno_head)| {
                             evolve(
                                 XorScenario::<$N>(PhantomData),
-                                move |_| (pop, inno_head),
-                                steep_sigmoid,
-                                default_rng(),
-                                EvolutionHooks::new(vec![
-                                    Box::new(xor_stop_hook::<$C, $G<$C>>),
-                                ]),
-                            )
-                        },
-                        BatchSize::SmallInput,
-                    )
-                },
-            );
-        )*
-        // C-parameterised network types (Simple, …) — expanded as $NC<$C>
-        $(
-            $group.bench_function(
-                concat!(stringify!($C), "/", stringify!($G), "/", stringify!($NC)),
-                |b| {
-                    b.iter_batched(
-                        || population_init::<$C, $G<$C>>(2, 1, POPULATION),
-                        |(pop, inno_head)| {
-                            evolve(
-                                XorScenario::<$NC<$C>>(PhantomData),
                                 move |_| (pop, inno_head),
                                 steep_sigmoid,
                                 default_rng(),
@@ -191,18 +159,9 @@ fn bench_xor(c: &mut Criterion) {
 
     xor_evolve_bench!(
         group,
-        connections:  [WConnection, BWConnection],
-        genomes:      [Recurrent],
-        networks:     [Continuous, NonBias],
-        networks_c:   [],
-    );
-
-    xor_evolve_bench!(
-        group,
-        connections:  [WConnection, BWConnection],
-        genomes:      [Recurrent],
-        networks:     [],
-        networks_c:   [Simple],
+        connections: [WConnection, BWConnection],
+        genomes:     [Recurrent],
+        networks:    [Continuous, NonBias],
     );
 
     group.finish();
