@@ -14,7 +14,7 @@ fxhash = "~0.2"
 paste = "~1.0"
 rand = "~0.9"
 rand_distr = "~0.5"
-nalgebra = "~0.33"
+nalgebra = { version = "~0.33", features = ["serde-serialize"] }
 
 approx = { version = "~0.5", optional = true }
 rayon = { version = "~1.10", optional = true }

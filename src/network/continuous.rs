@@ -3,7 +3,7 @@ use crate::{Connection, Genome, Network};
 use nalgebra as na;
 
 #[cfg(feature = "serialize")]
-use crate::serialize::{deserialize_matrix_flat, deserialize_matrix_square, serialize_matrix};
+use crate::serialize::dmatrix;
 #[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
 
@@ -17,40 +17,16 @@ use serde::{Deserialize, Serialize};
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct Continuous {
     /// 1d state of neurons 0-N
-    #[cfg_attr(
-        feature = "serialize",
-        serde(
-            serialize_with = "serialize_matrix",
-            deserialize_with = "deserialize_matrix_flat"
-        )
-    )]
+    #[cfg_attr(feature = "serialize", serde(with = "dmatrix"))]
     pub y: na::DMatrix<f64>,
     /// 1d bias of neurons 0-N
-    #[cfg_attr(
-        feature = "serialize",
-        serde(
-            serialize_with = "serialize_matrix",
-            deserialize_with = "deserialize_matrix_flat"
-        )
-    )]
+    #[cfg_attr(feature = "serialize", serde(with = "dmatrix"))]
     pub θ: na::DMatrix<f64>,
     /// 1d membrane resistance time constant
-    #[cfg_attr(
-        feature = "serialize",
-        serde(
-            serialize_with = "serialize_matrix",
-            deserialize_with = "deserialize_matrix_flat"
-        )
-    )]
+    #[cfg_attr(feature = "serialize", serde(with = "dmatrix"))]
     pub τ: na::DMatrix<f64>,
     /// Nd weights between neurons, indexed as [from, to]
-    #[cfg_attr(
-        feature = "serialize",
-        serde(
-            serialize_with = "serialize_matrix",
-            deserialize_with = "deserialize_matrix_square"
-        )
-    )]
+    #[cfg_attr(feature = "serialize", serde(with = "dmatrix"))]
     pub w: na::DMatrix<f64>,
     /// Range of input neurons, indexing into y
     pub sensory: (usize, usize),

@@ -3,28 +3,16 @@ use crate::{Connection, Genome};
 use nalgebra as na;
 
 #[cfg(feature = "serialize")]
-use crate::serialize::{deserialize_matrix_flat, deserialize_matrix_square, serialize_matrix};
+use crate::serialize::dmatrix;
 #[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug)]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct NonBias {
-    #[cfg_attr(
-        feature = "serialize",
-        serde(
-            serialize_with = "serialize_matrix",
-            deserialize_with = "deserialize_matrix_flat"
-        )
-    )]
+    #[cfg_attr(feature = "serialize", serde(with = "dmatrix"))]
     pub y: na::DMatrix<f64>,
-    #[cfg_attr(
-        feature = "serialize",
-        serde(
-            serialize_with = "serialize_matrix",
-            deserialize_with = "deserialize_matrix_square"
-        )
-    )]
+    #[cfg_attr(feature = "serialize", serde(with = "dmatrix"))]
     pub w: na::DMatrix<f64>,
     pub sensory: (usize, usize),
     pub action: (usize, usize),

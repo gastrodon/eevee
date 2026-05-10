@@ -6,11 +6,19 @@ use std::collections::HashSet;
 
 /// A genome that allows recurrent connections
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serialize", serde(bound = "C: Connection"))]
 pub struct Recurrent<C: Connection> {
     pub(crate) sensory: usize,
     pub(crate) action: usize,
     pub(crate) node_count: usize,
     pub(crate) connections: Vec<C>,
+}
+
+impl<C: Connection> Recurrent<C> {
+    fn static_idx(&self) -> usize {
+        self.sensory + self.action
+    }
 }
 
 impl<C: Connection> Genome<C> for Recurrent<C> {

@@ -1,54 +1,20 @@
 //! Helpers for de/serializing NeuroEvolution components
 
+/// Serde module for `DMatrix<f64>` using nalgebra's `(data, nrows, ncols)` tuple
+/// format with u64 bit-encoding for exact f64 round-trip.
 #[cfg(feature = "serialize")]
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use nalgebra as na;
+pub mod dmatrix {
+    use nalgebra as na;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-#[cfg(feature = "serialize")]
-pub fn serialize_matrix<S: Serializer>(
-    matrix: &na::DMatrix<f64>,
-    serializer: S,
-) -> Result<S::Ok, S::Error> {
-    // Iterate in row-major order to maintain compatibility
-    let mut bits = Vec::new();
-    for row in matrix.row_iter() {
-        for &val in row.iter() {
-            bits.push(f64::to_bits(val));
-        }
+    pub fn serialize<S: Serializer>(m: &na::DMatrix<f64>, s: S) -> Result<S::Ok, S::Error> {
+        let bits: Vec<u64> = m.as_slice().iter().map(|&f| f.to_bits()).collect();
+        (bits, m.nrows(), m.ncols()).serialize(s)
     }
 
-    bits.serialize(serializer)
-}
-
-#[cfg(feature = "serialize")]
-pub fn deserialize_matrix_flat<'de, D: Deserializer<'de>>(
-    deserializer: D,
-) -> Result<na::DMatrix<f64>, D::Error> {
-    Vec::<u64>::deserialize(deserializer).map(|v| {
-        // Convert u64 bits back to f64 values
-        let float_data: Vec<f64> = v.into_iter().map(f64::from_bits).collect();
-
-        na::DMatrix::from_row_slice(1, float_data.len(), &float_data)
-    })
-}
-
-#[cfg(feature = "serialize")]
-pub fn deserialize_matrix_square<'de, D: Deserializer<'de>>(
-    deserializer: D,
-) -> Result<na::DMatrix<f64>, D::Error> {
-    Vec::<u64>::deserialize(deserializer).map(|v| {
-        // Convert u64 bits back to f64 values
-        let float_data: Vec<f64> = v.into_iter().map(f64::from_bits).collect();
-
-        let n = (float_data.len() as f64).sqrt() as usize;
-        debug_assert_eq!(n * n, float_data.len(), "non-square weight vec");
-        na::DMatrix::from_row_slice(n, n, &float_data)
-    })
-}
-
-#[cfg(feature = "serialize")]
-pub fn deserialize_connections<'de, C: crate::Connection, D: Deserializer<'de>>(
-    deserializer: D,
-) -> Result<Vec<C>, D::Error> {
-    Vec::<C>::deserialize(deserializer)
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<na::DMatrix<f64>, D::Error> {
+        let (bits, nrows, ncols): (Vec<u64>, usize, usize) = Deserialize::deserialize(d)?;
+        let data: Vec<f64> = bits.into_iter().map(f64::from_bits).collect();
+        Ok(na::DMatrix::from_vec(nrows, ncols, data))
+    }
 }
