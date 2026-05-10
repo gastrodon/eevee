@@ -35,5 +35,35 @@ smol_bench = []
 [[example]]
 name = "xor"
 
+[[example]]
+name = "xor_generate_fixture"
+required-features = ["serialize_json"]
+
 [[bench]]
 name = "xor"
+harness = false
+
+[[bench]]
+name = "speciate"
+harness = false
+required-features = ["serialize_json"]
+
+[[bench]]
+name = "crossover"
+harness = false
+required-features = ["serialize_json"]
+
+[[bench]]
+name = "nn_eval"
+harness = false
+required-features = ["serialize_json"]
+
+[[bench]]
+name = "genome_to_nn"
+harness = false
+required-features = ["serialize_json"]
+
+[[bench]]
+name = "reproduce"
+harness = false
+required-features = ["serialize_json"]
