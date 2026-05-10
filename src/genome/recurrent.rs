@@ -1,21 +1,16 @@
 use super::{Connection, Genome, InnoGen};
-use crate::{crossover::crossover, serialize::deserialize_connections};
+use crate::crossover::crossover;
 use core::cmp::{max, Ordering};
 use rand::{seq::IteratorRandom, RngCore};
-use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
 /// A genome that allows recurrent connections
-///
-/// Node layout: `[0..sensory)` sensory, `[sensory..sensory+action)` action,
-/// `(sensory+action..)` internal.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct Recurrent<C: Connection> {
-    sensory: usize,
-    action: usize,
-    node_count: usize,
-    #[serde(deserialize_with = "deserialize_connections")]
-    connections: Vec<C>,
+    pub(crate) sensory: usize,
+    pub(crate) action: usize,
+    pub(crate) node_count: usize,
+    pub(crate) connections: Vec<C>,
 }
 
 impl<C: Connection> Genome<C> for Recurrent<C> {
