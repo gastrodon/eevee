@@ -1,7 +1,7 @@
 //! JSON serialization: blanket `SerializeFile` impl, field helpers, and per-type impls.
 
 use crate::serialize::SerializeFile;
-use nalgebra as na;
+use rulinalg::matrix::Matrix;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 const SERIALIZER_ID: &str = "json-1";
@@ -18,33 +18,32 @@ impl<T: Serialize + for<'de> Deserialize<'de>> SerializeFile for T {
     }
 }
 
-fn serialize_matrix<S: Serializer>(matrix: &na::DMatrix<f64>, ser: S) -> Result<S::Ok, S::Error> {
-    let bits: Vec<u64> = matrix.as_slice().iter().map(|&f| f64::to_bits(f)).collect();
+pub(crate) fn serialize_matrix<S: Serializer>(
+    matrix: &Matrix<f64>,
+    ser: S,
+) -> Result<S::Ok, S::Error> {
+    let bits: Vec<u64> = matrix.data().iter().map(|&f| f64::to_bits(f)).collect();
     bits.serialize(ser)
 }
 
-fn deserialize_matrix_flat<'de, D: Deserializer<'de>>(de: D) -> Result<na::DMatrix<f64>, D::Error> {
+pub(crate) fn deserialize_matrix_flat<'de, D: Deserializer<'de>>(
+    de: D,
+) -> Result<Matrix<f64>, D::Error> {
     Vec::<u64>::deserialize(de).map(|v| {
         let float_data: Vec<f64> = v.into_iter().map(f64::from_bits).collect();
-        na::DMatrix::from_vec(1, float_data.len(), float_data)
+        Matrix::new(1, float_data.len(), float_data)
     })
 }
 
-fn deserialize_matrix_square<'de, D: Deserializer<'de>>(
+pub(crate) fn deserialize_matrix_square<'de, D: Deserializer<'de>>(
     de: D,
-) -> Result<na::DMatrix<f64>, D::Error> {
+) -> Result<Matrix<f64>, D::Error> {
     Vec::<u64>::deserialize(de).map(|v| {
         let float_data: Vec<f64> = v.into_iter().map(f64::from_bits).collect();
         let n = (float_data.len() as f64).sqrt() as usize;
         debug_assert_eq!(n * n, float_data.len(), "non-square weight vec");
-        na::DMatrix::from_vec(n, n, float_data)
+        Matrix::new(n, n, float_data)
     })
-}
-
-fn deserialize_connections<'de, C: crate::Connection + Deserialize<'de>, D: Deserializer<'de>>(
-    de: D,
-) -> Result<Vec<C>, D::Error> {
-    Vec::<C>::deserialize(de)
 }
 
 /// Generate `Serialize`/`Deserialize` impls for a type, wrapped in a private module named
@@ -61,8 +60,8 @@ fn deserialize_connections<'de, C: crate::Connection + Deserialize<'de>, D: Dese
 /// # Non-generic
 /// ```ignore
 /// json_impl! {
-///     use crate::network::Continuous;
-///     Continuous {
+///     use crate::network::Realtime;
+///     Realtime {
 ///         plain_field: u32,
 ///         #[serde(serialize_with = "ser_fn", deserialize_with = "de_fn")]
 ///         matrix_field: Matrix<f64>,
@@ -170,153 +169,20 @@ macro_rules! json_impl {
 }
 
 json_impl! {
-    use crate::network::Continuous;
+    use crate::network::continuous::Continuous;
 
     Continuous {
         #[serde(serialize_with = "serialize_matrix", deserialize_with = "deserialize_matrix_flat")]
-        y: na::DMatrix<f64>,
+        y: Matrix<f64>,
         #[serde(serialize_with = "serialize_matrix", deserialize_with = "deserialize_matrix_flat")]
-        θ: na::DMatrix<f64>,
+        θ: Matrix<f64>,
         #[serde(serialize_with = "serialize_matrix", deserialize_with = "deserialize_matrix_flat")]
-        τ: na::DMatrix<f64>,
+        τ: Matrix<f64>,
         #[serde(serialize_with = "serialize_matrix", deserialize_with = "deserialize_matrix_square")]
-        w: na::DMatrix<f64>,
+        w: Matrix<f64>,
         sensory: (usize, usize),
         action: (usize, usize),
     }
 }
 
-json_impl! {
-    use crate::network::NonBias;
-
-    NonBias {
-        #[serde(serialize_with = "serialize_matrix", deserialize_with = "deserialize_matrix_flat")]
-        y: na::DMatrix<f64>,
-        #[serde(serialize_with = "serialize_matrix", deserialize_with = "deserialize_matrix_square")]
-        w: na::DMatrix<f64>,
-        sensory: (usize, usize),
-        action: (usize, usize),
-    }
-}
-
-// Simple needs a manual impl because state/sensory/action are derived on deserialize.
-mod simple {
-    use super::*;
-    use crate::network::Simple;
-
-    #[derive(Serialize)]
-    struct Ref<'a, C: crate::Connection + Serialize> {
-        connections: &'a Vec<C>,
-        bias: &'a Vec<f64>,
-    }
-
-    #[derive(Deserialize)]
-    struct Data<C: crate::Connection + for<'de2> Deserialize<'de2>> {
-        #[serde(deserialize_with = "deserialize_connections")]
-        connections: Vec<C>,
-        bias: Vec<f64>,
-    }
-
-    impl<C: crate::Connection + Serialize> Serialize for Simple<C> {
-        fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-            Ref {
-                connections: &self.connections,
-                bias: &self.bias,
-            }
-            .serialize(s)
-        }
-    }
-
-    impl<'de, C: crate::Connection + for<'de2> Deserialize<'de2>> Deserialize<'de> for Simple<C> {
-        fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-            let v = Data::deserialize(d)?;
-            let n = v.bias.len();
-            Ok(Simple {
-                connections: v.connections,
-                bias: v.bias,
-                state: vec![0.; n],
-                sensory: 0..0,
-                action: 0..0,
-            })
-        }
-    }
-}
-
-json_impl! {
-    use crate::genome::connection::WConnection;
-
-    WConnection {
-        inno: usize,
-        from: usize,
-        to: usize,
-        weight: f64,
-        enabled: bool,
-    }
-}
-
-json_impl! {
-    use crate::genome::connection::BWConnection;
-
-    BWConnection {
-        inno: usize,
-        from: usize,
-        to: usize,
-        bias: f64,
-        weight: f64,
-        enabled: bool,
-    }
-}
-
-json_impl! {
-    use crate::genome::recurrent::Recurrent;
-
-    Recurrent<C: crate::Connection> {
-        sensory: usize,
-        action: usize,
-        node_count: usize,
-        #[serde(deserialize_with = "deserialize_connections")]
-        connections: Vec<C>,
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use crate::{
-        activate, assert_matrix_approx,
-        network::{Continuous, Network},
-        random::default_rng,
-        SerializeFile,
-    };
-    use nalgebra as na;
-    use rand_distr::{Distribution, Uniform};
-
-    #[test]
-    fn test_ctrnn_behavioral_equivalence() {
-        let n = 10;
-        let mut rng = default_rng();
-        let dist = Uniform::new(-10f64, 10.).unwrap();
-
-        let y_data: Vec<f64> = (0..n).map(|_| dist.sample(&mut rng)).collect();
-        let θ_data: Vec<f64> = (0..n).map(|_| dist.sample(&mut rng)).collect();
-        let τ_data: Vec<f64> = (0..n).map(|_| dist.sample(&mut rng).abs() + 0.1).collect();
-        let w_data: Vec<f64> = (0..n * n).map(|_| dist.sample(&mut rng)).collect();
-
-        let mut original = Continuous {
-            y: na::DMatrix::from_row_slice(1, n, &y_data),
-            θ: na::DMatrix::from_row_slice(1, n, &θ_data),
-            τ: na::DMatrix::from_row_slice(1, n, &τ_data),
-            w: na::DMatrix::from_row_slice(n, n, &w_data),
-            sensory: (0, 2),
-            action: (3, 5),
-        };
-        let serialized = original.to_str().expect("Failed to serialize");
-        let mut deserialized = Continuous::from_str(&serialized).expect("Failed to deserialize");
-
-        for _ in 0..500 {
-            let input: Vec<f64> = (0..2).map(|_| dist.sample(&mut rng)).collect();
-            original.step(10, &input, activate::steep_sigmoid);
-            deserialized.step(10, &input, activate::steep_sigmoid);
-            assert_matrix_approx!(original.output(), deserialized.output());
-        }
-    }
-}
+pub(crate) use json_impl;

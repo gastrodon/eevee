@@ -1,22 +1,27 @@
-use core::cmp::Ordering;
 use criterion::Criterion;
-use eevee::{crossover::crossover, genome::WConnection, random::default_rng};
+use eevee::{
+    genome::{Recurrent, WConnection},
+    population::speciate,
+    reproduce::population_alloc,
+};
 
 type C = WConnection;
+type G = Recurrent<C>;
 
-fn bench_crossover(bench: &mut Criterion) {
-    let l_conn =
-        serde_json::from_str::<Vec<C>>(include_str!("data/ctr-connection-rand-l.json")).unwrap();
-    let r_conn =
-        serde_json::from_str::<Vec<C>>(include_str!("data/ctr-connection-rand-r.json")).unwrap();
+fn bench_alloc(bench: &mut Criterion) {
+    let population = 100;
+    let species = speciate(
+        serde_json::from_str::<Vec<(G, _)>>(include_str!("data/ctr-genome-xor-100.json"))
+            .unwrap()
+            .into_iter(),
+        vec![].into_iter(),
+    );
 
-    let mut rng = default_rng();
-    bench.bench_function("crossover-ne", |b| {
-        b.iter(|| crossover(&l_conn, &r_conn, Ordering::Greater, &mut rng))
-    });
-
-    bench.bench_function("crossover-eq", |b| {
-        b.iter(|| crossover(&l_conn, &r_conn, Ordering::Equal, &mut rng))
+    bench.bench_function("alloc", |b| {
+        b.iter_with_setup(
+            || species.clone(),
+            |species| population_alloc(species, population),
+        )
     });
 }
 
@@ -35,7 +40,7 @@ pub fn benches() {
             .without_plots()
             .configure_from_args()
     };
-    bench_crossover(&mut criterion);
+    bench_alloc(&mut criterion);
 }
 
 fn main() {

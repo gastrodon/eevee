@@ -1,29 +1,37 @@
-use core::cmp::Ordering;
 use criterion::Criterion;
-use eevee::{crossover::crossover, genome::WConnection, random::default_rng};
+use eevee::{
+    genome::{Genome, InnoGen, Recurrent, WConnection},
+    random::default_rng,
+    SerializeFile as _,
+};
 
 type C = WConnection;
+type G = Recurrent<C>;
 
-fn bench_crossover(bench: &mut Criterion) {
-    let l_conn =
-        serde_json::from_str::<Vec<C>>(include_str!("data/ctr-connection-rand-l.json")).unwrap();
-    let r_conn =
-        serde_json::from_str::<Vec<C>>(include_str!("data/ctr-connection-rand-r.json")).unwrap();
-
+fn bench_mutate(bench: &mut Criterion) {
+    let genome = G::from_str(include_str!("data/ctr-genome-rand-100.json")).unwrap();
     let mut rng = default_rng();
-    bench.bench_function("crossover-ne", |b| {
-        b.iter(|| crossover(&l_conn, &r_conn, Ordering::Greater, &mut rng))
+    bench.bench_function("mutate-connection", |b| {
+        b.iter(|| {
+            genome
+                .clone()
+                .new_connection(&mut rng, &mut InnoGen::new(300))
+        })
     });
 
-    bench.bench_function("crossover-eq", |b| {
-        b.iter(|| crossover(&l_conn, &r_conn, Ordering::Equal, &mut rng))
+    bench.bench_function("mutate-bisection", |b| {
+        b.iter(|| {
+            genome
+                .clone()
+                .bisect_connection(&mut rng, &mut InnoGen::new(300))
+        })
     });
 }
 
 pub fn benches() {
     #[cfg(not(feature = "smol_bench"))]
     let mut criterion: criterion::Criterion<_> = Criterion::default()
-        .sample_size(1000)
+        .sample_size(2000)
         .significance_level(0.1);
     #[cfg(feature = "smol_bench")]
     let mut criterion: criterion::Criterion<_> = {
@@ -35,7 +43,7 @@ pub fn benches() {
             .without_plots()
             .configure_from_args()
     };
-    bench_crossover(&mut criterion);
+    bench_mutate(&mut criterion);
 }
 
 fn main() {

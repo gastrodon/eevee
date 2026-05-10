@@ -9,10 +9,12 @@
 //! complex behavior. Through evolution, that complex behavior is refined towards increasing
 //! some one-dimensional fitness.
 pub mod connection;
-pub mod recurrent;
+pub mod nn_organism;
+pub mod nn_policies;
 
 pub use connection::WConnection;
-pub use recurrent::Recurrent;
+pub use nn_organism::{NNOrganism, PathPolicy};
+pub use nn_policies::{NonRecurrent, Recurrent};
 
 use crate::random::{percent, ConnectionEvent, EventKind, GenomeEvent};
 use core::{cmp::Ordering, error::Error, fmt::Debug, hash::Hash, ops::Range};
@@ -124,9 +126,9 @@ pub trait Connection: Clone + Hash + PartialEq + Default + Debug {
 /// same kind, their connections constructively crossing over.
 pub trait Genome<C: Connection>: Clone {
     const MUTATE_NODE_PROBABILITY: u64 = percent(20);
-    const MUTATE_CONNECTION_PROBABILITY: u64 = percent(20);
+    const MUTATE_CONNECTION_PROBABILITY: u64 = percent(30);
     const PROBABILITIES: [u64; GenomeEvent::COUNT] =
-        [percent(5), percent(5), percent(90), percent(0)];
+        [percent(10), percent(10), percent(80), percent(0)];
 
     /// A new genome of this type, with a known input and output size.
     fn new(sensory: usize, action: usize) -> (Self, usize);
@@ -135,8 +137,8 @@ pub trait Genome<C: Connection>: Clone {
 
     fn action(&self) -> Range<usize>;
 
-    /// Total number of nodes. Layout:
-    /// `[0..sensory)` sensory, `[sensory..+action)` action, `(sensory+action..)` internal.
+    /// Total number of nodes. Layout: `[0..sensory)` sensory, `[sensory..+action)` action,
+    /// `(sensory+action..)` internal.
     fn node_count(&self) -> usize;
 
     /// Push a new internal node.

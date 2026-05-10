@@ -1,9 +1,6 @@
-[workspace]
-members = [".", "eevee-macros"]
-
 [package]
 name = "eevee"
-version = "0.2.1"
+version = "0.2.0"
 edition = "2021"
 description = "Generalized NeuroEvolution toolkit, based on NEAT"
 license = "AGPL-3.0-or-later"
@@ -14,9 +11,7 @@ fxhash = "~0.2"
 paste = "~1.0"
 rand = "~0.9"
 rand_distr = "~0.5"
-nalgebra = "~0.33"
-
-approx = { version = "~0.5", optional = true }
+rulinalg = "~0.4"
 rayon = { version = "~1.10", optional = true }
 serde = { version = "~1.0", features = ["derive"], optional = true }
 serde_json = { version = "~1.0", features = ["preserve_order"], optional = true }
@@ -24,34 +19,16 @@ serde_json = { version = "~1.0", features = ["preserve_order"], optional = true 
 [dev-dependencies]
 criterion = "~0.5"
 flamegraph = "~0.6"
-eevee-macros = { path = "eevee-macros" }
+serde_json = { version = "~1.0", features = ["preserve_order"] }
 
 [features]
-approx = ["dep:approx"]
 parallel = ["dep:rayon"]
 serialize = ["dep:serde"]
-serialize_json = ["serialize", "dep:serde_json"]
+serialize_json = ["dep:serde_json", "serialize"]
 smol_bench = []
 
 [[example]]
 name = "xor"
-
-[[example]]
-name = "xor_generate_fixture"
-required-features = ["serialize_json"]
-
-[[bench]]
-name = "innogen"
-harness = false
-
-[[bench]]
-name = "xor"
-harness = false
-
-[[bench]]
-name = "speciate"
-harness = false
-required-features = ["serialize_json"]
 
 [[bench]]
 name = "crossover"
@@ -59,16 +36,34 @@ harness = false
 required-features = ["serialize_json"]
 
 [[bench]]
-name = "nn_eval"
+name = "innogen"
+harness = false
+
+[[bench]]
+name = "mutate"
 harness = false
 required-features = ["serialize_json"]
 
 [[bench]]
-name = "genome_to_nn"
+name = "nn"
+harness = false
+required-features = ["serialize_json"]
+
+[[bench]]
+name = "random"
+harness = false
+
+[[bench]]
+name = "alloc"
 harness = false
 required-features = ["serialize_json"]
 
 [[bench]]
 name = "reproduce"
+harness = false
+required-features = ["serialize_json"]
+
+[[bench]]
+name = "speciate"
 harness = false
 required-features = ["serialize_json"]
