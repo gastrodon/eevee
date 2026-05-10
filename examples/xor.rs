@@ -10,8 +10,20 @@ use eevee::{
     scenario::{evolve, EvolutionHooks},
     Connection, Scenario, Stats,
 };
+use rand::Rng;
 
-const POPULATION: usize = 1000;
+const POPULATION: usize = 100;
+
+const XOR_PAIRS: [([f64; 2], f64); 4] = [
+    ([0., 0.], 1.),
+    ([1., 1.], 1.),
+    ([1., 0.], -1.),
+    ([0., 1.], -1.),
+];
+
+fn xor_training_data(n: usize, rng: &mut impl Rng) -> Vec<([f64; 2], f64)> {
+    (0..n).map(|_| XOR_PAIRS[rng.random_range(0..4)]).collect()
+}
 
 struct Xor;
 
@@ -37,97 +49,39 @@ impl<C: Connection, G: Genome<C> + ToNetwork<Continuous, C>, A: Fn(f64) -> f64> 
         let mut network = genome.network();
         let mut fit = 0.;
 
-        eval_pair!([0., 0.],  1., (network fit σ));
-        eval_pair!([1., 1.],  1., (network fit σ));
-        eval_pair!([1., 0.], -1., (network fit σ));
-        eval_pair!([0., 1.], -1., (network fit σ));
+        for (input, want) in xor_training_data(10, &mut rand::rng()) {
+            eval_pair!(input, want, (network fit σ));
+        }
 
         fit
     }
 }
 
-fn dump_generation<C: Connection, G: Genome<C>>(stats: &Stats<'_, C, G>) {
-    use std::io::Write;
-
-    let gen = stats.generation;
-    let dir = format!("output/{gen}");
-    std::fs::create_dir_all(&dir).unwrap();
-
-    let all: Vec<(&G, f64)> = stats
+fn hook<C: Connection, G: Genome<C>>(stats: &mut Stats<'_, C, G>) -> ControlFlow<()> {
+    let (g, f) = stats.fittest().unwrap();
+    let total = stats.species.iter().map(|s| s.len()).sum::<usize>() as f64;
+    let breakdown = stats
         .species
         .iter()
-        .flat_map(|s| s.members.iter().map(|(g, f)| (g, *f)))
-        .collect();
-
-    // Champion
-    if let Some((champ, _)) = stats.fittest() {
-        champ.to_file(format!("{dir}/genome-champ.json")).unwrap();
-    }
-
-    // 10 evenly-spaced samples across the population
-    let n = all.len();
-    for i in 0..10usize {
-        let idx = (i * n) / 10;
-        if let Some((genome, _)) = all.get(idx) {
-            genome.to_file(format!("{dir}/genome-{i}.json")).unwrap();
-        }
-    }
-
-    // CSV row
-    let csv_path = "output/run.csv";
-    let write_header = !std::path::Path::new(csv_path).exists();
-    let mut csv = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(csv_path)
-        .unwrap();
-
-    if write_header {
-        writeln!(csv, "generation,best_fitness,best_nodes,best_conns,species,population,mean_fitness").unwrap();
-    }
-
-    let (best_nodes, best_conns, best_fitness) = stats
-        .fittest()
-        .map(|(g, f)| (g.nodes().len(), g.connections().len(), *f))
-        .unwrap_or((0, 0, 0.));
-    let mean_fitness = if all.is_empty() {
-        0.
-    } else {
-        all.iter().map(|(_, f)| f).sum::<f64>() / all.len() as f64
-    };
-
-    writeln!(
-        csv,
-        "{gen},{best_fitness:.6},{best_nodes},{best_conns},{},{},{mean_fitness:.6}",
+        .map(|s| format!("{:.0}%", 100. * s.len() as f64 / total))
+        .collect::<Vec<_>>()
+        .join(", ");
+    println!(
+        "gen {}: {:.4} ({} nodes, {} conns) of {} species [{}]",
+        stats.generation,
+        f,
+        g.nodes().len(),
+        g.connections().len(),
         stats.species.len(),
-        all.len(),
-    )
-    .unwrap();
-}
+        breakdown,
+    );
 
-fn hook<C: Connection, G: Genome<C>>(stats: &mut Stats<'_, C, G>) -> ControlFlow<()> {
-    if stats.generation % 10 == 0 {
-        dump_generation(stats);
-    }
-
-    if stats.generation % 10 == 0 {
-        let (g, f) = stats.fittest().unwrap();
-        println!(
-            "gen {}: {:.4} ({} nodes, {} conns) of {} species",
-            stats.generation,
-            f,
-            g.nodes().len(),
-            g.connections().len(),
-            stats.species.len()
-        );
-    }
-
-    if stats.any_fitter_than(3.9) {
+    if stats.any_fitter_than(9.5) {
         println!("target met in gen {}", stats.generation);
         return ControlFlow::Break(());
     }
 
-    if stats.generation >= 500 {
+    if stats.generation >= 200 {
         println!("generation limit reached");
         return ControlFlow::Break(());
     }
