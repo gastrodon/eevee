@@ -9,12 +9,10 @@ use crate::{
 use core::{f64, ops::ControlFlow};
 use rand::RngCore;
 #[cfg(feature = "parallel")]
-use rayon::{
-    iter::{IntoParallelIterator, ParallelIterator},
-    ThreadPoolBuilder,
-};
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::collections::HashMap;
 
+const SPECIE_THRESHOLD: f64 = 4.0;
 const NO_IMPROVEMENT_TRUNCATE: usize = 10;
 
 /// Stats passed to a hook fn
@@ -111,11 +109,10 @@ pub fn evolve<
         )
     };
 
-    #[cfg(feature = "parallel")]
-    let thread_pool = ThreadPoolBuilder::new().build().unwrap();
     let population_lim = pop_flat.len();
 
-    let mut scores: HashMap<SpecieRepr<C>, _> = HashMap::new();
+    // scores: repr → (best_fitness, gen_last_improved, gen_born)
+    let mut scores: HashMap<SpecieRepr<C>, (f64, usize, usize)> = HashMap::new();
     let mut gen_idx = 0;
     loop {
         let species = {
@@ -125,24 +122,26 @@ pub fn evolve<
                 (genome, fitness)
             });
             #[cfg(feature = "parallel")]
-            let genomes = thread_pool.install(|| {
-                pop_flat
-                    .into_par_iter()
-                    .map(|genome| {
-                        let fitness = scenario.eval(&genome, &σ);
-                        (genome, fitness)
-                    })
-                    .collect::<Vec<_>>()
-                    .into_iter()
-            });
-            let reprs = scores.keys().cloned();
+            let genomes = pop_flat
+                .into_par_iter()
+                .map(|genome| {
+                    let fitness = scenario.eval(&genome, &σ);
+                    (genome, fitness)
+                })
+                .collect::<Vec<_>>()
+                .into_iter();
+            let reprs = scores
+                .iter()
+                .map(|(repr, (_, _, born))| (repr.clone(), *born));
 
             #[cfg(not(feature = "smol_bench"))]
-            let species = speciate(genomes, reprs);
+            let species = speciate(genomes, reprs, gen_idx, SPECIE_THRESHOLD);
             #[cfg(feature = "smol_bench")]
             let species = speciate(
                 genomes.collect::<Vec<_>>().into_iter(),
                 reprs.collect::<Vec<_>>().into_iter(),
+                gen_idx,
+                SPECIE_THRESHOLD,
             );
             species
         };
@@ -160,35 +159,44 @@ pub fn evolve<
         let scores_prev = scores;
         scores = species
             .iter()
-            .filter_map(|Specie { repr, members, .. }| {
-                let gen_max = members.iter().max_by(|(_, l), (_, r)| {
-                    l.partial_cmp(r)
-                        .unwrap_or_else(|| panic!("cannot partial_cmp {l} and {r}"))
-                });
-                let past_max = scores_prev.get(repr);
+            .filter_map(
+                |Specie {
+                     repr,
+                     members,
+                     born,
+                     ..
+                 }| {
+                    let gen_max = members.iter().max_by(|(_, l), (_, r)| {
+                        l.partial_cmp(r)
+                            .unwrap_or_else(|| panic!("cannot partial_cmp {l} and {r}"))
+                    });
+                    let past_max = scores_prev.get(repr);
 
-                match (gen_max, past_max) {
-                    (Some((_, gen_max)), Some((past_max, past_idx))) => {
-                        if gen_max > past_max {
-                            Some((repr.clone(), (*gen_max, gen_idx)))
-                        } else {
-                            Some((repr.clone(), (*past_max, *past_idx)))
+                    match (gen_max, past_max) {
+                        (Some((_, gen_max)), Some((past_max, past_idx, past_born))) => {
+                            if gen_max > past_max {
+                                Some((repr.clone(), (*gen_max, gen_idx, *past_born)))
+                            } else {
+                                Some((repr.clone(), (*past_max, *past_idx, *past_born)))
+                            }
                         }
+                        (Some((_, gen_max)), None) => {
+                            Some((repr.clone(), (*gen_max, gen_idx, *born)))
+                        }
+                        // Species went empty but had history — keep its repr in scores so
+                        // speciation next generation can still match genomes to it. Without
+                        // this, the niche is permanently lost the moment a species empties.
+                        (None, Some(past)) => Some((repr.clone(), *past)),
+                        (None, None) => None,
                     }
-                    (Some((_, gen_max)), None) => Some((repr.clone(), (*gen_max, gen_idx))),
-                    // Species went empty but had history — keep its repr in scores so
-                    // speciation next generation can still match genomes to it. Without
-                    // this, the niche is permanently lost the moment a species empties.
-                    (None, Some(past)) => Some((repr.clone(), *past)),
-                    (None, None) => None,
-                }
-            })
+                },
+            )
             .collect();
 
         let p_truncated = species
             .into_iter()
             .filter_map(|s| {
-                let (_, gen_achieved) = *scores.get(&s.repr).unwrap_or(&(f64::MIN, gen_idx));
+                let (_, gen_achieved, _) = *scores.get(&s.repr).unwrap_or(&(f64::MIN, gen_idx, 0));
                 let stagnant = gen_achieved + NO_IMPROVEMENT_TRUNCATE <= gen_idx;
 
                 if stagnant && s.members.len() > 2 {
@@ -202,6 +210,7 @@ pub fn evolve<
                             });
                             trunc[..2].to_vec()
                         },
+                        born: s.born,
                     })
                 } else if stagnant {
                     None // already minimal and still stagnant — kill
@@ -212,7 +221,7 @@ pub fn evolve<
             .collect::<Vec<_>>();
 
         (pop_flat, inno_head) =
-            population_reproduce(&p_truncated, population_lim, inno_head, &mut rng);
+            population_reproduce(&p_truncated, population_lim, gen_idx, inno_head, &mut rng);
         debug_assert!(!pop_flat.is_empty(), "nobody past {gen_idx}");
         gen_idx += 1
     }
