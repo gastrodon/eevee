@@ -1,8 +1,8 @@
 use criterion::Criterion;
 use eevee::{
-    genome::InnoGen,
-    genome::{Genome, Recurrent, WConnection},
+    genome::{Genome, InnoGen, Recurrent, WConnection},
     random::default_rng,
+    SerializeFile as _,
 };
 
 type C = WConnection;

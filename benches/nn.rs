@@ -2,7 +2,7 @@
 #![allow(confusable_idents)]
 
 use criterion::Criterion;
-use eevee::{activate::relu, network::Continuous, Network};
+use eevee::{activate::relu, network::Continuous, Network, SerializeFile as _};
 
 fn bench_nn(bench: &mut Criterion) {
     let net = Continuous::from_str(include_str!("data/ctrnn-rand-100.json")).unwrap();
