@@ -204,7 +204,6 @@ mod simple {
 
     #[derive(Serialize)]
     struct Ref<'a, C: crate::Connection + Serialize> {
-        #[serde(deserialize_with = "deserialize_connections")]
         connections: &'a Vec<C>,
         bias: &'a Vec<f64>,
     }
