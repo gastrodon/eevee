@@ -1,8 +1,5 @@
-use super::{Connection, Genome, InnoGen, NodeKind};
-use crate::{
-    crossover::crossover,
-    serialize::{deserialize_connections, deserialize_nodes},
-};
+use super::{Connection, Genome, InnoGen};
+use crate::{crossover::crossover, serialize::deserialize_connections};
 use core::cmp::{max, Ordering};
 use rand::{seq::IteratorRandom, RngCore};
 use serde::{Deserialize, Serialize};
@@ -13,34 +10,29 @@ use std::collections::HashSet;
 pub struct Recurrent<C: Connection> {
     sensory: usize,
     action: usize,
-    #[serde(deserialize_with = "deserialize_nodes")]
-    nodes: Vec<NodeKind>,
+    node_count: usize,
     #[serde(deserialize_with = "deserialize_connections")]
     connections: Vec<C>,
 }
 
+impl<C: Connection> Recurrent<C> {
+    fn static_idx(&self) -> usize {
+        self.sensory + self.action
+    }
+}
+
 impl<C: Connection> Genome<C> for Recurrent<C> {
     fn new(sensory: usize, action: usize) -> (Self, usize) {
-        let mut nodes = Vec::with_capacity(sensory + action + 1);
-        for _ in 0..sensory {
-            nodes.push(NodeKind::Sensory);
-        }
-        for _ in sensory..sensory + action {
-            nodes.push(NodeKind::Action);
-        }
-        nodes.push(NodeKind::Static);
+        // Layout: [0..sensory) sensory, [sensory..+action) action, sensory+action static
+        let node_count = sensory + action + 1;
 
         let mut inno = InnoGen::new(0);
         let mut connections = Vec::new();
-        for (from, _) in nodes
-            .iter()
-            .enumerate()
-            .filter(|(_, n)| matches!(n, NodeKind::Sensory | NodeKind::Static | NodeKind::Internal))
+        for from in (0..node_count)
+            .filter(|&i| i < sensory || i >= sensory + action) // not action
         {
-            for (to, _) in nodes
-                .iter()
-                .enumerate()
-                .filter(|(to, n)| *to != from && matches!(n, NodeKind::Internal | NodeKind::Action))
+            for to in (0..node_count)
+                .filter(|&i| i != from && i >= sensory && i != sensory + action) // action or internal
             {
                 connections.push(C::new(from, to, &mut inno));
             }
@@ -50,7 +42,7 @@ impl<C: Connection> Genome<C> for Recurrent<C> {
             Self {
                 sensory,
                 action,
-                nodes,
+                node_count,
                 connections,
             },
             inno.head,
@@ -65,16 +57,12 @@ impl<C: Connection> Genome<C> for Recurrent<C> {
         self.sensory..self.sensory + self.action
     }
 
-    fn nodes(&self) -> &[NodeKind] {
-        &self.nodes
+    fn node_count(&self) -> usize {
+        self.node_count
     }
 
-    fn nodes_mut(&mut self) -> &mut [NodeKind] {
-        &mut self.nodes
-    }
-
-    fn push_node(&mut self, node: NodeKind) {
-        self.nodes.push(node);
+    fn push_node(&mut self) {
+        self.node_count += 1;
     }
 
     fn connections(&self) -> &[C] {
@@ -90,14 +78,15 @@ impl<C: Connection> Genome<C> for Recurrent<C> {
     }
 
     fn open_path(&self, rng: &mut impl RngCore) -> Option<(usize, usize)> {
+        let static_idx = self.static_idx();
         let mut saturated = HashSet::new();
         loop {
-            let (from, _) = self
-                .nodes()
-                .iter()
-                .enumerate()
-                .filter(|(from, node)| {
-                    !matches!(node, NodeKind::Action) && !saturated.contains(from)
+            let (from, _) = (0..self.node_count)
+                .map(|i| (i, ()))
+                .filter(|(i, _)| {
+                    // not action
+                    (*i < self.sensory || *i >= self.sensory + self.action)
+                        && !saturated.contains(i)
                 })
                 .choose(rng)?;
 
@@ -107,12 +96,11 @@ impl<C: Connection> Genome<C> for Recurrent<C> {
                 .filter_map(|c| (c.from() == from).then_some(c.to()))
                 .collect::<HashSet<_>>();
 
-            if let Some((to, _)) = self
-                .nodes()
-                .iter()
-                .enumerate()
-                .filter(|(to, node)| {
-                    !matches!(node, NodeKind::Static | NodeKind::Sensory) && !exclude.contains(to)
+            if let Some((to, _)) = (0..self.node_count)
+                .map(|i| (i, ()))
+                .filter(|(i, _)| {
+                    // not sensory and not static
+                    *i >= self.sensory && *i != static_idx && !exclude.contains(i)
                 })
                 .choose(rng)
             {
@@ -125,33 +113,15 @@ impl<C: Connection> Genome<C> for Recurrent<C> {
 
     fn reproduce_with(&self, other: &Self, self_fit: Ordering, rng: &mut impl RngCore) -> Self {
         let connections = crossover(&self.connections, &other.connections, self_fit, rng);
-        let nodes_size = connections
+        let max_idx = connections
             .iter()
             .fold(0, |prev, c| max(prev, max(c.from(), c.to())));
-
-        let mut nodes = Vec::with_capacity(self.sensory + self.action + 1);
-        for _ in 0..self.sensory {
-            nodes.push(NodeKind::Sensory);
-        }
-        for _ in self.sensory..self.sensory + self.action {
-            nodes.push(NodeKind::Action);
-        }
-        nodes.push(NodeKind::Static);
-        for _ in self.sensory + self.action..nodes_size {
-            nodes.push(NodeKind::Internal);
-        }
-
-        debug_assert!(
-            connections
-                .iter()
-                .fold(0, |acc, c| max(acc, max(c.from(), c.to())))
-                < nodes.len()
-        );
+        let node_count = max(self.sensory + self.action + 1, max_idx + 1);
 
         Self {
             sensory: self.sensory,
             action: self.action,
-            nodes,
+            node_count,
             connections,
         }
     }
@@ -160,7 +130,7 @@ impl<C: Connection> Genome<C> for Recurrent<C> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{genome::InnoGen, genome::WConnection, random::default_rng, test_t};
+    use crate::{genome::WConnection, random::default_rng, test_t};
 
     type C = WConnection;
     type RecurrentContinuous = Recurrent<C>;
@@ -171,10 +141,7 @@ mod test {
         assert_eq!(inno_head, 8);
         assert_eq!(genome.sensory().len(), 3);
         assert_eq!(genome.action().len(), 2);
-        assert_eq!(genome.nodes().len(), 6);
-        assert!(matches!(genome.nodes[0], NodeKind::Sensory));
-        assert!(matches!(genome.nodes[3], NodeKind::Action));
-        assert!(matches!(genome.nodes[5], NodeKind::Static));
+        assert_eq!(genome.node_count(), 6);
     });
 
     test_t!(
@@ -183,8 +150,7 @@ mod test {
         assert_eq!(inno_head, 0);
         assert_eq!(genome.sensory().len(), 0);
         assert_eq!(genome.action().len(), 0);
-        assert_eq!(genome.nodes().len(), 1);
-        assert!(matches!(genome.nodes()[0], NodeKind::Static));
+        assert_eq!(genome.node_count(), 1);
     });
 
     test_t!(
@@ -193,10 +159,7 @@ mod test {
         assert_eq!(inno_head, 0);
         assert_eq!(genome.sensory().len(), 3);
         assert_eq!(genome.action().len(), 0);
-        assert_eq!(genome.nodes().len(), 4);
-        assert!(matches!(genome.nodes()[0], NodeKind::Sensory));
-        assert!(matches!(genome.nodes()[2], NodeKind::Sensory));
-        assert!(matches!(genome.nodes()[3], NodeKind::Static));
+        assert_eq!(genome.node_count(), 4);
     });
 
     test_t!(
@@ -205,10 +168,7 @@ mod test {
         assert_eq!(inno_head, 3);
         assert_eq!(genome.sensory().len(), 0);
         assert_eq!(genome.action().len(), 3);
-        assert_eq!(genome.nodes().len(), 4);
-        assert!(matches!(genome.nodes()[0], NodeKind::Action));
-        assert!(matches!(genome.nodes()[2], NodeKind::Action));
-        assert!(matches!(genome.nodes()[3], NodeKind::Static));
+        assert_eq!(genome.node_count(), 4);
     });
 
     test_t!(

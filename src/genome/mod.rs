@@ -52,16 +52,6 @@ impl InnoGen {
     }
 }
 
-/// This has no reason to exist, and will be replaced with ranges in the future.
-#[deprecated]
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub enum NodeKind {
-    Sensory,
-    Action,
-    Internal,
-    Static,
-}
-
 /// A connection between 2 points. Connections may be arbitrarially parameterized, and those
 /// parameters mutated inside [mutate_param](Connection::mutate_param). For those params to
 /// actually be _used_, a connection should expose them with a trait, and a
@@ -149,13 +139,12 @@ pub trait Genome<C: Connection>: Serialize + for<'de> Deserialize<'de> + Clone {
 
     fn action(&self) -> Range<usize>;
 
-    fn nodes(&self) -> &[NodeKind];
+    /// Total number of nodes. Layout: `[0..sensory)` sensory, `[sensory..+action)` action,
+    /// `sensory+action` static bias, `(sensory+action..)` internal.
+    fn node_count(&self) -> usize;
 
-    #[deprecated]
-    fn nodes_mut(&mut self) -> &mut [NodeKind];
-
-    /// Push a new node onto the genome.
-    fn push_node(&mut self, node: NodeKind);
+    /// Push a new internal node.
+    fn push_node(&mut self);
 
     /// A collection to the connections comprising this genome.
     fn connections(&self) -> &[C];
@@ -217,7 +206,7 @@ pub trait Genome<C: Connection>: Serialize + for<'de> Deserialize<'de> + Clone {
             return Err("no connections available to bisect".into());
         }
 
-        let center = self.nodes().len();
+        let center = self.node_count();
         let source = rng.random_range(0..self.connections().len());
         let (lower, upper) = self
             .connections_mut()
@@ -225,7 +214,7 @@ pub trait Genome<C: Connection>: Serialize + for<'de> Deserialize<'de> + Clone {
             .unwrap()
             .bisect(center, inno);
 
-        self.push_node(NodeKind::Internal);
+        self.push_node();
         self.push_2_connections(lower, upper);
         Ok(())
     }
