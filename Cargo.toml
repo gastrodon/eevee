@@ -14,7 +14,8 @@ fxhash = "~0.2"
 paste = "~1.0"
 rand = "~0.9"
 rand_distr = "~0.5"
-rulinalg = "~0.4"
+nalgebra = "~0.33"
+
 approx = { version = "~0.5", optional = true }
 rayon = { version = "~1.10", optional = true }
 serde = { version = "~1.0", features = ["derive"], optional = true }
