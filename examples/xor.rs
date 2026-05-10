@@ -4,7 +4,7 @@
 use core::ops::ControlFlow;
 use eevee::{
     genome::{Recurrent, WConnection},
-    network::{activate::steep_sigmoid, Continuous},
+    network::{activate::steep_sigmoid, Realtime},
     playground::xor::{XorScenario, XOR_TARGET},
     population::population_init,
     random::default_rng,
@@ -51,7 +51,7 @@ type G = Recurrent<C>;
 
 fn main() {
     evolve(
-        XorScenario::<Continuous>::default(),
+        XorScenario::<Realtime>::default(),
         |(i, o)| population_init::<C, G>(i, o, POPULATION),
         steep_sigmoid,
         default_rng(),

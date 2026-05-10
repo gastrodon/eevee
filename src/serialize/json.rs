@@ -169,9 +169,11 @@ macro_rules! json_impl {
 }
 
 json_impl! {
-    use crate::network::continuous::Continuous;
+    use crate::network::realtime::Realtime;
 
-    Continuous {
+    Realtime {
+        #[serde(default = "crate::network::default_prec")]
+        prec: usize,
         #[serde(serialize_with = "serialize_matrix", deserialize_with = "deserialize_matrix_flat")]
         y: Matrix<f64>,
         #[serde(serialize_with = "serialize_matrix", deserialize_with = "deserialize_matrix_flat")]
@@ -185,4 +187,97 @@ json_impl! {
     }
 }
 
+json_impl! {
+    use crate::network::realtime::RealtimeUnbias;
+
+    RealtimeUnbias {
+        #[serde(default = "crate::network::default_prec")]
+        prec: usize,
+        #[serde(serialize_with = "serialize_matrix", deserialize_with = "deserialize_matrix_flat")]
+        y: Matrix<f64>,
+        #[serde(serialize_with = "serialize_matrix", deserialize_with = "deserialize_matrix_square")]
+        w: Matrix<f64>,
+        sensory: (usize, usize),
+        action: (usize, usize),
+    }
+}
+
 pub(crate) use json_impl;
+
+#[cfg(test)]
+mod test {
+    use crate::{
+        activate, assert_matrix_approx,
+        network::{Network, Realtime, RealtimeUnbias},
+        random::default_rng,
+        SerializeFile as _,
+    };
+    use rand_distr::{Distribution, Uniform};
+    use rulinalg::matrix::Matrix;
+
+    fn rand_square(n: usize, dist: &Uniform<f64>, rng: &mut impl rand::RngCore) -> Matrix<f64> {
+        Matrix::new(
+            n,
+            n,
+            (0..n * n).map(|_| dist.sample(rng)).collect::<Vec<_>>(),
+        )
+    }
+
+    fn rand_row(n: usize, dist: &Uniform<f64>, rng: &mut impl rand::RngCore) -> Matrix<f64> {
+        Matrix::new(1, n, (0..n).map(|_| dist.sample(rng)).collect::<Vec<_>>())
+    }
+
+    #[test]
+    fn test_ctrnn_behavioral_equivalence() {
+        let n = 10;
+        let mut rng = default_rng();
+        let dist = Uniform::new(-10f64, 10.).unwrap();
+
+        let mut original = Realtime {
+            prec: 10,
+            y: rand_row(n, &dist, &mut rng),
+            θ: rand_row(n, &dist, &mut rng),
+            τ: Matrix::new(
+                1,
+                n,
+                (0..n)
+                    .map(|_| dist.sample(&mut rng).abs() + 0.1)
+                    .collect::<Vec<_>>(),
+            ),
+            w: rand_square(n, &dist, &mut rng),
+            sensory: (0, 2),
+            action: (3, 5),
+        };
+        let mut deserialized = Realtime::from_str(&original.to_str().unwrap()).unwrap();
+
+        for _ in 0..500 {
+            let input: Vec<f64> = (0..2).map(|_| dist.sample(&mut rng)).collect();
+            original.step(&input, activate::steep_sigmoid);
+            deserialized.step(&input, activate::steep_sigmoid);
+            assert_matrix_approx!(original.output(), deserialized.output());
+        }
+    }
+
+    #[test]
+    fn test_realtime_unbias_behavioral_equivalence() {
+        let n = 8;
+        let mut rng = default_rng();
+        let dist = Uniform::new(-5f64, 5.).unwrap();
+
+        let mut original = RealtimeUnbias {
+            prec: 10,
+            y: rand_row(n, &dist, &mut rng),
+            w: rand_square(n, &dist, &mut rng),
+            sensory: (0, 2),
+            action: (4, 6),
+        };
+        let mut deserialized = RealtimeUnbias::from_str(&original.to_str().unwrap()).unwrap();
+
+        for _ in 0..500 {
+            let input: Vec<f64> = (0..2).map(|_| dist.sample(&mut rng)).collect();
+            original.step(&input, activate::steep_sigmoid);
+            deserialized.step(&input, activate::steep_sigmoid);
+            assert_matrix_approx!(original.output(), deserialized.output());
+        }
+    }
+}
