@@ -2,11 +2,6 @@ use super::{FromGenome, Recurrent, Stateful};
 use crate::{Connection, Genome, Network};
 use nalgebra as na;
 
-#[cfg(feature = "serialize")]
-use crate::serialize::dmatrix;
-#[cfg(feature = "serialize")]
-use serde::{Deserialize, Serialize};
-
 /// A stateful NN who receives input continuously, useful for realtime problems
 /// and genomes whos connections may be recurrent.
 ///
@@ -16,31 +11,31 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug)]
 #[cfg_attr(
     all(feature = "serialize", not(feature = "serialize_json")),
-    derive(Serialize, Deserialize)
+    derive(serde::Serialize, serde::Deserialize)
 )]
 pub struct Continuous {
     /// 1d state of neurons 0-N
     #[cfg_attr(
         all(feature = "serialize", not(feature = "serialize_json")),
-        serde(with = "dmatrix")
+        serde(with = "crate::serialize::dmatrix")
     )]
     pub y: na::DMatrix<f64>,
     /// 1d bias of neurons 0-N
     #[cfg_attr(
         all(feature = "serialize", not(feature = "serialize_json")),
-        serde(with = "dmatrix")
+        serde(with = "crate::serialize::dmatrix")
     )]
     pub θ: na::DMatrix<f64>,
     /// 1d membrane resistance time constant
     #[cfg_attr(
         all(feature = "serialize", not(feature = "serialize_json")),
-        serde(with = "dmatrix")
+        serde(with = "crate::serialize::dmatrix")
     )]
     pub τ: na::DMatrix<f64>,
     /// Nd weights between neurons, indexed as [from, to]
     #[cfg_attr(
         all(feature = "serialize", not(feature = "serialize_json")),
-        serde(with = "dmatrix")
+        serde(with = "crate::serialize::dmatrix")
     )]
     pub w: na::DMatrix<f64>,
     /// Range of input neurons, indexing into y

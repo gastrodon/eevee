@@ -2,25 +2,20 @@ use super::{FromGenome, Network, Recurrent, Stateful};
 use crate::{Connection, Genome};
 use nalgebra as na;
 
-#[cfg(feature = "serialize")]
-use crate::serialize::dmatrix;
-#[cfg(feature = "serialize")]
-use serde::{Deserialize, Serialize};
-
 #[derive(Debug)]
 #[cfg_attr(
     all(feature = "serialize", not(feature = "serialize_json")),
-    derive(Serialize, Deserialize)
+    derive(serde::Serialize, serde::Deserialize)
 )]
 pub struct NonBias {
     #[cfg_attr(
         all(feature = "serialize", not(feature = "serialize_json")),
-        serde(with = "dmatrix")
+        serde(with = "crate::serialize::dmatrix")
     )]
     pub y: na::DMatrix<f64>,
     #[cfg_attr(
         all(feature = "serialize", not(feature = "serialize_json")),
-        serde(with = "dmatrix")
+        serde(with = "crate::serialize::dmatrix")
     )]
     pub w: na::DMatrix<f64>,
     pub sensory: (usize, usize),
