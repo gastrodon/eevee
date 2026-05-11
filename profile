@@ -4,6 +4,18 @@ get_all_benchmarks() {
         toml2json < Cargo.toml | jq -r '.bench[]? | .name'
 }
 
+run_bench() {
+        bench="$1"
+        shift
+        svg="flamegraph-$bench-$(git branch --show-current)-$(git rev-parse --short HEAD).svg"
+        CARGO_PROFILE_RELEASE_DEBUG=true cargo flamegraph \
+                --features smol_bench,serialize_json -o "$svg" \
+                --bench "$bench" \
+                -- --bench \
+                "$@" \
+                && [ -n "$DISPLAY" ] && firefox "$svg"
+}
+
 target="$1"
 if [ -z "$target" ]; then
         echo "Available benchmarks:"
@@ -14,15 +26,10 @@ fi
 if [ "$target" = "--all" ]; then
         shift
         for bench in $(get_all_benchmarks); do
-                nix develop --command cargo bench --bench "$bench" "$@"
+                run_bench "$bench" "$@"
         done
         exit 0
 fi
 
 shift
-CARGO_PROFILE_RELEASE_DEBUG=true cargo flamegraph \
-        --features smol_bench -o "flamegraph-$target-$(git branch --show-current)-$(git rev-parse --short HEAD).svg" \
-        --bench $target \
-        -- --bench \
-        $@ \
-        && firefox "flamegraph-$target-$(git branch --show-current)-$(git rev-parse --short HEAD).svg"
+run_bench "$target" "$@"
