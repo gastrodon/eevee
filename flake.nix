@@ -54,6 +54,18 @@
             cargoExtraArgs = "--example ${name}${featuresArg}";
           });
 
+        toml2json = pkgs.rustPlatform.buildRustPackage rec {
+          pname = "toml2json";
+          version = "1.4.0";
+          src = pkgs.fetchFromGitHub {
+            owner = "woodruffw";
+            repo = "toml2json";
+            rev = "v${version}";
+            sha256 = "sha256-MQZJotbnV/f2dy7/NIU5wUvOs1FyITq+IWpaVlYdSvM=";
+          };
+          cargoHash = "sha256-qdALBNQ2re3JQ6SWYsF/lHDxuCf2yyeXgdT1YQY0z6A=";
+        };
+
       in
       {
         packages = {
@@ -73,7 +85,7 @@
         };
 
         devShells.default = craneLib.devShell {
-          packages = [ pkgs.cargo-flamegraph pkgs.gnuplot ];
+          packages = [ pkgs.cargo-flamegraph pkgs.gnuplot pkgs.jq toml2json ];
         };
       }
     );

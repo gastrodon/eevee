@@ -1,9 +1,22 @@
 #!/bin/sh
 
+get_all_benchmarks() {
+        toml2json < Cargo.toml | jq -r '.bench[]? | .name'
+}
+
 target="$1"
 if [ -z "$target" ]; then
-        echo "Target is empty. Exiting."
-        exit 1
+        echo "Available benchmarks:"
+        get_all_benchmarks | sed 's/^/  /'
+        exit 0
+fi
+
+if [ "$target" = "--all" ]; then
+        shift
+        for bench in $(get_all_benchmarks); do
+                nix develop --command cargo bench --bench "$bench" "$@"
+        done
+        exit 0
 fi
 
 shift
