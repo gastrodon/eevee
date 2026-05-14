@@ -13,6 +13,8 @@ pub mod reproduce;
 pub mod scenario;
 #[cfg(feature = "serialize")]
 pub mod serialize;
+#[cfg(feature = "tui")]
+pub mod tui;
 
 pub use genome::{Connection, Genome};
 pub use network::{activate, Network, ToNetwork};
