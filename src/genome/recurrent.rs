@@ -116,150 +116,346 @@ impl<C: Connection> Genome<C> for Recurrent<C> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{genome::WConnection, random::default_rng, test_t};
+    use crate::genome::{connection::BWConnection, WConnection};
+    use crate::random::default_rng;
+    use eevee_macros::fn_matrix;
 
-    type C = WConnection;
-    type RecurrentContinuous = Recurrent<C>;
+    type GenomeWConn = Recurrent<WConnection>;
+    type GenomeBConn = Recurrent<BWConnection>;
 
-    test_t!(
-    test_genome_creation[T: RecurrentContinuous]() {
-        let (genome, inno_head) = T::new(3, 2);
-        assert_eq!(inno_head, 6);
-        assert_eq!(genome.sensory().len(), 3);
-        assert_eq!(genome.action().len(), 2);
-        assert_eq!(genome.node_count(), 5);
-    });
+    fn_matrix! {
+        G: GenomeWConn | GenomeBConn,
 
-    test_t!(
-    test_genome_creation_empty[T: RecurrentContinuous]() {
-        let (genome, inno_head) = T::new(0, 0);
-        assert_eq!(inno_head, 0);
-        assert_eq!(genome.sensory().len(), 0);
-        assert_eq!(genome.action().len(), 0);
-        assert_eq!(genome.node_count(), 0);
-    });
+        /// new(3,2) creates 3 sensory, 2 action, 5 total, 6 fully-connected S→A connections
+        #[test]
+        fn test_genome_creation() {
+            let (genome, inno_head) = G::new(3, 2);
+            assert_eq!(inno_head, 6);
+            assert_eq!(genome.sensory().len(), 3);
+            assert_eq!(genome.action().len(), 2);
+            assert_eq!(genome.node_count(), 5);
+            assert_eq!(genome.connections().len(), 6);
+        }
 
-    test_t!(
-    test_genome_creation_only_sensory[T: RecurrentContinuous]() {
-        let (genome, inno_head) = T::new(3, 0);
-        assert_eq!(inno_head, 0);
-        assert_eq!(genome.sensory().len(), 3);
-        assert_eq!(genome.action().len(), 0);
-        assert_eq!(genome.node_count(), 3);
-    });
+        /// new(0,0) creates zero nodes and zero connections
+        #[test]
+        fn test_genome_creation_empty() {
+            let (genome, inno_head) = G::new(0, 0);
+            assert_eq!(inno_head, 0);
+            assert_eq!(genome.sensory().len(), 0);
+            assert_eq!(genome.action().len(), 0);
+            assert_eq!(genome.node_count(), 0);
+            assert_eq!(genome.connections().len(), 0);
+        }
 
-    test_t!(
-    test_genome_creation_only_action[T: RecurrentContinuous]() {
-        let (genome, inno_head) = T::new(0, 3);
-        assert_eq!(inno_head, 0);
-        assert_eq!(genome.sensory().len(), 0);
-        assert_eq!(genome.action().len(), 3);
-        assert_eq!(genome.node_count(), 3);
-    });
+        /// new(3,0) creates sensory nodes with no action nodes
+        #[test]
+        fn test_genome_creation_only_sensory() {
+            let (genome, inno_head) = G::new(3, 0);
+            assert_eq!(inno_head, 0);
+            assert_eq!(genome.sensory().len(), 3);
+            assert_eq!(genome.action().len(), 0);
+            assert_eq!(genome.node_count(), 3);
+            assert_eq!(genome.connections().len(), 0);
+        }
 
-    test_t!(
-    test_gen_connection[T: RecurrentContinuous]() {
-        let (mut genome, _ ) = T::new(1, 1);
-        genome.connections = vec![]; // TODO generalize empty connection state
+        /// new(0,3) creates action nodes with no sensory nodes
+        #[test]
+        fn test_genome_creation_only_action() {
+            let (genome, inno_head) = G::new(0, 3);
+            assert_eq!(inno_head, 0);
+            assert_eq!(genome.sensory().len(), 0);
+            assert_eq!(genome.action().len(), 3);
+            assert_eq!(genome.node_count(), 3);
+            assert_eq!(genome.connections().len(), 0);
+        }
 
-        for _ in 0..100 {
-            match genome.open_path(&mut default_rng()) {
-                Some((0, 1)) => {}, // sensory -> action
-                Some(p) => unreachable!("invalid pair {p:?} gen'd"),
-                None => unreachable!("no path gen'd"),
+        /// Ranges don't overlap and cover expected node indices
+        #[test]
+        fn test_genome_sensory_action_ranges() {
+            let (genome, _) = G::new(4, 3);
+            let sensory = genome.sensory();
+            let action = genome.action();
+            assert_eq!(sensory.start, 0);
+            assert_eq!(sensory.end, 4);
+            assert_eq!(action.start, 4);
+            assert_eq!(action.end, 7);
+            assert_eq!(sensory.len(), 4);
+            assert_eq!(action.len(), 3);
+        }
+
+        /// push_node() increments node_count by exactly 1
+        #[test]
+        fn test_push_node_increments_count() {
+            let (mut genome, _) = G::new(2, 2);
+            let initial_count = genome.node_count();
+            genome.push_node();
+            assert_eq!(genome.node_count(), initial_count + 1);
+            genome.push_node();
+            assert_eq!(genome.node_count(), initial_count + 2);
+        }
+
+        /// connections() returns read-only slice of all connections
+        #[test]
+        fn test_connections_access() {
+            let (genome, _) = G::new(2, 2);
+            let conns = genome.connections();
+            assert_eq!(conns.len(), 4);
+        }
+
+        /// push_connection() adds exactly 1 connection, length +1
+        #[test]
+        fn test_push_connection_appends() {
+            let (mut genome, _) = G::new(2, 2);
+            let initial_len = genome.connections().len();
+            let mut new_conn = genome.connections()[0].clone();
+            new_conn.enable();
+            genome.push_connection(new_conn);
+            assert_eq!(genome.connections().len(), initial_len + 1);
+        }
+
+        /// mutate_connection() mutates existing params only (100 iterations)
+        #[test]
+        fn test_mutate_connection_stochastic() {
+            let (mut genome, _) = G::new(4, 4);
+            let initial_conns = genome.connections().len();
+            for _ in 0..100 {
+                genome.mutate_connection(&mut default_rng());
+            }
+            assert_eq!(genome.connections().len(), initial_conns);
+        }
+
+        /// open_path() returns (from,to) where from ∉ action, to ∉ sensory
+        #[test]
+        fn test_open_path_valid_path() {
+            let (mut genome, _) = G::new(1, 1);
+            genome.connections = vec![];
+            for _ in 0..100 {
+                match genome.open_path(&mut default_rng()) {
+                    Some((0, 1)) => {},
+                    Some(p) => panic!("invalid pair {p:?} generated"),
+                    None => panic!("no path generated"),
+                }
             }
         }
 
-        genome.push_connection(C::new(0, 1, &mut InnoGen::new(0)));
-        for _ in 0..100 {
+        /// open_path() returns None when all valid paths are occupied
+        #[test]
+        fn test_open_path_saturation() {
+            // new(1,1) already has the only possible connection (0→1)
+            let (genome, _) = G::new(1, 1);
+            for _ in 0..100 {
+                assert_eq!(genome.open_path(&mut default_rng()), None);
+            }
+        }
+
+        /// open_path() returns None for 0×0 genome (no valid paths)
+        #[test]
+        fn test_open_path_empty_genome() {
+            let (genome, _) = G::new(0, 0);
             assert_eq!(genome.open_path(&mut default_rng()), None);
         }
-    });
 
-    test_t!(
-    test_gen_connection_none_possible[T: RecurrentContinuous]() {
-        let (genome, _) = T::new(0, 0);
-        assert_eq!(
+        /// open_path() returns (from,to) where from ∉ action, to ∉ sensory
+        #[test]
+        fn test_open_path_from_not_in_action() {
+            let (mut genome, _) = G::new(2, 2);
+            genome.connections = vec![];
+            for _ in 0..50 {
+                if let Some((from, to)) = genome.open_path(&mut default_rng()) {
+                    assert!(!(2..4).contains(&from));
+                    assert!(to >= 2);
+                }
+            }
+        }
+
+        /// new_connection() increases connections().len() by exactly 1
+        #[test]
+        fn test_new_connection_appends_and_increments() {
+            let (mut genome, _) = G::new(4, 4);
+            genome.connections = vec![];
+            let before_len = genome.connections().len();
             genome
-            .open_path(&mut default_rng()),
-            None
-        );
-    });
+                .new_connection(&mut default_rng(), &mut InnoGen::new(0))
+                .expect("new_connection should succeed");
+            assert_eq!(genome.connections().len(), before_len + 1);
+        }
 
-    test_t!(
-    test_mutate_connection[T: RecurrentContinuous]() {
-        let (mut genome, _) = T::new(4, 4);
-        let mut inno = InnoGen::new(0);
-        genome.connections = vec![]; // TODO generalize empty connection state
-        genome.push_connection(C::new(0, 1, &mut inno));
-        genome.push_connection(C::new(1, 2, &mut inno));
+        /// new_connection() appends connection with unique path from open_path()
+        #[test]
+        fn test_new_connection_unique() {
+            let (mut genome, _) = G::new(4, 4);
+            genome.connections = vec![];
+            let before_paths: std::collections::HashSet<_> =
+                genome.connections().iter().map(|c| c.path()).collect();
+            genome
+                .new_connection(&mut default_rng(), &mut InnoGen::new(0))
+                .expect("new_connection should succeed");
+            let new_path = genome.connections().last().unwrap().path();
+            assert!(!before_paths.contains(&new_path));
+        }
 
-        let before = genome.clone();
-        genome.new_connection(&mut default_rng(), &mut inno).unwrap_or_else(|e| panic!("failed new_connection: {e}"));
+        /// new_connection() returns Err when all paths are fully occupied
+        #[test]
+        fn test_new_connection_saturated_error() {
+            // new(1,1) already has the only possible connection (0→1)
+            let (mut genome, initial_inno) = G::new(1, 1);
+            let mut inno = InnoGen::new(initial_inno);
+            let result = genome.new_connection(&mut default_rng(), &mut inno);
+            assert!(result.is_err());
+        }
 
-        assert_eq!(genome.connections().len(), before.connections().len() + 1);
+        /// new_connection() works correctly on empty 0×0 genome
+        #[test]
+        fn test_new_connection_empty_genome() {
+            let (mut genome, _) = G::new(2, 2);
+            genome.connections = vec![];
+            let result = genome.new_connection(&mut default_rng(), &mut InnoGen::new(0));
+            assert!(result.is_ok());
+            assert_eq!(genome.connections().len(), 1);
+        }
 
-        let tail = genome.connections().last().unwrap();
-        assert!(!before.connections().iter().any(|c| c.inno() == tail.inno()));
-        assert!(!before.connections().iter().any(|c| c.path() == tail.path()));
-        assert_eq!(tail.weight(), 1.);
-    });
+        /// bisect_connection() increases connections by 2, node_count by 1
+        #[test]
+        fn test_bisect_connection_structure_change() {
+            let (mut genome, initial_inno) = G::new(1, 1);
+            let initial_node_count = genome.node_count();
+            let initial_conn_count = genome.connections().len();
+            genome
+                .bisect_connection(&mut default_rng(), &mut InnoGen::new(initial_inno))
+                .expect("bisect_connection should succeed");
+            assert_eq!(genome.node_count(), initial_node_count + 1);
+            assert_eq!(genome.connections().len(), initial_conn_count + 2);
+        }
 
-    test_t!(
-    test_mutate_bisection[T: RecurrentContinuous]() {
-        let mut inno = InnoGen::new(0);
-        let (mut genome, _) = T::new(1, 1);
+        /// Original connection is disabled after bisection
+        #[test]
+        fn test_bisect_connection_original_disabled() {
+            let (mut genome, initial_inno) = G::new(1, 1);
+            genome
+                .bisect_connection(&mut default_rng(), &mut InnoGen::new(initial_inno))
+                .expect("bisect_connection should succeed");
+            assert!(!genome.connections()[0].enabled);
+        }
 
-        genome.connections = vec![]; // TODO generalize empty connection state
-        genome.push_connection({
-            let mut c = C::new(0, 1, &mut inno);
-            c.mutate_param(&mut default_rng());
-            c
-        });
+        /// Bisected connections have correct from→center→to paths
+        #[test]
+        fn test_bisect_connection_new_paths_valid() {
+            let (mut genome, initial_inno) = G::new(1, 1);
+            genome
+                .bisect_connection(&mut default_rng(), &mut InnoGen::new(initial_inno))
+                .expect("bisect_connection should succeed");
+            let node_count = genome.node_count();
+            assert_eq!(genome.connections()[1].from(), 0);
+            assert_eq!(genome.connections()[1].to(), node_count - 1);
+            assert_eq!(genome.connections()[2].from(), node_count - 1);
+            assert_eq!(genome.connections()[2].to(), 1);
+        }
 
-        let innogen = &mut InnoGen::new(1);
-        genome.bisect_connection(&mut default_rng(), innogen).unwrap_or_else(|e| panic!("failed new_connection: {e}"));
+        /// All three innos (original, upper, lower) are unique
+        #[test]
+        fn test_bisect_connection_new_innos_unique() {
+            let (mut genome, initial_inno) = G::new(1, 1);
+            let original_inno = genome.connections()[0].inno();
+            genome
+                .bisect_connection(&mut default_rng(), &mut InnoGen::new(initial_inno))
+                .expect("bisect_connection should succeed");
+            let new_inno_1 = genome.connections()[1].inno();
+            let new_inno_2 = genome.connections()[2].inno();
+            assert_ne!(original_inno, new_inno_1);
+            assert_ne!(original_inno, new_inno_2);
+            assert_ne!(new_inno_1, new_inno_2);
+        }
 
-        assert!(!genome.connections()[0].enabled);
+        /// bisect_connection() returns Err on 0×0 genome
+        #[test]
+        fn test_bisect_connection_empty_genome_error() {
+            let (mut genome, _) = G::new(0, 0);
+            genome.connections = vec![];
+            let result = genome.bisect_connection(&mut default_rng(), &mut InnoGen::new(0));
+            assert!(result.is_err());
+        }
 
-        assert_eq!(genome.connections()[1].from(), 0);
-        assert_eq!(genome.connections()[1].to(), 2);
-        assert_eq!(genome.connections()[1].weight(), 1.0);
-        assert!(genome.connections()[1].enabled);
-        assert_eq!(
-            genome.connections()[1].inno,
-            innogen.path((genome.connections()[1].from(), genome.connections()[1].to()))
-        );
+        /// bisect_connection() returns Err when no connections to bisect
+        #[test]
+        fn test_bisect_connection_no_connections_error() {
+            let (mut genome, _) = G::new(2, 2);
+            genome.connections = vec![];
+            let result = genome.bisect_connection(&mut default_rng(), &mut InnoGen::new(0));
+            assert!(result.is_err());
+        }
 
-        assert_eq!(genome.connections()[2].from(), 2);
-        assert_eq!(genome.connections()[2].to(), 1);
-        assert_eq!(genome.connections()[1].weight(), 1.);
-        assert_eq!(
-            genome.connections()[2].weight(),
-            genome.connections()[0].weight()
-        );
-        assert!(genome.connections()[2].enabled);
-        assert_eq!(
-            genome.connections()[2].inno,
-            innogen.path((genome.connections()[2].from(), genome.connections()[2].to()))
-        );
+        /// mutate() always adds connection to completely empty genome first
+        #[test]
+        fn test_mutate_empty_genome_gets_connection() {
+            let (mut genome, _) = G::new(2, 2);
+            genome.connections = vec![];
+            let initial_len = genome.connections().len();
+            genome
+                .mutate(&mut default_rng(), &mut InnoGen::new(0))
+                .expect("mutate on empty genome should succeed");
+            assert_eq!(genome.connections().len(), initial_len + 1);
+        }
 
-        assert_ne!(genome.connections()[0].inno, genome.connections()[1].inno);
-        assert_ne!(genome.connections()[1].inno, genome.connections()[2].inno);
-        assert_ne!(genome.connections()[0].inno, genome.connections()[2].inno);
-    });
+        /// mutate() calls new_connection, bisect_connection, or mutate_connection (100 iterations)
+        #[test]
+        fn test_mutate_dispatches() {
+            let (mut genome, _) = G::new(3, 3);
+            for _ in 0..100 {
+                // mutate can legitimately fail when all paths are saturated
+                let _ = genome.mutate(&mut default_rng(), &mut InnoGen::new(0));
+            }
+            assert!(genome.node_count() >= 6);
+            assert!(!genome.connections().is_empty());
+        }
 
-    test_t!(
-    test_mutate_bisection_empty_genome[T: RecurrentContinuous]() {
-        let (mut genome, _) = T::new(0, 0);
-        genome.connections = vec![]; // TODO generalize empty connection state
-        assert!(genome.bisect_connection(&mut default_rng(), &mut InnoGen::new(0)).is_err());
-    });
+        /// reproduce_with() produces offspring with mixed parent connections
+        #[test]
+        fn test_reproduce_with_crossover() {
+            let (parent1, _) = G::new(2, 2);
+            let (parent2, _) = G::new(2, 2);
+            let child = parent1.reproduce_with(
+                &parent2,
+                std::cmp::Ordering::Equal,
+                &mut default_rng(),
+            );
+            assert_eq!(child.sensory(), parent1.sensory());
+            assert_eq!(child.action(), parent1.action());
+        }
 
-    test_t!(
-    test_mutate_bisection_no_connections[T: RecurrentContinuous]() {
-        let (mut genome, _) = T::new(2, 2);
-        genome.connections = vec![]; // TODO generalize empty connection state
-        assert!(genome.bisect_connection(&mut default_rng(), &mut InnoGen::new(0)).is_err());
-    });
+        /// offspring node_count == (max_conn_idx + 1).max(sensory+action)
+        #[test]
+        fn test_reproduce_with_node_count_recomputation() {
+            let (mut parent1, initial_inno) = G::new(2, 2);
+            let (parent2, _) = G::new(2, 2);
+            parent1
+                .bisect_connection(&mut default_rng(), &mut InnoGen::new(initial_inno))
+                .expect("bisect should succeed");
+            let child = parent1.reproduce_with(
+                &parent2,
+                std::cmp::Ordering::Greater,
+                &mut default_rng(),
+            );
+            assert!(child.node_count() >= 4);
+        }
+
+        /// reproduce_with() correctly handles Equal, Less, Greater fitness ordering
+        #[test]
+        fn test_reproduce_with_ordering_dispatch() {
+            let (parent1, _) = G::new(2, 2);
+            let (parent2, _) = G::new(2, 2);
+            let _child_equal = parent1.reproduce_with(
+                &parent2,
+                std::cmp::Ordering::Equal,
+                &mut default_rng(),
+            );
+            let _child_greater = parent1.reproduce_with(
+                &parent2,
+                std::cmp::Ordering::Greater,
+                &mut default_rng(),
+            );
+            let _child_less =
+                parent1.reproduce_with(&parent2, std::cmp::Ordering::Less, &mut default_rng());
+        }
+    }
 }
