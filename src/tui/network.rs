@@ -102,8 +102,7 @@ impl<'a, C: Connection, G: Genome<C>> NeuralNetFlow<'a, C, G> {
     pub fn required_width(&self, canvas_height: u16) -> u16 {
         let h = canvas_height as f64;
         let (inputs, hidden, outputs) = self.groups();
-        let total =
-            inputs.logical_width(h) + hidden.logical_width(h) + outputs.logical_width(h);
+        let total = inputs.logical_width(h) + hidden.logical_width(h) + outputs.logical_width(h);
         total.ceil() as u16
     }
 }
@@ -160,7 +159,13 @@ impl<'a, C: Connection, G: Genome<C>> Widget for NeuralNetFlow<'a, C, G> {
                     } else {
                         Color::Red
                     };
-                    ctx.draw(&Line { x1, y1, x2, y2, color });
+                    ctx.draw(&Line {
+                        x1,
+                        y1,
+                        x2,
+                        y2,
+                        color,
+                    });
                 }
                 for (i, &(x, y)) in positions.iter().enumerate() {
                     let color = if sensory.contains(&i) {
@@ -170,7 +175,12 @@ impl<'a, C: Connection, G: Genome<C>> Widget for NeuralNetFlow<'a, C, G> {
                     } else {
                         Color::White
                     };
-                    ctx.draw(&Circle { x, y, radius: 0.5, color });
+                    ctx.draw(&Circle {
+                        x,
+                        y,
+                        radius: 0.5,
+                        color,
+                    });
                 }
             })
             .render(area, buf);
@@ -228,15 +238,13 @@ mod tests {
     fn test_required_width_grows_with_hidden() {
         let (mut genome, head) = Recurrent::<WConnection>::new(1, 1);
         let mut inno = InnoGen::new(head);
-        let w0 =
-            NeuralNetFlow::<WConnection, _>::new(&genome, 4).required_width(4);
+        let w0 = NeuralNetFlow::<WConnection, _>::new(&genome, 4).required_width(4);
         for _ in 0..5 {
             genome
                 .bisect_connection(&mut default_rng(), &mut inno)
                 .unwrap();
         }
-        let w1 =
-            NeuralNetFlow::<WConnection, _>::new(&genome, 4).required_width(4);
+        let w1 = NeuralNetFlow::<WConnection, _>::new(&genome, 4).required_width(4);
         assert!(w1 > w0, "width should grow as hidden nodes are added");
     }
 
@@ -250,8 +258,12 @@ mod tests {
     fn test_render_with_hidden() {
         let (mut genome, head) = Recurrent::<WConnection>::new(2, 1);
         let mut inno = InnoGen::new(head);
-        genome.bisect_connection(&mut default_rng(), &mut inno).unwrap();
-        genome.bisect_connection(&mut default_rng(), &mut inno).unwrap();
+        genome
+            .bisect_connection(&mut default_rng(), &mut inno)
+            .unwrap();
+        genome
+            .bisect_connection(&mut default_rng(), &mut inno)
+            .unwrap();
         render_genome(&genome, 4);
     }
 

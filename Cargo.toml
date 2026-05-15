@@ -31,6 +31,10 @@ smol_bench = []
 [[example]]
 name = "xor"
 
+[[example]]
+name = "tui_sample"
+required-features = ["tui"]
+
 [[bench]]
 name = "xor"
 harness = false
