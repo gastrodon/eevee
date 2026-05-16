@@ -85,7 +85,6 @@ mod test {
     use super::*;
     use crate::genome::{self, connection::BWConnection, WConnection};
     use eevee_macros::fn_matrix;
-    use rulinalg::matrix::BaseMatrix;
 
     fn_matrix! {
         C: WConnection | BWConnection,
@@ -98,10 +97,10 @@ mod test {
             let nn = NonBias::from_genome(&genome);
             let cols = genome.node_count();
 
-            assert_eq!(nn.y.cols(), cols);
-            assert_eq!(nn.y.rows(), 1);
-            assert_eq!(nn.w.cols(), cols);
-            assert_eq!(nn.w.rows(), cols);
+            assert_eq!(nn.y.ncols(), cols);
+            assert_eq!(nn.y.nrows(), 1);
+            assert_eq!(nn.w.ncols(), cols);
+            assert_eq!(nn.w.nrows(), cols);
         }
 
         /// sensory/action ranges map correctly
@@ -128,7 +127,7 @@ mod test {
             let nn = NonBias::from_genome(&genome);
             let cols = genome.node_count();
 
-            assert_eq!(nn.w.data()[0 * cols + 2], 0.0);
+            assert_eq!(nn.w.as_slice()[0 * cols + 2], 0.0);
         }
     }
 }
