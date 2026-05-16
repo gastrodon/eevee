@@ -183,34 +183,36 @@ pub fn population_init<C: Connection, G: Genome<C>>(
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{
-        genome::{Recurrent, WConnection},
-        test_t,
-    };
+    use crate::genome::{Recurrent, WConnection};
+    use eevee_macros::fn_matrix;
 
     type BasicGenomeCtrnn = Recurrent<WConnection>;
 
-    test_t!(test_population_init[T: BasicGenomeCtrnn]() {
-        let count = 40;
-        let (species, inno_head) = population_init::<WConnection, T>(2, 2, count);
-        assert_eq!(
-            count,
-            species
+    fn_matrix! {
+        T: BasicGenomeCtrnn,
+        #[test]
+        fn test_population_init() {
+            let count = 40;
+            let (species, inno_head) = population_init::<WConnection, T>(2, 2, count);
+            assert_eq!(
+                count,
+                species
+                    .iter()
+                    .fold(0, |acc, Specie { members, .. }| acc + members.len())
+            );
+            assert!(species
                 .iter()
-                .fold(0, |acc, Specie { members, .. }| acc + members.len())
-        );
-        assert!(species
-            .iter()
-            .flat_map(|specie| specie.members.iter().flat_map(|(member, _)| member
-                .connections()
-                .iter()
-                .map(|connection| connection.inno())))
-            .all(|inno| inno < inno_head));
-        for specie in species.iter() {
-            assert_ne!(0, specie.len());
+                .flat_map(|specie| specie.members.iter().flat_map(|(member, _)| member
+                    .connections()
+                    .iter()
+                    .map(|connection| connection.inno())))
+                .all(|inno| inno < inno_head));
+            for specie in species.iter() {
+                assert_ne!(0, specie.len());
+            }
+            for (_, fit) in species.iter().flat_map(|Specie { members, .. }| members) {
+                assert_eq!(f64::MIN, *fit);
+            }
         }
-        for (_, fit) in species.iter().flat_map(|Specie { members, .. }| members) {
-            assert_eq!(f64::MIN, *fit);
-        }
-    });
+    }
 }

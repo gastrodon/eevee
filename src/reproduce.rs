@@ -212,8 +212,8 @@ mod test {
         genome::{Recurrent, WConnection},
         population::{population_init, SpecieRepr},
         random::default_rng,
-        test_t,
     };
+    use eevee_macros::fn_matrix;
 
     #[test]
     fn test_inno_gen() {
@@ -232,27 +232,31 @@ mod test {
     type C = WConnection;
     type G = Recurrent<C>;
 
-    test_t!(test_specie_reproduce[T: G]() {
-        let mut rng = default_rng();
-        let count = 40;
-        let (species, inno_head) = population_init::<WConnection, T>(2, 2, count);
+    fn_matrix! {
+        T: G,
+        #[test]
+        fn test_specie_reproduce() {
+            let mut rng = default_rng();
+            let count = 40;
+            let (species, inno_head) = population_init::<WConnection, T>(2, 2, count);
 
-        for specie in species {
-            for i in [0, 1, count, count * 10] {
-                assert_eq!(
-                    i,
-                    reproduce(
-                        specie.members.clone(),
+            for specie in species {
+                for i in [0, 1, count, count * 10] {
+                    assert_eq!(
                         i,
-                        &mut InnoGen::new(inno_head),
-                        &mut rng
-                    )
-                    .unwrap()
-                    .len()
-                );
+                        reproduce(
+                            specie.members.clone(),
+                            i,
+                            &mut InnoGen::new(inno_head),
+                            &mut rng
+                        )
+                        .unwrap()
+                        .len()
+                    );
+                }
             }
         }
-    });
+    }
 
     #[test]
     fn test_population_alloc() {

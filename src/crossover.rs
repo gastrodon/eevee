@@ -258,183 +258,216 @@ mod test {
         genome::{connection::BWConnection, WConnection},
         new_t,
         random::default_rng,
-        test_t,
     };
+    use eevee_macros::fn_matrix;
     use std::collections::{HashMap, HashSet};
 
-    test_t!(
-    test_avg_param_diff[T: WConnection]() {
-        let diff = avg_param_diff(
-            &[
-                new_t!(inno = 1, weight = 0.5,),
-                new_t!(inno = 2, weight = -0.5,),
-                new_t!(inno = 3, weight = 1.0,),
-            ],
-            &[
-                new_t!(inno = 1, weight = 0.0,),
-                new_t!(inno = 2, weight = -1.0,),
-                new_t!(inno = 4, weight = 2.0,),
-            ],
-        );
-        assert_f64_approx!(diff, 0.5, "diff ne: {diff}, 0.5");
-    });
-
-    test_t!(
-    test_avg_param_diff[T: BWConnection]() {
-        let diff = avg_param_diff(
-            &[
-                new_t!(inno = 1, weight = 0.5, bias = 1.),
-                new_t!(inno = 2, weight = -0.5,),
-                new_t!(inno = 3, weight = 1.0,),
-            ],
-            &[
-                new_t!(inno = 1, weight = 0.0, bias = 0.),
-                new_t!(inno = 2, weight = -1.0,),
-                new_t!(inno = 4, weight = 2.0,),
-            ],
-        );
-        let diff_w = 0.5;
-        let diff_b = 1. / 2.;
-        assert_f64_approx!(diff, diff_w + diff_b, "diff ne: {diff}, 0.5");
-    });
-
-    test_t!(
-    test_avg_param_diff_empty[T: WConnection | BWConnection]() {
-        let full = vec![
-            new_t!(inno = 1, weight = 0.0,),
-            new_t!(inno = 2, weight = -1.0,),
-            new_t!(inno = 4, weight = 2.0,),
-        ];
-
-        let diff = avg_param_diff(&full, &[]);
-        assert_f64_approx!(diff, 0.0, "diff ne: {diff}, 0.");
-
-        let diff = avg_param_diff(&[], &full);
-        assert_f64_approx!(diff, 0.0, "diff ne: {diff}, 0.");
-
-        let diff = avg_param_diff::<T>(&[], &[]);
-        assert_f64_approx!(diff, 0.0, "diff ne: {diff}, 0.");
-    });
-
-    test_t!(
-    test_avg_param_diff_no_overlap[T: WConnection | BWConnection]() {
-        let diff = avg_param_diff(
-            &[
-                new_t!(inno = 1, weight = 0.5,),
-                new_t!(inno = 2, weight = -0.5,),
-                new_t!(inno = 3, weight = 1.0,),
-            ],
-            &[
-                new_t!(inno = 5, weight = 0.5,),
-                new_t!(inno = 6, weight = -0.5,),
-            ],
-        );
-        assert_f64_approx!(diff, 0., "diff ne: {diff}, 0.")
-    });
-
-    test_t!(
-    test_avg_param_diff_no_diff[T: WConnection | BWConnection]() {
-        let diff = avg_param_diff(
-            &[
-                new_t!(inno = 1, weight = 0.5,),
-                new_t!(inno = 2, weight = -0.5,),
-                new_t!(inno = 3, weight = 1.0,),
-            ],
-            &[
-                new_t!(inno = 1, weight = 0.5,),
-                new_t!(inno = 2, weight = -0.5,),
-                new_t!(inno = 3, weight = 1.0,),
-            ],
-        );
-        assert_f64_approx!(diff, 0.0, "diff ne: {diff}, 0.");
-    });
-
-    test_t!(
-    test_disjoint_excess_count[T: WConnection | BWConnection]() {
-        assert_eq!(
-            (4.0, 2.0),
-            disjoint_excess_count(
+    fn_matrix! {
+        T: WConnection,
+        #[test]
+        fn test_avg_param_diff() {
+            let diff = avg_param_diff(
                 &[
-                    new_t!(inno = 1),
-                    new_t!(inno = 2),
-                    new_t!(inno = 6),
+                    new_t!(T, inno = 1, weight = 0.5,),
+                    new_t!(T, inno = 2, weight = -0.5,),
+                    new_t!(T, inno = 3, weight = 1.0,),
                 ],
                 &[
-                    new_t!(inno = 1),
-                    new_t!(inno = 3),
-                    new_t!(inno = 4),
-                    new_t!(inno = 8),
-                    new_t!(inno = 10),
-                ]
-            )
-        );
-    });
-
-    test_t!(
-    test_disjoint_excess_count_symmetrical[T: WConnection | BWConnection]() {
-        let l = vec![
-            new_t!(inno = 1),
-            new_t!(inno = 2),
-            new_t!(inno = 6),
-        ];
-        let r = vec![
-            new_t!(inno = 1),
-            new_t!(inno = 3),
-            new_t!(inno = 4),
-            new_t!(inno = 8),
-            new_t!(inno = 10),
-        ];
-        assert_eq!(disjoint_excess_count(&l, &r), disjoint_excess_count(&r, &l));
-    });
-
-    test_t!(
-    test_disjoint_excess_count_empty[T: WConnection | BWConnection]() {
-        let full = vec![new_t!(inno = 1), new_t!(inno = 2)];
-        assert_eq!((0.0, 2.0), disjoint_excess_count(&full, &[]));
-        assert_eq!((0.0, 2.0), disjoint_excess_count(&[], &full));
-        assert_eq!((0.0, 0.0), disjoint_excess_count::<T>(&[], &[]));
-    });
-
-    test_t!(
-    test_disjoint_excess_count_hanging_l[T: WConnection | BWConnection]() {
-        assert_eq!(
-            (0.0, 1.0),
-            disjoint_excess_count(
-                &[
-                    new_t!(inno = 0),
-                    new_t!(inno = 1),
-                    new_t!(inno = 2),
+                    new_t!(T, inno = 1, weight = 0.0,),
+                    new_t!(T, inno = 2, weight = -1.0,),
+                    new_t!(T, inno = 4, weight = 2.0,),
                 ],
-                &[new_t!(inno = 0), new_t!(inno = 1),]
-            )
-        )
-    });
+            );
+            assert_f64_approx!(diff, 0.5, "diff ne: {diff}, 0.5");
+        }
+    }
 
-    test_t!(
-    test_disjoint_excess_count_no_overlap[T: WConnection | BWConnection]() {
-        assert_eq!(
-            (2.0, 2.0),
-            disjoint_excess_count(
-                &[new_t!(inno = 1), new_t!(inno = 2),],
-                &[new_t!(inno = 3), new_t!(inno = 4),]
-            )
-        );
-    });
-
-    test_t!(
-    test_disjoint_excess_count_short_larger_inno[T: WConnection | BWConnection]() {
-        assert_eq!(
-            (3.0, 1.0),
-            disjoint_excess_count(
-                &[new_t!(inno = 10)],
+    fn_matrix! {
+        T: BWConnection,
+        #[test]
+        fn test_avg_param_diff() {
+            let diff = avg_param_diff(
                 &[
-                    new_t!(inno = 1),
-                    new_t!(inno = 2),
-                    new_t!(inno = 3),
-                ]
+                    new_t!(T, inno = 1, weight = 0.5, bias = 1.),
+                    new_t!(T, inno = 2, weight = -0.5,),
+                    new_t!(T, inno = 3, weight = 1.0,),
+                ],
+                &[
+                    new_t!(T, inno = 1, weight = 0.0, bias = 0.),
+                    new_t!(T, inno = 2, weight = -1.0,),
+                    new_t!(T, inno = 4, weight = 2.0,),
+                ],
+            );
+            let diff_w = 0.5;
+            let diff_b = 1. / 2.;
+            assert_f64_approx!(diff, diff_w + diff_b, "diff ne: {diff}, 0.5");
+        }
+    }
+
+    fn_matrix! {
+        T: WConnection | BWConnection,
+        #[test]
+        fn test_avg_param_diff_empty() {
+            let full = vec![
+                new_t!(T, inno = 1, weight = 0.0,),
+                new_t!(T, inno = 2, weight = -1.0,),
+                new_t!(T, inno = 4, weight = 2.0,),
+            ];
+
+            let diff = avg_param_diff(&full, &[]);
+            assert_f64_approx!(diff, 0.0, "diff ne: {diff}, 0.");
+
+            let diff = avg_param_diff(&[], &full);
+            assert_f64_approx!(diff, 0.0, "diff ne: {diff}, 0.");
+
+            let diff = avg_param_diff::<T>(&[], &[]);
+            assert_f64_approx!(diff, 0.0, "diff ne: {diff}, 0.");
+        }
+    }
+
+    fn_matrix! {
+        T: WConnection | BWConnection,
+        #[test]
+        fn test_avg_param_diff_no_overlap() {
+            let diff = avg_param_diff(
+                &[
+                    new_t!(T, inno = 1, weight = 0.5,),
+                    new_t!(T, inno = 2, weight = -0.5,),
+                    new_t!(T, inno = 3, weight = 1.0,),
+                ],
+                &[
+                    new_t!(T, inno = 5, weight = 0.5,),
+                    new_t!(T, inno = 6, weight = -0.5,),
+                ],
+            );
+            assert_f64_approx!(diff, 0., "diff ne: {diff}, 0.")
+        }
+    }
+
+    fn_matrix! {
+        T: WConnection | BWConnection,
+        #[test]
+        fn test_avg_param_diff_no_diff() {
+            let diff = avg_param_diff(
+                &[
+                    new_t!(T, inno = 1, weight = 0.5,),
+                    new_t!(T, inno = 2, weight = -0.5,),
+                    new_t!(T, inno = 3, weight = 1.0,),
+                ],
+                &[
+                    new_t!(T, inno = 1, weight = 0.5,),
+                    new_t!(T, inno = 2, weight = -0.5,),
+                    new_t!(T, inno = 3, weight = 1.0,),
+                ],
+            );
+            assert_f64_approx!(diff, 0.0, "diff ne: {diff}, 0.");
+        }
+    }
+
+    fn_matrix! {
+        T: WConnection | BWConnection,
+        #[test]
+        fn test_disjoint_excess_count() {
+            assert_eq!(
+                (4.0, 2.0),
+                disjoint_excess_count(
+                    &[
+                        new_t!(T, inno = 1),
+                        new_t!(T, inno = 2),
+                        new_t!(T, inno = 6),
+                    ],
+                    &[
+                        new_t!(T, inno = 1),
+                        new_t!(T, inno = 3),
+                        new_t!(T, inno = 4),
+                        new_t!(T, inno = 8),
+                        new_t!(T, inno = 10),
+                    ]
+                )
+            );
+        }
+    }
+
+    fn_matrix! {
+        T: WConnection | BWConnection,
+        #[test]
+        fn test_disjoint_excess_count_symmetrical() {
+            let l = vec![
+                new_t!(T, inno = 1),
+                new_t!(T, inno = 2),
+                new_t!(T, inno = 6),
+            ];
+            let r = vec![
+                new_t!(T, inno = 1),
+                new_t!(T, inno = 3),
+                new_t!(T, inno = 4),
+                new_t!(T, inno = 8),
+                new_t!(T, inno = 10),
+            ];
+            assert_eq!(disjoint_excess_count(&l, &r), disjoint_excess_count(&r, &l));
+        }
+    }
+
+    fn_matrix! {
+        T: WConnection | BWConnection,
+        #[test]
+        fn test_disjoint_excess_count_empty() {
+            let full = vec![new_t!(T, inno = 1), new_t!(T, inno = 2)];
+            assert_eq!((0.0, 2.0), disjoint_excess_count(&full, &[]));
+            assert_eq!((0.0, 2.0), disjoint_excess_count(&[], &full));
+            assert_eq!((0.0, 0.0), disjoint_excess_count::<T>(&[], &[]));
+        }
+    }
+
+    fn_matrix! {
+        T: WConnection | BWConnection,
+        #[test]
+        fn test_disjoint_excess_count_hanging_l() {
+            assert_eq!(
+                (0.0, 1.0),
+                disjoint_excess_count(
+                    &[
+                        new_t!(T, inno = 0),
+                        new_t!(T, inno = 1),
+                        new_t!(T, inno = 2),
+                    ],
+                    &[new_t!(T, inno = 0), new_t!(T, inno = 1),]
+                )
             )
-        );
-    });
+        }
+    }
+
+    fn_matrix! {
+        T: WConnection | BWConnection,
+        #[test]
+        fn test_disjoint_excess_count_no_overlap() {
+            assert_eq!(
+                (2.0, 2.0),
+                disjoint_excess_count(
+                    &[new_t!(T, inno = 1), new_t!(T, inno = 2),],
+                    &[new_t!(T, inno = 3), new_t!(T, inno = 4),]
+                )
+            );
+        }
+    }
+
+    fn_matrix! {
+        T: WConnection | BWConnection,
+        #[test]
+        fn test_disjoint_excess_count_short_larger_inno() {
+            assert_eq!(
+                (3.0, 1.0),
+                disjoint_excess_count(
+                    &[new_t!(T, inno = 10)],
+                    &[
+                        new_t!(T, inno = 1),
+                        new_t!(T, inno = 2),
+                        new_t!(T, inno = 3),
+                    ]
+                )
+            );
+        }
+    }
 
     fn assert_crossover_eq<C: Connection>(l: &[C], r: &[C]) {
         for (l, r) in [(l, r), (r, l)] {
@@ -472,116 +505,137 @@ mod test {
         }
     }
 
-    test_t!(
-    test_crossover_eq[T: WConnection | BWConnection]() {
-        let l = [
-            new_t!(inno = 0, from = 1_1),
-            new_t!(inno = 1, from = 1_2),
-            new_t!(inno = 2, from = 1_3),
-        ];
-        let r = [
-            new_t!(inno = 0, from = 2_1),
-            new_t!(inno = 2, from = 2_2),
-            new_t!(inno = 3, from = 2_3),
-        ];
+    fn_matrix! {
+        T: WConnection | BWConnection,
+        #[test]
+        fn test_crossover_eq() {
+            let l = [
+                new_t!(T, inno = 0, from = 1_1),
+                new_t!(T, inno = 1, from = 1_2),
+                new_t!(T, inno = 2, from = 1_3),
+            ];
+            let r = [
+                new_t!(T, inno = 0, from = 2_1),
+                new_t!(T, inno = 2, from = 2_2),
+                new_t!(T, inno = 3, from = 2_3),
+            ];
 
-        assert_crossover_eq(&l, &r);
-    });
-
-    test_t!(
-    test_crossover_eq_empty[T: WConnection | BWConnection]() {
-        let l = [new_t!(inno = 2, from = 1)];
-
-        assert_crossover_eq(&l, &[]);
-        assert_crossover_eq::<T>(&[], &[]);
-    });
-
-    test_t!(
-    test_crossover_eq_overflow[T: WConnection | BWConnection]() {
-        let l = [new_t!(inno = 0, from = 1_1)];
-        let r = [new_t!(inno = 1, from = 2_1)];
-
-        assert_crossover_eq(&l, &r);
-
-        let l = [new_t!(inno = 1, from = 1_1)];
-        let r = [new_t!(inno = 0, from = 2_1)];
-
-        assert_crossover_eq(&l, &r);
-    });
-
-    test_t!(
-    #[should_panic(expected = "not from r_0")]
-    test_crossover_eq_catchup_l[T: WConnection | BWConnection]() {
-        let l = [
-            new_t!(inno = 0, from = 1_1),
-            new_t!(inno = 1, from = 1_2),
-        ];
-        let r = [new_t!(inno = 1, from = 2_1)];
-        let mut rng = default_rng();
-        for _ in 0..1000 {
-            let lr = crossover_eq(&l, &r, &mut rng);
-            assert_eq!(lr.len(), 2);
-            assert_some_normalized!(&lr[0], [&l[0]]; {.enable()});
-            assert_some_normalized!(&lr[1], [&r[0]]; {.enable()}, "not from r_0");
+            assert_crossover_eq(&l, &r);
         }
-    });
+    }
 
-    test_t!(
-    #[should_panic(expected = "not from l_0")]
-    test_crossover_eq_catchup_r[T: WConnection | BWConnection]() {
-        let l = [new_t!(inno = 1, from = 2_1)];
-        let r = [
-            new_t!(inno = 0, from = 1_1),
-            new_t!(inno = 1, from = 1_2),
-        ];
-        let mut rng = default_rng();
-        for _ in 0..1000 {
-            let lr = crossover_eq(&l, &r, &mut rng);
-            assert_eq!(lr.len(), 2);
-            assert_some_normalized!(&lr[0], [&r[0]]; {.enable()});
-            assert_some_normalized!(&lr[1], [&l[0]]; {.enable()}, "not from l_0");
-        }
-    });
+    fn_matrix! {
+        T: WConnection | BWConnection,
+        #[test]
+        fn test_crossover_eq_empty() {
+            let l = [new_t!(T, inno = 2, from = 1)];
 
-    test_t!(
-    #[should_panic(expected = "not from l_1")]
-    test_crossover_eq_both_step_l[T: WConnection | BWConnection]() {
-        let l = [
-            new_t!(inno = 0, from = 1_1),
-            new_t!(inno = 1, from = 1_2),
-        ];
-        let r = [
-            new_t!(inno = 0, from = 2_1),
-            new_t!(inno = 1, from = 2_2),
-        ];
-        let mut rng = default_rng();
-        for _ in 0..1000 {
-            let lr = crossover_eq(&l, &r, &mut rng);
-            assert_eq!(lr.len(), 2);
-            assert_some_normalized!(&lr[0], [&l[0], &r[0]]; {.enable()});
-            assert_some_normalized!(&lr[1], [&l[1]]; {.enable()}, "not from l_1");
+            assert_crossover_eq(&l, &[]);
+            assert_crossover_eq::<T>(&[], &[]);
         }
-    });
+    }
 
-    test_t!(
-    #[should_panic(expected = "not from r_1")]
-    test_crossover_eq_both_step_r[T: WConnection | BWConnection]() {
-        let l = [
-            new_t!(inno = 0, from = 1_1),
-            new_t!(inno = 1, from = 1_2),
-        ];
-        let r = [
-            new_t!(inno = 0, from = 2_1),
-            new_t!(inno = 1, from = 2_2),
-        ];
-        let mut rng = default_rng();
-        for _ in 0..1000 {
-            let lr = crossover_eq(&l, &r, &mut rng);
-            assert_eq!(lr.len(), 2);
-            assert_some_normalized!(&lr[0], [&l[0], &r[0]]; {.enable()});
-            assert_some_normalized!(&lr[1], [&r[1]]; {.enable()}, "not from r_1");
+    fn_matrix! {
+        T: WConnection | BWConnection,
+        #[test]
+        fn test_crossover_eq_overflow() {
+            let l = [new_t!(T, inno = 0, from = 1_1)];
+            let r = [new_t!(T, inno = 1, from = 2_1)];
+
+            assert_crossover_eq(&l, &r);
+
+            let l = [new_t!(T, inno = 1, from = 1_1)];
+            let r = [new_t!(T, inno = 0, from = 2_1)];
+
+            assert_crossover_eq(&l, &r);
         }
-    });
+    }
+
+    fn_matrix! {
+        T: WConnection | BWConnection,
+        #[test]
+        #[should_panic(expected = "not from r_0")]
+        fn test_crossover_eq_catchup_l() {
+            let l = [
+                new_t!(T, inno = 0, from = 1_1),
+                new_t!(T, inno = 1, from = 1_2),
+            ];
+            let r = [new_t!(T, inno = 1, from = 2_1)];
+            let mut rng = default_rng();
+            for _ in 0..1000 {
+                let lr = crossover_eq(&l, &r, &mut rng);
+                assert_eq!(lr.len(), 2);
+                assert_some_normalized!(&lr[0], [&l[0]]; {.enable()});
+                assert_some_normalized!(&lr[1], [&r[0]]; {.enable()}, "not from r_0");
+            }
+        }
+    }
+
+    fn_matrix! {
+        T: WConnection | BWConnection,
+        #[test]
+        #[should_panic(expected = "not from l_0")]
+        fn test_crossover_eq_catchup_r() {
+            let l = [new_t!(T, inno = 1, from = 2_1)];
+            let r = [
+                new_t!(T, inno = 0, from = 1_1),
+                new_t!(T, inno = 1, from = 1_2),
+            ];
+            let mut rng = default_rng();
+            for _ in 0..1000 {
+                let lr = crossover_eq(&l, &r, &mut rng);
+                assert_eq!(lr.len(), 2);
+                assert_some_normalized!(&lr[0], [&r[0]]; {.enable()});
+                assert_some_normalized!(&lr[1], [&l[0]]; {.enable()}, "not from l_0");
+            }
+        }
+    }
+
+    fn_matrix! {
+        T: WConnection | BWConnection,
+        #[test]
+        #[should_panic(expected = "not from l_1")]
+        fn test_crossover_eq_both_step_l() {
+            let l = [
+                new_t!(T, inno = 0, from = 1_1),
+                new_t!(T, inno = 1, from = 1_2),
+            ];
+            let r = [
+                new_t!(T, inno = 0, from = 2_1),
+                new_t!(T, inno = 1, from = 2_2),
+            ];
+            let mut rng = default_rng();
+            for _ in 0..1000 {
+                let lr = crossover_eq(&l, &r, &mut rng);
+                assert_eq!(lr.len(), 2);
+                assert_some_normalized!(&lr[0], [&l[0], &r[0]]; {.enable()});
+                assert_some_normalized!(&lr[1], [&l[1]]; {.enable()}, "not from l_1");
+            }
+        }
+    }
+
+    fn_matrix! {
+        T: WConnection | BWConnection,
+        #[test]
+        #[should_panic(expected = "not from r_1")]
+        fn test_crossover_eq_both_step_r() {
+            let l = [
+                new_t!(T, inno = 0, from = 1_1),
+                new_t!(T, inno = 1, from = 1_2),
+            ];
+            let r = [
+                new_t!(T, inno = 0, from = 2_1),
+                new_t!(T, inno = 1, from = 2_2),
+            ];
+            let mut rng = default_rng();
+            for _ in 0..1000 {
+                let lr = crossover_eq(&l, &r, &mut rng);
+                assert_eq!(lr.len(), 2);
+                assert_some_normalized!(&lr[0], [&l[0], &r[0]]; {.enable()});
+                assert_some_normalized!(&lr[1], [&r[1]]; {.enable()}, "not from r_1");
+            }
+        }
+    }
 
     fn assert_crossover_ne<C: Connection>(l: &[C], r: &[C]) {
         for (l, r) in [(l, r), (r, l)] {
@@ -619,105 +673,126 @@ mod test {
         }
     }
 
-    test_t!(
-    test_crossover_ne[T: WConnection | BWConnection]() {
-        let l = [
-            new_t!(inno = 0, from = 1_1),
-            new_t!(inno = 1, from = 1_2),
-            new_t!(inno = 2, from = 1_3),
-            new_t!(inno = 9, from = 1_4),
-        ];
-        let r = [
-            new_t!(inno = 0, from = 2_1),
-            new_t!(inno = 2, from = 2_2),
-            new_t!(inno = 3, from = 2_3),
-            new_t!(inno = 4, from = 2_4),
-            new_t!(inno = 7, from = 2_5),
-        ];
+    fn_matrix! {
+        T: WConnection | BWConnection,
+        #[test]
+        fn test_crossover_ne() {
+            let l = [
+                new_t!(T, inno = 0, from = 1_1),
+                new_t!(T, inno = 1, from = 1_2),
+                new_t!(T, inno = 2, from = 1_3),
+                new_t!(T, inno = 9, from = 1_4),
+            ];
+            let r = [
+                new_t!(T, inno = 0, from = 2_1),
+                new_t!(T, inno = 2, from = 2_2),
+                new_t!(T, inno = 3, from = 2_3),
+                new_t!(T, inno = 4, from = 2_4),
+                new_t!(T, inno = 7, from = 2_5),
+            ];
 
-        assert_crossover_ne(&l, &r);
-    });
-
-    test_t!(
-    test_crossover_ne_empty[T: WConnection | BWConnection]() {
-        let l = [new_t!(inno = 0, from = 1_1)];
-
-        assert_crossover_ne(&l, &[]);
-        assert_crossover_ne::<T>(&[], &[]);
-    });
-
-    test_t!(
-    test_crossover_ne_no_overlap[T: WConnection | BWConnection]() {
-        let l = [
-            new_t!(inno = 1, from = 1_1),
-            new_t!(inno = 3, from = 1_2),
-            new_t!(inno = 5, from = 1_3),
-        ];
-        let r = [
-            new_t!(inno = 0, from = 2_1),
-            new_t!(inno = 2, from = 2_2),
-            new_t!(inno = 4, from = 2_3),
-        ];
-
-        assert_crossover_ne(&l, &r);
-    });
-
-    test_t!(
-    test_crossover_ne_full_overlap[T: WConnection | BWConnection]() {
-        let l = [
-            new_t!(inno = 1, from = 1_1),
-            new_t!(inno = 2, from = 1_2),
-            new_t!(inno = 3, from = 1_3),
-        ];
-        let r = [
-            new_t!(inno = 1, from = 2_1),
-            new_t!(inno = 2, from = 2_2),
-            new_t!(inno = 3, from = 2_3),
-        ];
-
-        assert_crossover_ne(&l, &r);
-    });
-
-    test_t!(
-    test_crossover_ne_overflow[T: WConnection | BWConnection]() {
-        let l = [new_t!(inno = 10, from = 1_1)];
-        let r = [
-            new_t!(inno = 1, from = 2_1),
-            new_t!(inno = 2, from = 2_2),
-        ];
-
-        assert_crossover_ne(&l, &r);
-    });
-
-    test_t!(
-    test_crossover_ne_no_lt[T: WConnection | BWConnection]() {
-        let l = [new_t!(inno = 0, from = 1_1)];
-        let r = [new_t!(inno = 10, from = 2_1)];
-
-        assert_crossover_ne(&l, &r);
-    });
-
-    test_t!(
-    test_crossover_lt[T: WConnection | BWConnection]() {
-        let l = [
-            new_t!(inno = 0, from = 1_1),
-            new_t!(inno = 1, from = 1_2),
-            new_t!(inno = 2, from = 1_3),
-        ];
-        let r = [
-            new_t!(inno = 0, from = 2_1),
-            new_t!(inno = 2, from = 2_2),
-            new_t!(inno = 3, from = 2_3),
-            new_t!(inno = 4, from = 2_4),
-        ];
-
-        let mut rng = default_rng();
-        assert_crossover_ne(&l, &r);
-        for (le, ge) in crossover(&l, &r, Ordering::Less, &mut rng)
-            .iter()
-            .zip(crossover_ne(&r, &l, &mut rng))
-        {
-            assert_eq!(le.inno(), ge.inno());
+            assert_crossover_ne(&l, &r);
         }
-    });
+    }
+
+    fn_matrix! {
+        T: WConnection | BWConnection,
+        #[test]
+        fn test_crossover_ne_empty() {
+            let l = [new_t!(T, inno = 0, from = 1_1)];
+
+            assert_crossover_ne(&l, &[]);
+            assert_crossover_ne::<T>(&[], &[]);
+        }
+    }
+
+    fn_matrix! {
+        T: WConnection | BWConnection,
+        #[test]
+        fn test_crossover_ne_no_overlap() {
+            let l = [
+                new_t!(T, inno = 1, from = 1_1),
+                new_t!(T, inno = 3, from = 1_2),
+                new_t!(T, inno = 5, from = 1_3),
+            ];
+            let r = [
+                new_t!(T, inno = 0, from = 2_1),
+                new_t!(T, inno = 2, from = 2_2),
+                new_t!(T, inno = 4, from = 2_3),
+            ];
+
+            assert_crossover_ne(&l, &r);
+        }
+    }
+
+    fn_matrix! {
+        T: WConnection | BWConnection,
+        #[test]
+        fn test_crossover_ne_full_overlap() {
+            let l = [
+                new_t!(T, inno = 1, from = 1_1),
+                new_t!(T, inno = 2, from = 1_2),
+                new_t!(T, inno = 3, from = 1_3),
+            ];
+            let r = [
+                new_t!(T, inno = 1, from = 2_1),
+                new_t!(T, inno = 2, from = 2_2),
+                new_t!(T, inno = 3, from = 2_3),
+            ];
+
+            assert_crossover_ne(&l, &r);
+        }
+    }
+
+    fn_matrix! {
+        T: WConnection | BWConnection,
+        #[test]
+        fn test_crossover_ne_overflow() {
+            let l = [new_t!(T, inno = 10, from = 1_1)];
+            let r = [
+                new_t!(T, inno = 1, from = 2_1),
+                new_t!(T, inno = 2, from = 2_2),
+            ];
+
+            assert_crossover_ne(&l, &r);
+        }
+    }
+
+    fn_matrix! {
+        T: WConnection | BWConnection,
+        #[test]
+        fn test_crossover_ne_no_lt() {
+            let l = [new_t!(T, inno = 0, from = 1_1)];
+            let r = [new_t!(T, inno = 10, from = 2_1)];
+
+            assert_crossover_ne(&l, &r);
+        }
+    }
+
+    fn_matrix! {
+        T: WConnection | BWConnection,
+        #[test]
+        fn test_crossover_lt() {
+            let l = [
+                new_t!(T, inno = 0, from = 1_1),
+                new_t!(T, inno = 1, from = 1_2),
+                new_t!(T, inno = 2, from = 1_3),
+            ];
+            let r = [
+                new_t!(T, inno = 0, from = 2_1),
+                new_t!(T, inno = 2, from = 2_2),
+                new_t!(T, inno = 3, from = 2_3),
+                new_t!(T, inno = 4, from = 2_4),
+            ];
+
+            let mut rng = default_rng();
+            assert_crossover_ne(&l, &r);
+            for (le, ge) in crossover(&l, &r, Ordering::Less, &mut rng)
+                .iter()
+                .zip(crossover_ne(&r, &l, &mut rng))
+            {
+                assert_eq!(le.inno(), ge.inno());
+            }
+        }
+    }
 }
