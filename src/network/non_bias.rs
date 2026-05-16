@@ -51,3 +51,56 @@ impl<C: Connection, G: Genome<C>> FromGenome<C, G> for NonBias {
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::genome::{self, connection::BWConnection, WConnection};
+    use eevee_macros::fn_matrix;
+    use rulinalg::matrix::BaseMatrix;
+
+    fn_matrix! {
+        C: WConnection | BWConnection,
+        G: genome::Recurrent<C>,
+
+        /// weight matrix has correct dimensions for node count
+        #[test]
+        fn test_matrix_structure() {
+            let (genome, _) = G::new(3, 2);
+            let nn = NonBias::from_genome(&genome);
+            let cols = genome.node_count();
+
+            assert_eq!(nn.y.cols(), cols);
+            assert_eq!(nn.y.rows(), 1);
+            assert_eq!(nn.w.cols(), cols);
+            assert_eq!(nn.w.rows(), cols);
+        }
+
+        /// sensory/action ranges map correctly
+        #[test]
+        fn test_bounds() {
+            let (genome, _) = G::new(4, 3);
+            let nn = NonBias::from_genome(&genome);
+
+            assert_eq!(nn.sensory.0, genome.sensory().start);
+            assert_eq!(nn.sensory.1, genome.sensory().end);
+            assert_eq!(nn.action.0, genome.action().start);
+            assert_eq!(nn.action.1, genome.action().end);
+            assert_eq!(nn.output().len(), genome.action().len());
+        }
+
+        /// disabled connections excluded from weight matrix
+        #[test]
+        fn test_disabled_connections_excluded() {
+            let (mut genome, _) = G::new(2, 2);
+            if let Some(c) = genome.connections_mut().first_mut() {
+                c.disable();
+            }
+
+            let nn = NonBias::from_genome(&genome);
+            let cols = genome.node_count();
+
+            assert_eq!(nn.w.data()[0 * cols + 2], 0.0);
+        }
+    }
+}

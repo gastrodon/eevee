@@ -92,3 +92,99 @@ where
         NN::from_genome(self)
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::genome::{self, connection::BWConnection, WConnection};
+    use eevee_macros::fn_matrix;
+
+    fn_matrix! {
+        C: WConnection | BWConnection,
+        G: genome::Recurrent<C>,
+        NN: Continuous | NonBias,
+
+        /// output size matches genome action neurons
+        #[test]
+        fn test_from_genome_output_bounds() {
+            let (genome, _) = G::new(3, 2);
+            let nn = NN::from_genome(&genome);
+            assert_eq!(nn.output().len(), genome.action().len());
+        }
+
+        /// zero action neurons produces empty output
+        #[test]
+        fn test_from_genome_empty_action() {
+            let (genome, _) = G::new(3, 0);
+            let nn = NN::from_genome(&genome);
+            assert_eq!(nn.output().len(), genome.action().len());
+        }
+
+        /// step() accepts sensory-sized input
+        #[test]
+        fn test_step_with_correct_input_size() {
+            let (genome, _) = G::new(3, 2);
+            let mut nn = NN::from_genome(&genome);
+            let input: Vec<_> = (0..genome.sensory().len()).map(|i| i as f64).collect();
+            nn.step(1, &input, |x| x);
+            assert_eq!(nn.output().len(), genome.action().len());
+        }
+
+        /// flush() resets state; output changes on new steps
+        #[test]
+        fn test_flush_resets_state() {
+            let (genome, _) = G::new(2, 2);
+            let mut nn = NN::from_genome(&genome);
+            let input = vec![1.0, 0.5];
+
+            nn.step(3, &input, |x| x.signum());
+            let output_before_flush = nn.output().to_vec();
+
+            nn.flush();
+            nn.step(1, &input, |x| x.signum());
+            let output_after_flush = nn.output().to_vec();
+
+            if !genome.connections().iter().any(|c| c.enabled()) {
+                assert_eq!(output_before_flush, output_after_flush);
+            } else {
+                let magnitude_before: f64 = output_before_flush.iter().map(|x| x.abs()).sum();
+                let magnitude_after: f64 = output_after_flush.iter().map(|x| x.abs()).sum();
+                assert_ne!(magnitude_before, magnitude_after);
+            }
+        }
+
+        /// different activation functions produce different outputs
+        #[test]
+        fn test_different_activations_differ() {
+            let (genome, _) = G::new(2, 2);
+            let mut nn1 = NN::from_genome(&genome);
+            let mut nn2 = NN::from_genome(&genome);
+            let input = vec![0.5, -0.5];
+
+            nn1.step(3, &input, |x| x);
+            nn2.step(3, &input, |x| x.abs());
+
+            if genome.connections().iter().any(|c| c.enabled()) {
+                let magnitude1: f64 = nn1.output().iter().map(|x| x.abs()).sum();
+                let magnitude2: f64 = nn2.output().iter().map(|x| x.abs()).sum();
+                assert_ne!(magnitude1, magnitude2);
+            }
+        }
+
+        /// higher prec accumulates state differently
+        #[test]
+        fn test_prec_affects_convergence() {
+            let (genome, _) = G::new(2, 2);
+            let mut nn1 = NN::from_genome(&genome);
+            let mut nn2 = NN::from_genome(&genome);
+            let input = vec![1.0, 0.5];
+
+            nn1.step(1, &input, |x| x.tanh());
+            nn2.step(5, &input, |x| x.tanh());
+
+            if genome.connections().iter().any(|c| c.enabled()) {
+                assert_ne!(nn1.output(), nn2.output());
+            }
+        }
+    }
+}

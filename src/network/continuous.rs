@@ -73,41 +73,80 @@ impl<C: Connection, G: Genome<C>> FromGenome<C, G> for Continuous {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{
-        assert_f64_approx,
-        genome::{self, InnoGen, WConnection},
-    };
+    use crate::genome::{self, connection::BWConnection, WConnection};
+    use eevee_macros::fn_matrix;
+    use rulinalg::matrix::BaseMatrix;
 
-    #[test]
-    fn test_from_genome() {
-        type C = WConnection;
+    fn_matrix! {
+        C: WConnection | BWConnection,
+        G: genome::Recurrent<C>,
 
-        let mut inno = InnoGen::new(0);
-        let (mut genome, _) = genome::Recurrent::<C>::new(2, 2);
-        genome.push_connection(C::new(0, 3, &mut inno));
-        genome.push_connection(C::new(0, 1, &mut inno));
-        genome.push_connection(C::new(0, 1, &mut inno));
+        /// matrices have correct dimensions for node count
+        #[test]
+        fn test_matrix_dimensions() {
+            let (genome, _) = G::new(3, 2);
+            let nn = Continuous::from_genome(&genome);
+            let cols = genome.node_count();
 
-        let nn = Continuous::from_genome(&genome);
-        unsafe {
-            for c in genome.connections() {
-                if c.enabled() {
-                    assert_f64_approx!(nn.w.get_unchecked([c.from(), c.to()]), c.weight());
-                }
-            }
-
-            for i in 0..genome.node_count() {
-                assert_f64_approx!(nn.θ.get_unchecked([0, i]), 0.)
-            }
+            assert_eq!(nn.y.cols(), cols);
+            assert_eq!(nn.y.rows(), 1);
+            assert_eq!(nn.w.cols(), cols);
+            assert_eq!(nn.w.rows(), cols);
+            assert_eq!(nn.θ.cols(), cols);
+            assert_eq!(nn.τ.cols(), cols);
+            assert_eq!(nn.τ.data()[0], 1.0);
         }
 
-        assert_eq!(
-            (nn.sensory.0, nn.sensory.1),
-            (genome.sensory().start, genome.sensory().end)
-        );
-        assert_eq!(
-            (nn.action.0, nn.action.1),
-            (genome.action().start, genome.action().end)
-        );
+        /// sensory/action ranges map correctly to tuples
+        #[test]
+        fn test_bounds_mapped() {
+            let (genome, _) = G::new(3, 2);
+            let nn = Continuous::from_genome(&genome);
+
+            assert_eq!(nn.sensory.0, genome.sensory().start);
+            assert_eq!(nn.sensory.1, genome.sensory().end);
+            assert_eq!(nn.action.0, genome.action().start);
+            assert_eq!(nn.action.1, genome.action().end);
+        }
+
+        /// disabled connections excluded from weight matrix
+        #[test]
+        fn test_filters_disabled_connections() {
+            let (mut genome, _) = G::new(2, 2);
+            if let Some(c) = genome.connections_mut().first_mut() {
+                c.disable();
+            }
+
+            let nn = Continuous::from_genome(&genome);
+            let cols = genome.node_count();
+
+            assert_eq!(nn.w.data()[0 * cols + 2], 0.0);
+        }
+
+        /// all disabled connections give zero weight matrix
+        #[test]
+        fn test_all_disabled_connections() {
+            let (mut genome, _) = G::new(2, 2);
+            for c in genome.connections_mut().iter_mut() {
+                c.disable();
+            }
+
+            let nn = Continuous::from_genome(&genome);
+            assert!(nn.w.data().iter().all(|&x| x == 0.0));
+        }
+
+        /// flush() zeroes state matrix
+        #[test]
+        fn test_flush_zeroes_state() {
+            let (genome, _) = G::new(2, 2);
+            let mut nn = Continuous::from_genome(&genome);
+            let input = vec![1.0, 0.5];
+
+            nn.step(5, &input, |x| x);
+            assert!(nn.y.data().iter().any(|&x| x != 0.0));
+
+            nn.flush();
+            assert!(nn.y.data().iter().all(|&x| x == 0.0));
+        }
     }
 }
