@@ -264,6 +264,7 @@ mod test {
 
     fn_matrix! {
         T: WConnection,
+        /// avg_param_diff: weight difference reflected
         #[test]
         fn test_avg_param_diff() {
             let diff = avg_param_diff(
@@ -284,6 +285,7 @@ mod test {
 
     fn_matrix! {
         T: BWConnection,
+        /// avg_param_diff: combines weight+bias diffs
         #[test]
         fn test_avg_param_diff() {
             let diff = avg_param_diff(
@@ -306,6 +308,7 @@ mod test {
 
     fn_matrix! {
         T: WConnection | BWConnection,
+        /// avg_param_diff: empty inputs return 0.0
         #[test]
         fn test_avg_param_diff_empty() {
             let full = vec![
@@ -327,6 +330,7 @@ mod test {
 
     fn_matrix! {
         T: WConnection | BWConnection,
+        /// avg_param_diff: no overlapping genes return 0.0
         #[test]
         fn test_avg_param_diff_no_overlap() {
             let diff = avg_param_diff(
@@ -346,6 +350,7 @@ mod test {
 
     fn_matrix! {
         T: WConnection | BWConnection,
+        /// avg_param_diff: identical connections return 0.0
         #[test]
         fn test_avg_param_diff_no_diff() {
             let diff = avg_param_diff(
@@ -366,6 +371,7 @@ mod test {
 
     fn_matrix! {
         T: WConnection | BWConnection,
+        /// disjoint_excess_count: counts misaligned and excess genes
         #[test]
         fn test_disjoint_excess_count() {
             assert_eq!(
@@ -390,6 +396,7 @@ mod test {
 
     fn_matrix! {
         T: WConnection | BWConnection,
+        /// disjoint_excess_count: is symmetric (same result regardless of order)
         #[test]
         fn test_disjoint_excess_count_symmetrical() {
             let l = vec![
@@ -410,6 +417,7 @@ mod test {
 
     fn_matrix! {
         T: WConnection | BWConnection,
+        /// disjoint_excess_count: handles empty inputs correctly
         #[test]
         fn test_disjoint_excess_count_empty() {
             let full = vec![new_t!(T, inno = 1), new_t!(T, inno = 2)];
@@ -421,6 +429,7 @@ mod test {
 
     fn_matrix! {
         T: WConnection | BWConnection,
+        /// disjoint_excess_count: handles left excess genes
         #[test]
         fn test_disjoint_excess_count_hanging_l() {
             assert_eq!(
@@ -439,6 +448,7 @@ mod test {
 
     fn_matrix! {
         T: WConnection | BWConnection,
+        /// disjoint_excess_count: all genes disjoint and excess
         #[test]
         fn test_disjoint_excess_count_no_overlap() {
             assert_eq!(
@@ -453,6 +463,7 @@ mod test {
 
     fn_matrix! {
         T: WConnection | BWConnection,
+        /// disjoint_excess_count: handles inno wraparound correctly
         #[test]
         fn test_disjoint_excess_count_short_larger_inno() {
             assert_eq!(
@@ -507,6 +518,7 @@ mod test {
 
     fn_matrix! {
         T: WConnection | BWConnection,
+        /// crossover_eq: equal fitness preserves all genes from both parents
         #[test]
         fn test_crossover_eq() {
             let l = [
@@ -526,6 +538,7 @@ mod test {
 
     fn_matrix! {
         T: WConnection | BWConnection,
+        /// crossover_eq: handles empty inputs
         #[test]
         fn test_crossover_eq_empty() {
             let l = [new_t!(T, inno = 2, from = 1)];
@@ -537,6 +550,7 @@ mod test {
 
     fn_matrix! {
         T: WConnection | BWConnection,
+        /// crossover_eq: handles inno ordering differences between parents
         #[test]
         fn test_crossover_eq_overflow() {
             let l = [new_t!(T, inno = 0, from = 1_1)];
@@ -553,6 +567,7 @@ mod test {
 
     fn_matrix! {
         T: WConnection | BWConnection,
+        /// crossover_eq: panics when left parent overshoots right parent's max inno
         #[test]
         #[should_panic(expected = "not from r_0")]
         fn test_crossover_eq_catchup_l() {
@@ -573,6 +588,7 @@ mod test {
 
     fn_matrix! {
         T: WConnection | BWConnection,
+        /// crossover_eq: panics when right parent overshoots left parent's max inno
         #[test]
         #[should_panic(expected = "not from l_0")]
         fn test_crossover_eq_catchup_r() {
@@ -593,6 +609,7 @@ mod test {
 
     fn_matrix! {
         T: WConnection | BWConnection,
+        /// crossover_eq: panics when both parents share all genes but offspring selects only from left
         #[test]
         #[should_panic(expected = "not from l_1")]
         fn test_crossover_eq_both_step_l() {
@@ -616,6 +633,7 @@ mod test {
 
     fn_matrix! {
         T: WConnection | BWConnection,
+        /// crossover_eq: panics when both parents share all genes but offspring selects only from right
         #[test]
         #[should_panic(expected = "not from r_1")]
         fn test_crossover_eq_both_step_r() {
@@ -675,6 +693,7 @@ mod test {
 
     fn_matrix! {
         T: WConnection | BWConnection,
+        /// crossover_ne: unequal fitness preserves all genes from fitter (left) parent
         #[test]
         fn test_crossover_ne() {
             let l = [
@@ -697,6 +716,7 @@ mod test {
 
     fn_matrix! {
         T: WConnection | BWConnection,
+        /// crossover_ne: handles empty inputs
         #[test]
         fn test_crossover_ne_empty() {
             let l = [new_t!(T, inno = 0, from = 1_1)];
@@ -708,6 +728,7 @@ mod test {
 
     fn_matrix! {
         T: WConnection | BWConnection,
+        /// crossover_ne: parents share no genes; offspring contains all from fitter (left)
         #[test]
         fn test_crossover_ne_no_overlap() {
             let l = [
@@ -727,6 +748,7 @@ mod test {
 
     fn_matrix! {
         T: WConnection | BWConnection,
+        /// crossover_ne: parents share all genes; offspring contains all genes
         #[test]
         fn test_crossover_ne_full_overlap() {
             let l = [
@@ -746,6 +768,7 @@ mod test {
 
     fn_matrix! {
         T: WConnection | BWConnection,
+        /// crossover_ne: handles inno wraparound correctly
         #[test]
         fn test_crossover_ne_overflow() {
             let l = [new_t!(T, inno = 10, from = 1_1)];
@@ -760,6 +783,7 @@ mod test {
 
     fn_matrix! {
         T: WConnection | BWConnection,
+        /// crossover_ne: left parent has no genes less than right parent's genes
         #[test]
         fn test_crossover_ne_no_lt() {
             let l = [new_t!(T, inno = 0, from = 1_1)];
@@ -771,6 +795,7 @@ mod test {
 
     fn_matrix! {
         T: WConnection | BWConnection,
+        /// crossover_lt: less-than ordering produces same innos as crossover_ne with swapped args
         #[test]
         fn test_crossover_lt() {
             let l = [

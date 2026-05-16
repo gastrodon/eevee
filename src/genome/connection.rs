@@ -207,6 +207,7 @@ mod test {
     fn_matrix! {
         C: WConnection | BWConnection,
 
+        /// new() initializes from/to/inno/enabled/weight correctly
         #[test]
         fn test_new() {
             let mut inno = InnoGen::new(0);
@@ -218,6 +219,7 @@ mod test {
             assert_f64_approx!(c.weight(), 1.0);
         }
 
+        /// Same path reuses inno, different paths get unique innos
         #[test]
         fn test_inno_unique_per_path() {
             let mut inno = InnoGen::new(0);
@@ -228,6 +230,7 @@ mod test {
             assert_ne!(c1.inno(), c3.inno());
         }
 
+        /// enable()/disable() toggle enabled state correctly
         #[test]
         fn test_enabled_disable_enable() {
             let mut inno = InnoGen::new(0);
@@ -241,6 +244,7 @@ mod test {
             assert!(!c.enabled());
         }
 
+        /// path()/from()/to() return consistent (from,to) pairs
         #[test]
         fn test_path_consistency() {
             let mut inno = InnoGen::new(0);
@@ -250,6 +254,7 @@ mod test {
             assert_eq!(c.to(), 7);
         }
 
+        /// weight() returns internal weight field value
         #[test]
         fn test_weight_matches_field() {
             let mut c = C::default();
@@ -257,6 +262,7 @@ mod test {
             assert_f64_approx!(c.weight(), 4.2);
         }
 
+        /// Identical connections have param_diff == 0.0
         #[test]
         fn test_param_diff_zero() {
             let mut inno1 = InnoGen::new(0);
@@ -267,6 +273,7 @@ mod test {
             assert_f64_approx!(diff, 0.0);
         }
 
+        /// mutate_param() modifies weight (1000 iterations) without changing enabled state
         #[test]
         fn test_mutate_param_changes_weight() {
             let mut rng = default_rng();
@@ -287,6 +294,7 @@ mod test {
             assert!(mutated, "mutate_param should cause weight changes");
         }
 
+        /// mutate_param() preserves enabled state when disabled
         #[test]
         fn test_mutate_param_enabled_unchanged() {
             let mut rng = default_rng();
@@ -300,6 +308,7 @@ mod test {
         }
 
 
+        /// bisect() disables original connection
         #[test]
         fn test_bisect_self_disabled() {
             let mut inno = InnoGen::new(0);
@@ -311,6 +320,7 @@ mod test {
             assert!(c2.enabled());
         }
 
+        /// bisect(center) creates correct from→center→to paths
         #[test]
         fn test_bisect_paths() {
             let mut inno = InnoGen::new(0);
@@ -322,6 +332,7 @@ mod test {
             assert_eq!(c2.to(), 4);
         }
 
+        /// bisect() creates 3 unique innos (original, upper, lower)
         #[test]
         fn test_bisect_unique_innos() {
             let mut inno = InnoGen::new(0);
@@ -337,6 +348,7 @@ mod test {
             );
         }
 
+        /// default() creates zero-initialized connection
         #[test]
         fn test_default() {
             let c = C::default();
@@ -347,6 +359,7 @@ mod test {
             assert_eq!(c.weight, 0.0);
         }
 
+        /// Identical connections hash identically
         #[test]
         fn test_hash_consistency() {
             use std::collections::hash_map::DefaultHasher;
@@ -361,6 +374,7 @@ mod test {
             assert_eq!(hasher1.finish(), hasher2.finish());
         }
 
+        /// clone() creates equal copy preserving all fields
         #[test]
         fn test_clone() {
             let mut inno = InnoGen::new(0);
@@ -373,6 +387,7 @@ mod test {
             assert_f64_approx!(c.weight(), c_clone.weight());
         }
 
+        /// == correctly reflects all field differences
         #[test]
         fn test_partialeq() {
             let mut inno1 = InnoGen::new(0);
@@ -387,6 +402,7 @@ mod test {
             assert_ne!(c1, c2);
         }
 
+        /// Debug formatting produces non-empty string with inno/from
         #[test]
         fn test_debug_trait() {
             let mut inno = InnoGen::new(0);
@@ -397,8 +413,7 @@ mod test {
         }
     }
 
-    // Type-specific tests (differ between WConnection and BWConnection)
-
+    /// WConnection: Weight difference reflected in param_diff
     #[test]
     fn test_wconnection_param_diff_nonzero() {
         let mut inno1 = InnoGen::new(0);
@@ -411,6 +426,7 @@ mod test {
         assert!(diff > 0.9 && diff < 1.1, "param_diff = {}", diff);
     }
 
+    /// BWConnection: Combines weight+bias diffs
     #[test]
     fn test_bwconnection_param_diff_nonzero() {
         let mut inno1 = InnoGen::new(0);
@@ -425,6 +441,7 @@ mod test {
         assert!(diff > 1.2 && diff < 1.4, "param_diff = {}", diff);
     }
 
+    /// WConnection: Upper gets weight=1.0, lower gets original weight
     #[test]
     fn test_wconnection_bisect_weight_distribution() {
         let mut inno = InnoGen::new(0);
@@ -435,6 +452,7 @@ mod test {
         assert_f64_approx!(c2.weight(), 2.5);
     }
 
+    /// BWConnection: Weight preserved on lower, bias distributed
     #[test]
     fn test_bwconnection_bisect_weight_distribution() {
         let mut inno = InnoGen::new(0);
@@ -448,6 +466,7 @@ mod test {
         assert_f64_approx!(c2.bias, 1.0);
     }
 
+    /// BWConnection::default() includes zero-initialized bias
     #[test]
     fn test_bwconnection_default() {
         let c = BWConnection::default();
@@ -459,6 +478,7 @@ mod test {
         assert_eq!(c.bias, 0.0);
     }
 
+    /// WConnection: Weights within 3 decimals hash same (truncation edge case)
     #[test]
     fn test_wconnection_hash_weight_precision() {
         use std::collections::hash_map::DefaultHasher;
@@ -474,6 +494,7 @@ mod test {
         assert_eq!(hasher1.finish(), hasher2.finish());
     }
 
+    /// BWConnection: clone() preserves weight and bias
     #[test]
     fn test_bwconnection_clone_with_bias() {
         let mut inno = InnoGen::new(0);

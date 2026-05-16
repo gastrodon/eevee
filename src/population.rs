@@ -190,6 +190,7 @@ mod test {
 
     fn_matrix! {
         T: BasicGenomeCtrnn,
+        /// population_init: creates initial specie with requested genome count
         #[test]
         fn test_population_init() {
             let count = 40;

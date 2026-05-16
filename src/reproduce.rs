@@ -234,6 +234,7 @@ mod test {
 
     fn_matrix! {
         T: G,
+        /// reproduce: produces requested genome count from specie members
         #[test]
         fn test_specie_reproduce() {
             let mut rng = default_rng();
@@ -258,6 +259,7 @@ mod test {
         }
     }
 
+    /// population_alloc: allocates population proportional to species' adjusted fitness
     #[test]
     fn test_population_alloc() {
         let scores_1 = [100., 90., 95.];
