@@ -59,7 +59,7 @@ fn reproduce_crossover<C: Connection, G: Genome<C>>(
         .take(size)
         .map(|((l, _), (r, _))| {
             let mut child = l.reproduce_with(r, std::cmp::Ordering::Greater, rng);
-            child.mutate(rng, innogen);
+            child.mutate(rng, innogen)?;
             Ok(child)
         })
         .collect()
@@ -93,7 +93,7 @@ fn reproduce_copy<C: Connection, G: Genome<C>>(
         .take(size)
         .map(|(genome, _)| {
             let mut child = genome.clone();
-            child.mutate(rng, innogen);
+            child.mutate(rng, innogen)?;
             Ok(child)
         })
         .collect()
