@@ -324,6 +324,33 @@ fn generate_block_variant(
 // Type substitution
 // ---------------------------------------------------------------------------
 
+/// Substitute type param identifiers in a token stream (e.g. inside macros)
+fn substitute_in_token_stream(
+    tokens: &proc_macro2::TokenStream,
+    type_map: &std::collections::HashMap<String, proc_macro2::TokenStream>,
+) -> proc_macro2::TokenStream {
+    let mut out = proc_macro2::TokenStream::new();
+    for tt in tokens.clone() {
+        match tt {
+            proc_macro2::TokenTree::Ident(id) => {
+                if let Some(repl) = type_map.get(id.to_string().as_str()) {
+                    out.extend(repl.clone());
+                } else {
+                    out.extend(std::iter::once(proc_macro2::TokenTree::Ident(id)));
+                }
+            }
+            proc_macro2::TokenTree::Group(g) => {
+                let inner = substitute_in_token_stream(&g.stream(), type_map);
+                out.extend(std::iter::once(proc_macro2::TokenTree::Group(
+                    proc_macro2::Group::new(g.delimiter(), inner),
+                )));
+            }
+            _ => out.extend(std::iter::once(tt)),
+        }
+    }
+    out
+}
+
 fn replace_types_in_fn(
     func: &mut ItemFn,
     type_map: &std::collections::HashMap<String, proc_macro2::TokenStream>,
@@ -406,7 +433,9 @@ fn replace_types_in_stmt(
         syn::Stmt::Expr(expr, _) => {
             replace_types_in_expr(expr, type_map, perm_id, bench_id);
         }
-        syn::Stmt::Macro(_) => {}
+        syn::Stmt::Macro(m) => {
+            m.mac.tokens = substitute_in_token_stream(&m.mac.tokens, type_map);
+        }
     }
 }
 
@@ -536,6 +565,19 @@ fn replace_types_in_expr(
         }
         syn::Expr::Paren(p) => {
             replace_types_in_expr(&mut p.expr, type_map, perm_id, bench_id);
+        }
+        syn::Expr::Macro(m) => {
+            m.mac.tokens = substitute_in_token_stream(&m.mac.tokens, type_map);
+        }
+        syn::Expr::Array(a) => {
+            for elem in &mut a.elems {
+                replace_types_in_expr(elem, type_map, perm_id, bench_id);
+            }
+        }
+        syn::Expr::Struct(s) => {
+            for field in &mut s.fields {
+                replace_types_in_expr(&mut field.expr, type_map, perm_id, bench_id);
+            }
         }
         _ => {}
     }

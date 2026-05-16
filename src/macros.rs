@@ -11,31 +11,6 @@ macro_rules! new_t {
     ($($k:ident = $v:expr),+ $(,)?) => {new_t!(T, $($k = $v,)+)};
 }
 
-/// A macro for constructing a single test with a number of types.
-#[macro_export]
-macro_rules! test_t {
-  ( #[should_panic(expected = $panic_msg:literal)]
-    $name:ident[T: $($impl:ty)|*]() $body:tt ) => {$(
-      ::paste::paste! {
-          #[test]
-          #[should_panic(expected = $panic_msg)]
-          fn [<$name _ $impl:snake>]() {
-            type T=$impl;
-            $body
-          }
-      }
-  )+};
-  ($name:ident[T: $($impl:ty)|*]() $body:tt ) => {$(
-      ::paste::paste! {
-          #[test]
-          fn [<$name _ $impl:snake>]() {
-            type T=$impl;
-            $body
-          }
-      }
-  )+};
-}
-
 #[macro_export]
 macro_rules! assert_f64_approx {
     ($l:expr, $r:expr) => {
