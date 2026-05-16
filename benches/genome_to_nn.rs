@@ -1,7 +1,7 @@
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use eevee::{
     genome::{Recurrent, WConnection},
-    network::{Continuous, FromGenome, NonBias},
+    network::{FromGenome, Realtime},
     Connection, Genome, SerializeFile,
 };
 use eevee_macros::fn_matrix;
@@ -30,7 +30,7 @@ fn bench_genome_to_nn(c: &mut Criterion) {
     fn_matrix! {
         C: WConnection,
         G: Recurrent<WConnection>,
-        NN: Continuous | NonBias,
+        NN: Realtime,
         {
             let genomes: Vec<G> = load_fixture(PERM_ID);
             group.bench_function(BENCH_ID, |b| {

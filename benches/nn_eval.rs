@@ -2,7 +2,7 @@ use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use eevee::{
     activate::steep_sigmoid,
     genome::{Recurrent, WConnection},
-    network::{Continuous, FromGenome, NonBias},
+    network::{FromGenome, Realtime},
     Connection, Genome, Network, SerializeFile,
 };
 use eevee_macros::fn_matrix;
@@ -39,7 +39,7 @@ fn bench_nn_step(c: &mut Criterion) {
     fn_matrix! {
         C: WConnection,
         G: Recurrent<WConnection>,
-        NN: Continuous | NonBias,
+        NN: Realtime,
         {
             let genomes: Vec<G> = load_fixture(PERM_ID);
             // Use the first (simplest) genome for a stable baseline.
@@ -49,7 +49,7 @@ fn bench_nn_step(c: &mut Criterion) {
                 b.iter_batched(
                     || <NN as FromGenome<C, G>>::from_genome(genome),
                     |mut nn| {
-                        nn.step(20, &[1.0_f64, 0.0_f64], steep_sigmoid);
+                        nn.step(&[1.0_f64, 0.0_f64], steep_sigmoid);
                         nn
                     },
                     BatchSize::SmallInput,
