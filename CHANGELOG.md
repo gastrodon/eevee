@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-05-16
+
+### Features
+
+Serialization
+--------------
+- **Optional Serialization Features `d9b951e`**: Serde support now gated behind optional `serialize` and `serialize_json` features, reducing dependency bloat for users who don't need serialization
+- **Native Nalgebra Serialization `b9b2153`**: Bit-exact f64 encoding for nalgebra types with proper serde integration
+
+### Changed
+
+Core Refactoring
+----------------
+- **Matrix Library Migration `e69fa75`**: Migrated from rulinalg to nalgebra for all matrix operations, improving performance and reducing dependency complexity
+- **Removed Static Bias Node `4a9d8a3`**: Simplified genome and network architecture by removing the static bias node; bias is now only dynamically added when needed
+- **Removed NodeKind Enum `231644b`**: Replaced discriminated `NodeKind` enum with simple `node_count: usize` for cleaner architecture
+
+Test Infrastructure
+-------------------
+- **Parametric Test Macro `8b340df`**: Introduced `fn_matrix!` proc macro for composable parametric testing across network types and configurations
+- **Comprehensive Network Tests `c360b50`**: Added extensive trait tests for network implementations with network-specific test modules
+
+Tooling & Build
+---------------
+- **Extended Profiling Tools `8fcf98b`**: Added `toml2json` utility and `--all` flag to profiling scripts for better benchmarking analysis
+
+### Examples
+
+- Removed sentiment analysis example in favor of XOR evolution benchmark `151c238`
+- Extracted XOR scenario into dedicated module for better organization `e4ae5d1`
+- XOR benchmark now focuses purely on evolution dynamics with randomized training pairs `ba98125`
+
 ## [0.2.0] - 2025-10-29
 
 ### Features
