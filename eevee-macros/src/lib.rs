@@ -2,12 +2,12 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
     parse::{Parse, ParseStream},
-    FnArg, ItemFn, ReturnType, Token, Type,
+    FnArg, ItemFn, ReturnType, Token,
 };
 
 struct TypeParam {
     name: syn::Ident,
-    variants: Vec<syn::Type>,
+    variants: Vec<proc_macro2::TokenStream>,
 }
 
 impl Parse for TypeParam {
@@ -16,11 +16,45 @@ impl Parse for TypeParam {
         input.parse::<Token![:]>()?;
 
         let mut variants = Vec::new();
-        variants.push(input.parse::<Type>()?);
 
-        while input.peek(Token![|]) {
-            input.parse::<Token![|]>()?;
-            variants.push(input.parse::<Type>()?);
+        loop {
+            // Always consume tokens until | or , to support forward references like Recurrent<C>
+            // This is more flexible and handles both simple types and complex generic types
+            let mut tokens = proc_macro2::TokenStream::new();
+            let mut depth = 0;
+
+            while !input.is_empty() {
+                if depth == 0 && (input.peek(Token![|]) || input.peek(Token![,])) {
+                    break;
+                }
+
+                let token: proc_macro2::TokenTree = input.parse()?;
+
+                // Track angle bracket and paren depth for generics and nested constructs
+                match &token {
+                    proc_macro2::TokenTree::Punct(p) => {
+                        let ch = p.as_char();
+                        if ch == '<' {
+                            depth += 1;
+                        } else if ch == '>' {
+                            if depth > 0 {
+                                depth -= 1;
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+
+                tokens.extend(std::iter::once(token));
+            }
+
+            variants.push(tokens);
+
+            if input.peek(Token![|]) {
+                input.parse::<Token![|]>()?;
+            } else {
+                break;
+            }
         }
 
         Ok(TypeParam { name, variants })
@@ -122,13 +156,50 @@ pub fn fn_matrix(input: TokenStream) -> TokenStream {
     let mut output = quote! {};
 
     for combo in &combinations {
-        // Build a map of param name -> concrete type for this combo
-        let type_map: std::collections::HashMap<String, &syn::Type> = parsed
+        // Build a map of param name -> concrete type tokens for this combo
+        // First pass: build initial map
+        let mut type_map: std::collections::HashMap<String, proc_macro2::TokenStream> = parsed
             .type_params
             .iter()
             .zip(combo.iter())
-            .map(|(p, t)| (p.name.to_string(), *t))
+            .map(|(p, t)| (p.name.to_string(), t.clone()))
             .collect();
+
+        // Second pass: recursively substitute type parameters within other type parameters
+        // (e.g., substitute C in "Recurrent<C>")
+        let original_map = type_map.clone();
+        for type_param in &parsed.type_params {
+            let param_name = type_param.name.to_string();
+            if let Some(tokens) = type_map.get_mut(&param_name) {
+                let mut substituted = tokens.clone();
+                for other_param in &parsed.type_params {
+                    let other_name = other_param.name.to_string();
+                    if other_name != param_name {
+                        if let Some(replacement) = original_map.get(&other_name) {
+                            // Simple token-level substitution for identifiers
+                            let mut new_tokens = proc_macro2::TokenStream::new();
+                            let mut found = false;
+
+                            for token in substituted.clone() {
+                                if let proc_macro2::TokenTree::Ident(ident) = &token {
+                                    if ident.to_string() == other_name {
+                                        new_tokens.extend(replacement.clone());
+                                        found = true;
+                                        continue;
+                                    }
+                                }
+                                new_tokens.extend(std::iter::once(token));
+                            }
+
+                            if found {
+                                substituted = new_tokens;
+                            }
+                        }
+                    }
+                }
+                *tokens = substituted;
+            }
+        }
 
         for func in &parsed.functions {
             output.extend(generate_function_variant(
@@ -159,8 +230,8 @@ pub fn fn_matrix(input: TokenStream) -> TokenStream {
 fn generate_combinations<'a>(
     params: &'a [TypeParam],
     index: usize,
-    current: Vec<&'a syn::Type>,
-    results: &mut Vec<Vec<&'a syn::Type>>,
+    current: Vec<proc_macro2::TokenStream>,
+    results: &mut Vec<Vec<proc_macro2::TokenStream>>,
 ) {
     if index == params.len() {
         results.push(current);
@@ -168,7 +239,7 @@ fn generate_combinations<'a>(
     }
     for variant in &params[index].variants {
         let mut next = current.clone();
-        next.push(variant);
+        next.push(variant.clone());
         generate_combinations(params, index + 1, next, results);
     }
 }
@@ -177,20 +248,29 @@ fn generate_combinations<'a>(
 // Name helpers
 // ---------------------------------------------------------------------------
 
-fn type_last_ident(t: &syn::Type) -> String {
-    match t {
-        syn::Type::Path(p) => p
-            .path
-            .segments
-            .last()
-            .map(|s| s.ident.to_string())
-            .unwrap_or_default(),
-        _ => "Unknown".to_string(),
+fn extract_idents_from_tokens(tokens: &proc_macro2::TokenStream) -> String {
+    let mut result = Vec::new();
+
+    for token in tokens.clone() {
+        match token {
+            proc_macro2::TokenTree::Ident(ident) => {
+                result.push(ident.to_string());
+            }
+            proc_macro2::TokenTree::Punct(p) if p.as_char() == '<' => {
+                break; // Stop before generics
+            }
+            _ => {}
+        }
     }
+
+    result.join("").to_lowercase()
 }
 
-fn perm_parts(_params: &[TypeParam], combo: &[&syn::Type]) -> Vec<String> {
-    combo.iter().map(|t| type_last_ident(t)).collect()
+fn perm_parts(_params: &[TypeParam], combo: &[proc_macro2::TokenStream]) -> Vec<String> {
+    combo
+        .iter()
+        .map(|t| extract_idents_from_tokens(t))
+        .collect()
 }
 
 // ---------------------------------------------------------------------------
@@ -200,8 +280,8 @@ fn perm_parts(_params: &[TypeParam], combo: &[&syn::Type]) -> Vec<String> {
 fn generate_function_variant(
     func: &ItemFn,
     params: &[TypeParam],
-    combo: &[&syn::Type],
-    type_map: &std::collections::HashMap<String, &syn::Type>,
+    combo: &[proc_macro2::TokenStream],
+    type_map: &std::collections::HashMap<String, proc_macro2::TokenStream>,
 ) -> proc_macro2::TokenStream {
     let mut new_fn = func.clone();
 
@@ -219,8 +299,8 @@ fn generate_function_variant(
 fn generate_block_variant(
     block: &syn::Block,
     params: &[TypeParam],
-    combo: &[&syn::Type],
-    type_map: &std::collections::HashMap<String, &syn::Type>,
+    combo: &[proc_macro2::TokenStream],
+    type_map: &std::collections::HashMap<String, proc_macro2::TokenStream>,
 ) -> proc_macro2::TokenStream {
     let parts = perm_parts(params, combo);
     let perm_id = parts.join("_");
@@ -246,7 +326,7 @@ fn generate_block_variant(
 
 fn replace_types_in_fn(
     func: &mut ItemFn,
-    type_map: &std::collections::HashMap<String, &syn::Type>,
+    type_map: &std::collections::HashMap<String, proc_macro2::TokenStream>,
     perm_id: Option<&str>,
     bench_id: Option<&str>,
 ) {
@@ -264,7 +344,7 @@ fn replace_types_in_fn(
 /// Substitute type params in a type position, recursing into generic arguments.
 fn replace_type_in_type(
     ty: &mut Box<syn::Type>,
-    type_map: &std::collections::HashMap<String, &syn::Type>,
+    type_map: &std::collections::HashMap<String, proc_macro2::TokenStream>,
 ) {
     if let syn::Type::Path(p) = ty.as_mut() {
         // Single-segment bare ident — direct substitution
@@ -272,8 +352,11 @@ fn replace_type_in_type(
             let seg = &p.path.segments[0];
             if matches!(seg.arguments, syn::PathArguments::None) {
                 if let Some(substitution) = type_map.get(seg.ident.to_string().as_str()) {
-                    **ty = (*substitution).clone();
-                    return;
+                    // Parse the TokenStream back into a Type
+                    if let Ok(new_type) = syn::parse2::<syn::Type>(substitution.clone()) {
+                        **ty = new_type;
+                        return;
+                    }
                 }
             }
         }
@@ -294,7 +377,7 @@ fn replace_type_in_type(
 
 fn replace_types_in_block(
     block: &mut syn::Block,
-    type_map: &std::collections::HashMap<String, &syn::Type>,
+    type_map: &std::collections::HashMap<String, proc_macro2::TokenStream>,
     perm_id: Option<&str>,
     bench_id: Option<&str>,
 ) {
@@ -305,7 +388,7 @@ fn replace_types_in_block(
 
 fn replace_types_in_stmt(
     stmt: &mut syn::Stmt,
-    type_map: &std::collections::HashMap<String, &syn::Type>,
+    type_map: &std::collections::HashMap<String, proc_macro2::TokenStream>,
     perm_id: Option<&str>,
     bench_id: Option<&str>,
 ) {
@@ -329,7 +412,7 @@ fn replace_types_in_stmt(
 
 fn replace_types_in_expr(
     expr: &mut syn::Expr,
-    type_map: &std::collections::HashMap<String, &syn::Type>,
+    type_map: &std::collections::HashMap<String, proc_macro2::TokenStream>,
     perm_id: Option<&str>,
     bench_id: Option<&str>,
 ) {
@@ -370,20 +453,22 @@ fn replace_types_in_expr(
                     // Type param substitutions
                     if let Some(substitution) = type_map.get(&ident_str) {
                         if p.path.segments.len() == 1 {
-                            *expr = syn::parse2(quote! { #substitution })
-                                .unwrap_or_else(|_| expr.clone());
+                            *expr =
+                                syn::parse2(substitution.clone()).unwrap_or_else(|_| expr.clone());
                         } else {
                             // Handle X::method by prepending X and appending remaining segments
                             let remaining =
                                 p.path.segments.iter().skip(1).cloned().collect::<Vec<_>>();
-                            let mut new_path = match substitution {
-                                syn::Type::Path(path_type) => path_type.path.clone(),
-                                _ => syn::parse2::<syn::Path>(quote! { #substitution }).unwrap(),
-                            };
+                            let new_path = syn::parse2::<syn::Path>(substitution.clone())
+                                .unwrap_or_else(|_| syn::Path {
+                                    leading_colon: None,
+                                    segments: Default::default(),
+                                });
+                            let mut final_path = new_path;
                             for seg in remaining {
-                                new_path.segments.push(seg);
+                                final_path.segments.push(seg);
                             }
-                            p.path = new_path;
+                            p.path = final_path;
                         }
                     }
                 }

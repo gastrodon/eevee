@@ -170,10 +170,11 @@ macro_rules! events {
 
 #[cfg(test)]
 mod test {
-    use crate::genome::{Genome, Recurrent, WConnection};
+    use crate::genome::{connection::BWConnection, Genome, Recurrent, WConnection};
     use crate::network::{Continuous, FromGenome, NonBias};
     use eevee_macros::fn_matrix;
 
+    // Test 1: Simple non-parametrized types
     fn_matrix! {
         G: Recurrent<WConnection>,
         NN: Continuous | NonBias,
@@ -184,10 +185,26 @@ mod test {
         }
     }
 
+    // Test 2: Parametrized generic with forward reference (C substituted into Recurrent<C>)
+    fn_matrix! {
+        C: WConnection | BWConnection,
+        G: Recurrent<C>,
+        NN: Continuous,
+
+        fn test_func_param() -> NN {
+            let (g, _) = G::new(2, 2);
+            NN::from_genome(&g)
+        }
+    }
+
     #[test]
     fn test_matrix_expansion() {
+        // Test 1: Simple non-parametrized types (G with concrete type, NN generic)
         let _ = test_func_recurrent_continuous();
         let _ = test_func_recurrent_nonbias();
-        println!("fn_matrix macro test passed!");
+
+        // Test 2: Parametrized generic (C substituted into G: Recurrent<C>, NN concrete)
+        let _ = test_func_param_wconnection_recurrent_continuous();
+        let _ = test_func_param_bwconnection_recurrent_continuous();
     }
 }
