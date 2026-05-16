@@ -3,7 +3,7 @@ members = [".", "eevee-macros"]
 
 [package]
 name = "eevee"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 description = "Generalized NeuroEvolution toolkit, based on NEAT"
 license = "AGPL-3.0-or-later"
