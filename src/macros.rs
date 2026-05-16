@@ -145,28 +145,28 @@ macro_rules! events {
 
 #[cfg(test)]
 mod test {
-    use crate::genome::{connection::BWConnection, Genome, Recurrent, WConnection};
-    use crate::network::{Continuous, FromGenome, NonBias};
+    use crate::genome::{connection::BWConnection, Genome, NonRecurrent, Recurrent, WConnection};
+    use crate::network::{BinaryFeedForward, FeedForward, FromGenome, Realtime};
     use eevee_macros::fn_matrix;
 
-    // Test 1: Simple non-parametrized types
+    // Test 1: Recurrent genome with Realtime network
     fn_matrix! {
         G: Recurrent<WConnection>,
-        NN: Continuous | NonBias,
+        NN: Realtime,
 
-        fn test_func() -> NN {
+        fn test_recurrent() -> NN {
             let (g, _) = G::new(2, 2);
             NN::from_genome(&g)
         }
     }
 
-    // Test 2: Parametrized generic with forward reference (C substituted into Recurrent<C>)
+    // Test 2: NonRecurrent genome with feedforward networks
     fn_matrix! {
         C: WConnection | BWConnection,
-        G: Recurrent<C>,
-        NN: Continuous,
+        G: NonRecurrent<C>,
+        NN: FeedForward | BinaryFeedForward,
 
-        fn test_func_param() -> NN {
+        fn test_feedforward() -> NN {
             let (g, _) = G::new(2, 2);
             NN::from_genome(&g)
         }
@@ -174,12 +174,13 @@ mod test {
 
     #[test]
     fn test_matrix_expansion() {
-        // Test 1: Simple non-parametrized types (G with concrete type, NN generic)
-        let _ = test_func_recurrent_continuous();
-        let _ = test_func_recurrent_nonbias();
+        // Test 1: Recurrent genome with Realtime network
+        let _ = test_recurrent_recurrent_realtime();
 
-        // Test 2: Parametrized generic (C substituted into G: Recurrent<C>, NN concrete)
-        let _ = test_func_param_wconnection_recurrent_continuous();
-        let _ = test_func_param_bwconnection_recurrent_continuous();
+        // Test 2: NonRecurrent genome with feedforward networks
+        let _ = test_feedforward_wconnection_nonrecurrent_feedforward();
+        let _ = test_feedforward_wconnection_nonrecurrent_binaryfeedforward();
+        let _ = test_feedforward_bwconnection_nonrecurrent_feedforward();
+        let _ = test_feedforward_bwconnection_nonrecurrent_binaryfeedforward();
     }
 }

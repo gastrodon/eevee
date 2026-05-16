@@ -6,6 +6,7 @@ description = "Generalized NeuroEvolution toolkit, based on NEAT"
 license = "AGPL-3.0-or-later"
 
 [dependencies]
+eevee-macros = { path = "eevee-macros" }
 find-fold = "~0.1"
 fxhash = "~0.2"
 paste = "~1.0"

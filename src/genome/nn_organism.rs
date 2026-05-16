@@ -141,10 +141,10 @@ impl<C: Connection, P: PathPolicy<C>> Genome<C> for NNOrganism<C, P> {
 mod test {
     use super::*;
     use crate::{
-        genome::{Genome, InnoGen, WConnection},
+        genome::{connection::BWConnection, Genome, InnoGen, WConnection},
         random::default_rng,
-        test_t,
     };
+    use eevee_macros::fn_matrix;
 
     #[derive(Clone, Debug, Default)]
     struct AllowAll;
@@ -154,111 +154,120 @@ mod test {
         }
     }
 
-    type C = WConnection;
-    type NNOrganismAllowAll = NNOrganism<C, AllowAll>;
+    fn_matrix! {
+        C: WConnection | BWConnection,
+        G: NNOrganism<C, AllowAll>,
 
-    test_t!(
-    test_genome_creation[T: NNOrganismAllowAll]() {
-        let (genome, inno_head) = T::new(3, 2);
-        assert_eq!(inno_head, 6);
-        assert_eq!(genome.sensory().len(), 3);
-        assert_eq!(genome.action().len(), 2);
-        assert_eq!(genome.node_count(), 5);
-        assert_eq!(genome.sensory, 3);
-        assert_eq!(genome.action, 2);
-        // layout: [0,1,2]=sensory [3,4]=action
-        assert_eq!(genome.sensory + genome.action, 5);
-    });
+        /// basic genome creation test
+        #[test]
+        fn test_genome_creation() {
+            let (genome, inno_head) = G::new(3, 2);
+            assert_eq!(inno_head, 6);
+            assert_eq!(genome.sensory().len(), 3);
+            assert_eq!(genome.action().len(), 2);
+            assert_eq!(genome.node_count(), 5);
+            assert_eq!(genome.sensory, 3);
+            assert_eq!(genome.action, 2);
+            // layout: [0,1,2]=sensory [3,4]=action
+            assert_eq!(genome.sensory + genome.action, 5);
+        }
 
-    test_t!(
-    test_genome_creation_empty[T: NNOrganismAllowAll]() {
-        let (genome, inno_head) = T::new(0, 0);
-        assert_eq!(inno_head, 0);
-        assert_eq!(genome.sensory().len(), 0);
-        assert_eq!(genome.action().len(), 0);
-        assert_eq!(genome.node_count(), 0);
-        assert_eq!(genome.sensory + genome.action, 0);
-    });
+        /// empty genome
+        #[test]
+        fn test_genome_creation_empty() {
+            let (genome, inno_head) = G::new(0, 0);
+            assert_eq!(inno_head, 0);
+            assert_eq!(genome.sensory().len(), 0);
+            assert_eq!(genome.action().len(), 0);
+            assert_eq!(genome.node_count(), 0);
+            assert_eq!(genome.sensory + genome.action, 0);
+        }
 
-    test_t!(
-    test_genome_creation_only_sensory[T: NNOrganismAllowAll]() {
-        let (genome, inno_head) = T::new(3, 0);
-        assert_eq!(inno_head, 0);
-        assert_eq!(genome.sensory().len(), 3);
-        assert_eq!(genome.action().len(), 0);
-        assert_eq!(genome.node_count(), 3);
-        assert_eq!(genome.sensory, 3);
-        // layout: [0,1,2]=sensory
-        assert_eq!(genome.sensory + genome.action, 3);
-    });
+        /// only sensory nodes
+        #[test]
+        fn test_genome_creation_only_sensory() {
+            let (genome, inno_head) = G::new(3, 0);
+            assert_eq!(inno_head, 0);
+            assert_eq!(genome.sensory().len(), 3);
+            assert_eq!(genome.action().len(), 0);
+            assert_eq!(genome.node_count(), 3);
+            assert_eq!(genome.sensory, 3);
+            // layout: [0,1,2]=sensory
+            assert_eq!(genome.sensory + genome.action, 3);
+        }
 
-    test_t!(
-    test_genome_creation_only_action[T: NNOrganismAllowAll]() {
-        let (genome, inno_head) = T::new(0, 3);
-        assert_eq!(inno_head, 0);
-        assert_eq!(genome.sensory().len(), 0);
-        assert_eq!(genome.action().len(), 3);
-        assert_eq!(genome.node_count(), 3);
-        assert_eq!(genome.action, 3);
-        // layout: [0,1,2]=action
-        assert_eq!(genome.sensory + genome.action, 3);
-    });
+        /// only action nodes
+        #[test]
+        fn test_genome_creation_only_action() {
+            let (genome, inno_head) = G::new(0, 3);
+            assert_eq!(inno_head, 0);
+            assert_eq!(genome.sensory().len(), 0);
+            assert_eq!(genome.action().len(), 3);
+            assert_eq!(genome.node_count(), 3);
+            assert_eq!(genome.action, 3);
+            // layout: [0,1,2]=action
+            assert_eq!(genome.sensory + genome.action, 3);
+        }
 
-    test_t!(
-    test_mutate_bisection[T: NNOrganismAllowAll]() {
-        let mut inno = InnoGen::new(0);
-        let (mut genome, _) = T::new(1, 1);
+        /// bisection creates node and updates connections
+        #[test]
+        fn test_mutate_bisection() {
+            let mut inno = InnoGen::new(0);
+            let (mut genome, _) = G::new(1, 1);
 
-        genome.connections = vec![];
-        genome.push_connection({
-            let mut c = C::new(0, 1, &mut inno);
-            c.mutate_param(&mut default_rng());
-            c
-        });
+            genome.connections = vec![];
+            genome.push_connection({
+                let mut c = C::new(0, 1, &mut inno);
+                c.mutate_param(&mut default_rng());
+                c
+            });
 
-        let innogen = &mut InnoGen::new(1);
-        genome.bisect_connection(&mut default_rng(), innogen).unwrap_or_else(|e| panic!("failed bisect_connection: {e}"));
+            let innogen = &mut InnoGen::new(1);
+            genome.bisect_connection(&mut default_rng(), innogen).unwrap_or_else(|e| panic!("failed bisect_connection: {e}"));
 
-        assert!(!genome.connections()[0].enabled);
+            assert!(!genome.connections()[0].enabled);
 
-        assert_eq!(genome.connections()[1].from(), 0);
-        assert_eq!(genome.connections()[1].to(), 2);
-        assert_eq!(genome.connections()[1].weight(), 1.0);
-        assert!(genome.connections()[1].enabled);
-        assert_eq!(
-            genome.connections()[1].inno,
-            innogen.path((genome.connections()[1].from(), genome.connections()[1].to()))
-        );
+            assert_eq!(genome.connections()[1].from(), 0);
+            assert_eq!(genome.connections()[1].to(), 2);
+            assert_eq!(genome.connections()[1].weight(), 1.0);
+            assert!(genome.connections()[1].enabled);
+            assert_eq!(
+                genome.connections()[1].inno,
+                innogen.path((genome.connections()[1].from(), genome.connections()[1].to()))
+            );
 
-        assert_eq!(genome.connections()[2].from(), 2);
-        assert_eq!(genome.connections()[2].to(), 1);
-        assert_eq!(genome.connections()[1].weight(), 1.);
-        assert_eq!(
-            genome.connections()[2].weight(),
-            genome.connections()[0].weight()
-        );
-        assert!(genome.connections()[2].enabled);
-        assert_eq!(
-            genome.connections()[2].inno,
-            innogen.path((genome.connections()[2].from(), genome.connections()[2].to()))
-        );
+            assert_eq!(genome.connections()[2].from(), 2);
+            assert_eq!(genome.connections()[2].to(), 1);
+            assert_eq!(genome.connections()[1].weight(), 1.);
+            assert_eq!(
+                genome.connections()[2].weight(),
+                genome.connections()[0].weight()
+            );
+            assert!(genome.connections()[2].enabled);
+            assert_eq!(
+                genome.connections()[2].inno,
+                innogen.path((genome.connections()[2].from(), genome.connections()[2].to()))
+            );
 
-        assert_ne!(genome.connections()[0].inno, genome.connections()[1].inno);
-        assert_ne!(genome.connections()[1].inno, genome.connections()[2].inno);
-        assert_ne!(genome.connections()[0].inno, genome.connections()[2].inno);
-    });
+            assert_ne!(genome.connections()[0].inno, genome.connections()[1].inno);
+            assert_ne!(genome.connections()[1].inno, genome.connections()[2].inno);
+            assert_ne!(genome.connections()[0].inno, genome.connections()[2].inno);
+        }
 
-    test_t!(
-    test_mutate_bisection_empty_genome[T: NNOrganismAllowAll]() {
-        let (mut genome, _) = T::new(0, 0);
-        genome.connections = vec![];
-        assert!(genome.bisect_connection(&mut default_rng(), &mut InnoGen::new(0)).is_err());
-    });
+        /// empty genome cannot bisect
+        #[test]
+        fn test_mutate_bisection_empty_genome() {
+            let (mut genome, _) = G::new(0, 0);
+            genome.connections = vec![];
+            assert!(genome.bisect_connection(&mut default_rng(), &mut InnoGen::new(0)).is_err());
+        }
 
-    test_t!(
-    test_mutate_bisection_no_connections[T: NNOrganismAllowAll]() {
-        let (mut genome, _) = T::new(2, 2);
-        genome.connections = vec![];
-        assert!(genome.bisect_connection(&mut default_rng(), &mut InnoGen::new(0)).is_err());
-    });
+        /// no connections cannot bisect
+        #[test]
+        fn test_mutate_bisection_no_connections() {
+            let (mut genome, _) = G::new(2, 2);
+            genome.connections = vec![];
+            assert!(genome.bisect_connection(&mut default_rng(), &mut InnoGen::new(0)).is_err());
+        }
+    }
 }
