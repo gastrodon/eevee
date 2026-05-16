@@ -529,6 +529,13 @@ fn replace_types_in_expr(
             replace_types_in_block(&mut b.block, type_map, perm_id, bench_id);
         }
         syn::Expr::Closure(cl) => {
+            // Handle closure parameter types (e.g. |x: A| where A is a type param)
+            for input in &mut cl.inputs {
+                if let syn::Pat::Type(pat_type) = input {
+                    replace_type_in_type(&mut pat_type.ty, type_map);
+                }
+            }
+            // Handle return type
             if let ReturnType::Type(_, ty) = &mut cl.output {
                 replace_type_in_type(ty, type_map);
             }
@@ -575,9 +582,48 @@ fn replace_types_in_expr(
             }
         }
         syn::Expr::Struct(s) => {
+            // Substitute in struct path generics (e.g., Struct::<A>::new())
+            if let syn::PathArguments::AngleBracketed(args) = &mut s.path.segments.last_mut().unwrap().arguments {
+                for arg in &mut args.args {
+                    if let syn::GenericArgument::Type(inner) = arg {
+                        let mut boxed = Box::new(inner.clone());
+                        replace_type_in_type(&mut boxed, type_map);
+                        *inner = *boxed;
+                    }
+                }
+            }
             for field in &mut s.fields {
                 replace_types_in_expr(&mut field.expr, type_map, perm_id, bench_id);
             }
+        }
+        syn::Expr::Cast(c) => {
+            replace_types_in_expr(&mut c.expr, type_map, perm_id, bench_id);
+            replace_type_in_type(&mut c.ty, type_map);
+        }
+        syn::Expr::Index(i) => {
+            replace_types_in_expr(&mut i.expr, type_map, perm_id, bench_id);
+            replace_types_in_expr(&mut i.index, type_map, perm_id, bench_id);
+        }
+        syn::Expr::Binary(b) => {
+            replace_types_in_expr(&mut b.left, type_map, perm_id, bench_id);
+            replace_types_in_expr(&mut b.right, type_map, perm_id, bench_id);
+        }
+        syn::Expr::Group(g) => {
+            replace_types_in_expr(&mut g.expr, type_map, perm_id, bench_id);
+        }
+        syn::Expr::Field(f) => {
+            replace_types_in_expr(&mut f.base, type_map, perm_id, bench_id);
+        }
+        syn::Expr::ForLoop(fl) => {
+            replace_types_in_expr(&mut fl.expr, type_map, perm_id, bench_id);
+            replace_types_in_block(&mut fl.body, type_map, perm_id, bench_id);
+        }
+        syn::Expr::While(w) => {
+            replace_types_in_expr(&mut w.cond, type_map, perm_id, bench_id);
+            replace_types_in_block(&mut w.body, type_map, perm_id, bench_id);
+        }
+        syn::Expr::Loop(l) => {
+            replace_types_in_block(&mut l.body, type_map, perm_id, bench_id);
         }
         _ => {}
     }
