@@ -115,54 +115,61 @@ mod tests {
     use super::*;
     use crate::{
         activate,
-        genome::{InnoGen, NonRecurrent, WConnection},
+        genome::{connection::BWConnection, InnoGen, NonRecurrent, WConnection},
         network::ToNetwork,
     };
+    use eevee_macros::fn_matrix;
 
-    type NR = NonRecurrent<WConnection>;
+    fn_matrix! {
+        C: WConnection | BWConnection,
 
-    #[test]
-    fn test_feedforward_simple() {
-        let (genome, _) = NR::new(2, 1);
-        let mut nn: FeedForward = genome.network();
-        nn.step(&[1.0, 0.5], activate::steep_sigmoid);
-        assert_eq!(nn.output().len(), 1);
-    }
+        /// basic feedforward network construction
+        #[test]
+        fn test_feedforward_simple() {
+            let (genome, _) = NonRecurrent::<C>::new(2, 1);
+            let mut nn: FeedForward = genome.network();
+            nn.step(&[1.0, 0.5], activate::steep_sigmoid);
+            assert_eq!(nn.output().len(), 1);
+        }
 
-    #[test]
-    fn test_feedforward_stateless() {
-        let (genome, _) = NR::new(2, 1);
-        let mut nn: FeedForward = genome.network();
-        nn.step(&[1.0, 0.5], activate::steep_sigmoid);
-        let first: Vec<f64> = nn.output().to_vec();
-        nn.step(&[1.0, 0.5], activate::steep_sigmoid);
-        assert_eq!(nn.output(), first.as_slice());
-    }
+        /// feedforward network is stateless
+        #[test]
+        fn test_feedforward_stateless() {
+            let (genome, _) = NonRecurrent::<C>::new(2, 1);
+            let mut nn: FeedForward = genome.network();
+            nn.step(&[1.0, 0.5], activate::steep_sigmoid);
+            let first: Vec<f64> = nn.output().to_vec();
+            nn.step(&[1.0, 0.5], activate::steep_sigmoid);
+            assert_eq!(nn.output(), first.as_slice());
+        }
 
-    #[test]
-    fn test_bias_node_contributes() {
-        let (genome, _) = NR::new(0, 1);
-        let mut nn: FeedForward = genome.network();
-        nn.step(&[], activate::steep_sigmoid);
-        if !genome.connections().is_empty() {
+        /// bias node affects output
+        #[test]
+        fn test_bias_node_contributes() {
+            let (genome, _) = NonRecurrent::<C>::new(0, 1);
+            let mut nn: FeedForward = genome.network();
+            nn.step(&[], activate::steep_sigmoid);
+            if !genome.connections().is_empty() {
+                assert!(nn.output()[0] != 0.0);
+            }
+        }
+
+        /// topological ordering is respected
+        #[test]
+        fn test_topo_order_respected() {
+            let mut inno = InnoGen::new(0);
+            let (mut genome, _) = NonRecurrent::<C>::new(1, 1);
+            genome.push_node(); // internal node at index 2
+            genome
+                .connections_mut()
+                .iter_mut()
+                .for_each(|c| c.disable());
+            genome.push_connection(C::new(0, 2, &mut inno)); // sensory→hidden
+            genome.push_connection(C::new(2, 1, &mut inno)); // hidden→action
+
+            let mut nn: FeedForward = genome.network();
+            nn.step(&[1.0], activate::steep_sigmoid);
             assert!(nn.output()[0] != 0.0);
         }
-    }
-
-    #[test]
-    fn test_topo_order_respected() {
-        let mut inno = InnoGen::new(0);
-        let (mut genome, _) = NR::new(1, 1);
-        genome.push_node(); // internal node at index 2
-        genome
-            .connections_mut()
-            .iter_mut()
-            .for_each(|c| c.disable());
-        genome.push_connection(WConnection::new(0, 2, &mut inno)); // sensory→hidden
-        genome.push_connection(WConnection::new(2, 1, &mut inno)); // hidden→action
-
-        let mut nn: FeedForward = genome.network();
-        nn.step(&[1.0], activate::steep_sigmoid);
-        assert!(nn.output()[0] != 0.0);
     }
 }

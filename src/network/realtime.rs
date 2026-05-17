@@ -129,39 +129,43 @@ mod test {
     use super::*;
     use crate::{
         assert_f64_approx,
-        genome::{self, InnoGen, WConnection},
+        genome::{self, connection::BWConnection, InnoGen, WConnection},
     };
+    use eevee_macros::fn_matrix;
 
-    #[test]
-    fn test_from_genome() {
-        type C = WConnection;
+    fn_matrix! {
+        C: WConnection | BWConnection,
 
-        let mut inno = InnoGen::new(0);
-        let (mut genome, _) = genome::Recurrent::<C>::new(2, 2);
-        genome.push_connection(C::new(0, 3, &mut inno));
-        genome.push_connection(C::new(0, 1, &mut inno));
-        genome.push_connection(C::new(0, 1, &mut inno));
+        /// verify weights are correctly loaded from genome
+        #[test]
+        fn test_from_genome() {
+            let mut inno = InnoGen::new(0);
+            let (mut genome, _) = genome::Recurrent::<C>::new(2, 2);
+            genome.push_connection(C::new(0, 3, &mut inno));
+            genome.push_connection(C::new(0, 1, &mut inno));
+            genome.push_connection(C::new(0, 1, &mut inno));
 
-        let nn = Realtime::from_genome(&genome);
-        unsafe {
-            for c in genome.connections() {
-                if c.enabled() {
-                    assert_f64_approx!(nn.w.get_unchecked([c.from(), c.to()]), c.weight());
+            let nn = Realtime::from_genome(&genome);
+            unsafe {
+                for c in genome.connections() {
+                    if c.enabled() {
+                        assert_f64_approx!(nn.w.get_unchecked([c.from(), c.to()]), c.weight());
+                    }
+                }
+
+                for i in 0..genome.node_count() {
+                    assert_f64_approx!(nn.θ.get_unchecked([0, i]), 0.)
                 }
             }
 
-            for i in 0..genome.node_count() {
-                assert_f64_approx!(nn.θ.get_unchecked([0, i]), 0.)
-            }
+            assert_eq!(
+                (nn.sensory.0, nn.sensory.1),
+                (genome.sensory().start, genome.sensory().end)
+            );
+            assert_eq!(
+                (nn.action.0, nn.action.1),
+                (genome.action().start, genome.action().end)
+            );
         }
-
-        assert_eq!(
-            (nn.sensory.0, nn.sensory.1),
-            (genome.sensory().start, genome.sensory().end)
-        );
-        assert_eq!(
-            (nn.action.0, nn.action.1),
-            (genome.action().start, genome.action().end)
-        );
     }
 }
