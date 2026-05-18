@@ -129,18 +129,18 @@ mod test {
     use super::*;
     use crate::{
         assert_f64_approx,
-        genome::{self, connection::BWConnection, InnoGen, WConnection},
+        genome::{connection::BWConnection, Genome, InnoGen, Recurrent, WConnection},
     };
     use eevee_macros::fn_matrix;
 
     fn_matrix! {
         C: WConnection | BWConnection,
+        G: Recurrent<C>,
 
-        /// verify weights are correctly loaded from genome
         #[test]
         fn test_from_genome() {
             let mut inno = InnoGen::new(0);
-            let (mut genome, _) = genome::Recurrent::<C>::new(2, 2);
+            let (mut genome, _) = G::new(2, 2);
             genome.push_connection(C::new(0, 3, &mut inno));
             genome.push_connection(C::new(0, 1, &mut inno));
             genome.push_connection(C::new(0, 1, &mut inno));
@@ -166,6 +166,64 @@ mod test {
                 (nn.action.0, nn.action.1),
                 (genome.action().start, genome.action().end)
             );
+        }
+
+        /// behavior consistency: realtime network with hidden neurons responds to input
+        #[test]
+        fn test_realtime_behavior_consistent() {
+            // Direct construction with hidden neurons (6, 7).
+            // Nodes: 0-2 sensory, 3-5 action, 6-7 hidden
+            let n = 8;
+            let mut w = vec![0.; n * n];
+
+            // Set weights as [from, to] in row-major order
+            w[0 * n + 6] = 0.5;  // sensory[0] → hidden[0]
+            w[6 * n + 3] = 0.5;  // hidden[0] → action[0]
+            w[6 * n + 4] = 0.5;  // hidden[0] → action[1]
+            w[1 * n + 3] = 0.5;  // sensory[1] → action[0]
+            w[1 * n + 7] = 0.5;  // sensory[1] → hidden[1]
+            w[7 * n + 5] = 0.5;  // hidden[1] → action[2]
+            w[2 * n + 4] = 0.5;  // sensory[2] → action[1]
+            w[2 * n + 5] = 0.5;  // sensory[2] → action[2]
+
+            let mut nn = Realtime {
+                prec: 10,
+                y: Matrix::zeros(1, n),
+                θ: Matrix::zeros(1, n),
+                τ: Matrix::new(1, n, vec![1.0; n]),
+                w: Matrix::new(n, n, w),
+                sensory: (0, 3),
+                action: (3, 6),
+            };
+
+            // Test statefulness: same input produces different outputs across steps
+            let cases: [(&[f64], [[f64; 3]; 3]); 3] = [
+                (&[1.0, 0.5, -0.5], [
+                    [0.4543099041996693, 0.31011019901830134, 0.3033087902498634],
+                    [0.7206136447449458, 0.4270440385315579, 0.4145301830023249],
+                    [0.8393129308972523, 0.4721907947994719, 0.46050742149690216],
+                ]),
+                (&[-1.0, 0.5, 1.0], [
+                    [0.4174063200035319, 0.4582208483881388, 0.48832302381583825],
+                    [0.6067921532596537, 0.655314229873935, 0.756621865829994],
+                    [0.6763042841417588, 0.7202325609154627, 0.8715578343683869],
+                ]),
+                (&[0.0, 1.0, -1.0], [
+                    [0.47775761240772074, 0.25192885045713903, 0.2692956706336944],
+                    [0.7214650462220639, 0.33085128678011355, 0.3785219619172767],
+                    [0.8203001141077999, 0.36532142446261123, 0.42826251802576787],
+                ]),
+            ];
+
+            for (case_i, (input, expected_states)) in cases.iter().enumerate() {
+                nn.reset();
+                for (step_i, expected) in expected_states.iter().enumerate() {
+                    nn.step(input, crate::activate::steep_sigmoid);
+                    let output = nn.output();
+                    assert_eq!(output.len(), 3);
+                    assert_eq!(output, expected.as_slice(), "case {}, step {}: input: {:?}, got: {:?}", case_i, step_i, input, output);
+                }
+            }
         }
     }
 }

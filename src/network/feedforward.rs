@@ -115,18 +115,19 @@ mod tests {
     use super::*;
     use crate::{
         activate,
-        genome::{connection::BWConnection, InnoGen, NonRecurrent, WConnection},
+        genome::{connection::BWConnection, Genome, NonRecurrent, WConnection},
         network::ToNetwork,
     };
     use eevee_macros::fn_matrix;
 
     fn_matrix! {
         C: WConnection | BWConnection,
+        G: NonRecurrent<C>,
 
         /// basic feedforward network construction
         #[test]
         fn test_feedforward_simple() {
-            let (genome, _) = NonRecurrent::<C>::new(2, 1);
+            let (genome, _) = G::new(2, 1);
             let mut nn: FeedForward = genome.network();
             nn.step(&[1.0, 0.5], activate::steep_sigmoid);
             assert_eq!(nn.output().len(), 1);
@@ -135,7 +136,7 @@ mod tests {
         /// feedforward network is stateless
         #[test]
         fn test_feedforward_stateless() {
-            let (genome, _) = NonRecurrent::<C>::new(2, 1);
+            let (genome, _) = G::new(2, 1);
             let mut nn: FeedForward = genome.network();
             nn.step(&[1.0, 0.5], activate::steep_sigmoid);
             let first: Vec<f64> = nn.output().to_vec();
@@ -146,7 +147,7 @@ mod tests {
         /// bias node affects output
         #[test]
         fn test_bias_node_contributes() {
-            let (genome, _) = NonRecurrent::<C>::new(0, 1);
+            let (genome, _) = G::new(0, 1);
             let mut nn: FeedForward = genome.network();
             nn.step(&[], activate::steep_sigmoid);
             if !genome.connections().is_empty() {
@@ -154,22 +155,45 @@ mod tests {
             }
         }
 
-        /// topological ordering is respected
+        /// behavior consistency: observed output from a known network with hidden neurons
         #[test]
-        fn test_topo_order_respected() {
-            let mut inno = InnoGen::new(0);
-            let (mut genome, _) = NonRecurrent::<C>::new(1, 1);
-            genome.push_node(); // internal node at index 2
-            genome
-                .connections_mut()
-                .iter_mut()
-                .for_each(|c| c.disable());
-            genome.push_connection(C::new(0, 2, &mut inno)); // sensory→hidden
-            genome.push_connection(C::new(2, 1, &mut inno)); // hidden→action
+        fn test_feedforward_behavior_consistent() {
+            // Direct edge construction with hidden neurons (6, 7).
+            // Nodes: 0-2 sensory, 3-5 action, 6-7 hidden
+            let edges: Vec<(usize, usize, f64)> = vec![
+                (0, 6, 0.5),  // sensory[0] → hidden[0]
+                (6, 3, 0.5),  // hidden[0] → action[0]
+                (6, 4, 0.5),  // hidden[0] → action[1]
+                (1, 3, 0.5),  // sensory[1] → action[0]
+                (1, 7, 0.5),  // sensory[1] → hidden[1]
+                (7, 5, 0.5),  // hidden[1] → action[2]
+                (2, 4, 0.5),  // sensory[2] → action[1]
+                (2, 5, 0.5),  // sensory[2] → action[2]
+            ];
 
-            let mut nn: FeedForward = genome.network();
-            nn.step(&[1.0], activate::steep_sigmoid);
-            assert!(nn.output()[0] != 0.0);
+            let n = 8; // total nodes
+            let sensory_end = 3;
+
+            let mut nn = FeedForward {
+                eval_order: FeedForward::build_eval_order(n, sensory_end, &edges),
+                sensory: (0, 3),
+                action: (3, 6),
+                state: vec![0.0; n],
+            };
+
+            // Test inputs with expected outputs
+            let cases: [([f64; 3], Vec<f64>); 3] = [
+                ([1.0, 0.5, -0.5], vec![0.9701242069008241, 0.7369886984280752, 0.6612139184123204]),
+                ([-1.0, 0.5, 1.0], vec![0.8052795345597723, 0.9336788971186889, 0.987178260913925]),
+                ([0.0, 1.0, -1.0], vec![0.9752773002196243, 0.22705774060326145, 0.45149689483528455]),
+            ];
+
+            for (i, (input, expected)) in cases.iter().enumerate() {
+                nn.step(input, activate::steep_sigmoid);
+                let output = nn.output();
+                assert_eq!(output.len(), 3);
+                assert_eq!(output, expected.as_slice(), "case {}: input: {:?}, got: {:?}", i, input, output);
+            }
         }
     }
 }
