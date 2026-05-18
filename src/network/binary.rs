@@ -65,8 +65,8 @@ impl BinaryFeedForward {
             }
         }
 
-        topo.reverse();
         topo.into_iter()
+            .rev()
             .filter(|&i| i >= sensory_end)
             .map(|i| (i, incoming[i].clone()))
             .collect()
