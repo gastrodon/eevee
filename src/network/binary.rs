@@ -26,6 +26,7 @@ fn sign(x: f64) -> f64 {
 }
 
 impl BinaryFeedForward {
+    // TODO I think we could just sort this asc by edge.to and that be the order
     fn build_eval_order(
         n: usize,
         sensory_end: usize,
