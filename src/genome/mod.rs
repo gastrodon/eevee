@@ -229,7 +229,10 @@ pub trait Genome<C: Connection>: Clone {
             self.new_connection(rng, innogen)?;
         } else if let Some(evt) = GenomeEvent::pick(rng, Self::PROBABILITIES) {
             match evt {
-                GenomeEvent::NewConnection => self.new_connection(rng, innogen)?,
+                GenomeEvent::NewConnection => match self.open_path(rng) {
+                    Some((from, to)) => self.push_connection(C::new(from, to, innogen)),
+                    None => self.bisect_connection(rng, innogen)?,
+                },
                 GenomeEvent::BisectConnection => self.bisect_connection(rng, innogen)?,
                 GenomeEvent::MutateConnection => self.mutate_connection(rng),
                 GenomeEvent::MutateNode => unreachable!("nodes may not be mutated"),
@@ -241,4 +244,44 @@ pub trait Genome<C: Connection>: Clone {
 
     /// Perform crossover reproduction with other, where our fitness is `fitness_cmp` compared to other
     fn reproduce_with(&self, other: &Self, fitness_cmp: Ordering, rng: &mut impl RngCore) -> Self;
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::genome::{connection::BWConnection, NonRecurrent, Recurrent, WConnection};
+    use crate::random::default_rng;
+    use eevee_macros::fn_matrix;
+
+    fn_matrix! {
+        C: WConnection | BWConnection,
+        G: Recurrent<C> | NonRecurrent<C>,
+
+        /// A freshly built genome with no internal nodes is fully saturated:
+        /// every sensory→action path exists and nothing may point back into a
+        /// sensory node. Mutation must still succeed — it can grow a node —
+        /// rather than erroring and taking the whole reproduction down with it.
+        #[test]
+        fn test_mutate_saturated() {
+            let mut rng = default_rng();
+            for (sensory, action) in [(2, 1), (1, 1), (3, 1), (2, 2)] {
+                let (genome, inno_head) = G::new(sensory, action);
+                assert!(
+                    genome.open_path(&mut rng).is_none(),
+                    "{sensory}x{action} should start saturated"
+                );
+
+                // Force the NewConnection branch many times over; each must grow
+                // the genome rather than return Err.
+                for _ in 0..64 {
+                    let mut g = genome.clone();
+                    let mut inno = InnoGen::new(inno_head);
+                    let before = g.node_count();
+                    g.mutate(&mut rng, &mut inno)
+                        .unwrap_or_else(|e| panic!("{sensory}x{action} mutate failed: {e}"));
+                    assert!(g.node_count() >= before);
+                }
+            }
+        }
+    }
 }
