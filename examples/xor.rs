@@ -106,7 +106,7 @@ type G = NonRecurrent<C>;
 fn main() {
     evolve(
         Xor::<NN, C, G>::new(),
-        |(i, o)| population_init::<C, G>(i, o, POPULATION),
+        |(i, o)| population_init::<C, G>(i, o, POPULATION, &mut default_rng()),
         steep_sigmoid,
         default_rng(),
         EvolutionHooks::new(vec![Box::new(hook)]),

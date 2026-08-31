@@ -57,6 +57,10 @@ impl Connection for WConnection {
         self.weight
     }
 
+    fn set_weight(&mut self, weight: f64) {
+        self.weight = weight;
+    }
+
     fn bisect(&mut self, center: usize, inno: &mut InnoGen) -> (Self, Self) {
         <Self as Connection>::disable(self);
         (
@@ -156,6 +160,10 @@ impl Connection for BWConnection {
 
     fn weight(&self) -> f64 {
         self.weight
+    }
+
+    fn set_weight(&mut self, weight: f64) {
+        self.weight = weight;
     }
 
     fn bisect(&mut self, center: usize, inno: &mut InnoGen) -> (Self, Self) {

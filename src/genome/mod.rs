@@ -70,7 +70,13 @@ pub trait Connection: Clone + Hash + PartialEq + Default + Debug {
     const PROBABILITY_PICK_RL: u64 = percent(50);
     const PROBABILITY_KEEP_DISABLED: u64 = percent(75);
 
+    /// half-width of the uniform range a genome's initial population draws connection weights from
+    const WEIGHT_INIT_RANGE: f64 = 1.;
+
     fn new(from: usize, to: usize, inno: &mut InnoGen) -> Self;
+
+    /// directly set this connection's weight, bypassing mutation machinery
+    fn set_weight(&mut self, weight: f64);
 
     /// gene innovation id
     fn inno(&self) -> usize;

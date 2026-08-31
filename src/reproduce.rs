@@ -251,7 +251,7 @@ mod test {
         #[test]
         fn test_specie_reproduce() {
             let mut rng = default_rng();
-            let (species, inno_head) = population_init::<C, G>(8, 8, 10);
+            let (species, inno_head) = population_init::<C, G>(8, 8, 10, &mut rng);
 
             for specie in species {
                 for size in [0, 1, 5] {

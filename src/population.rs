@@ -8,6 +8,7 @@ use core::{
     f64,
     hash::{Hash, Hasher},
 };
+use rand::{Rng, RngCore};
 use std::hash::DefaultHasher;
 
 /// The representative member of a particular specie. Is retained inter-generationally to better
@@ -170,16 +171,30 @@ pub type SpecieGroup<C, G> = (Vec<Specie<C, G>>, usize);
 /// initial population of a single specie consisting of single connection genomes
 /// while it's not necessarily recommended to do an initual mutation, it allows us to mutate a
 /// bisection on any genome without the need to check for existing connections beforehand
+///
+/// each member is independently randomized (rather than cloned verbatim) so the initial
+/// population isn't a single point in weight-space
 pub fn population_init<C: Connection, G: Genome<C>>(
     sensory: usize,
     action: usize,
     population: usize,
+    rng: &mut impl RngCore,
 ) -> SpecieGroup<C, G> {
     let (genome, inno_head) = G::new(sensory, action);
+    let members = (0..population)
+        .map(|_| {
+            let mut member = genome.clone();
+            for c in member.connections_mut() {
+                c.set_weight(rng.random_range(-C::WEIGHT_INIT_RANGE..=C::WEIGHT_INIT_RANGE));
+            }
+            (member, f64::MIN)
+        })
+        .collect();
+
     (
         vec![Specie {
             repr: SpecieRepr::new(genome.connections().to_vec()),
-            members: vec![(genome, f64::MIN); population],
+            members,
             born: 0,
         }],
         inno_head,
@@ -189,7 +204,10 @@ pub fn population_init<C: Connection, G: Genome<C>>(
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::genome::{Recurrent, WConnection};
+    use crate::{
+        genome::{Recurrent, WConnection},
+        random::default_rng,
+    };
     use eevee_macros::fn_matrix;
 
     type BasicGenomeCtrnn = Recurrent<WConnection>;
@@ -200,7 +218,7 @@ mod test {
         #[test]
         fn test_population_init() {
             let count = 40;
-            let (species, inno_head) = population_init::<WConnection, T>(2, 2, count);
+            let (species, inno_head) = population_init::<WConnection, T>(2, 2, count, &mut default_rng());
             assert_eq!(
                 count,
                 species
