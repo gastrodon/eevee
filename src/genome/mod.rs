@@ -229,12 +229,6 @@ pub trait Genome<C: Connection>: Clone {
             self.new_connection(rng, innogen)?;
         } else if let Some(evt) = GenomeEvent::pick(rng, Self::PROBABILITIES) {
             match evt {
-                // A genome with no internal nodes is born fully saturated —
-                // every sensory→action path already exists, and none may point
-                // back into a sensory node — so there is no new connection to
-                // make until a bisection adds a node. Growing one is the only
-                // way forward, so fall back to that rather than failing the
-                // mutation and, with it, the whole reproduction.
                 GenomeEvent::NewConnection => match self.open_path(rng) {
                     Some((from, to)) => self.push_connection(C::new(from, to, innogen)),
                     None => self.bisect_connection(rng, innogen)?,
@@ -268,7 +262,7 @@ mod test {
         /// sensory node. Mutation must still succeed — it can grow a node —
         /// rather than erroring and taking the whole reproduction down with it.
         #[test]
-        fn test_mutate_saturated_genome_grows_instead_of_failing() {
+        fn test_mutate_saturated() {
             let mut rng = default_rng();
             for (sensory, action) in [(2, 1), (1, 1), (3, 1), (2, 2)] {
                 let (genome, inno_head) = G::new(sensory, action);
