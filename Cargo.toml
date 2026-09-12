@@ -1,6 +1,9 @@
+[workspace]
+members = [".", "eevee-macros"]
+
 [package]
 name = "eevee"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 description = "Generalized NeuroEvolution toolkit, based on NEAT"
 license = "AGPL-3.0-or-later"
@@ -12,7 +15,7 @@ fxhash = "~0.2"
 paste = "~1.0"
 rand = "~0.9"
 rand_distr = "~0.5"
-rulinalg = "~0.4"
+nalgebra = "~0.33"
 rayon = { version = "~1.10", optional = true }
 serde = { version = "~1.0", features = ["derive"], optional = true }
 serde_json = { version = "~1.0", features = ["preserve_order"], optional = true }

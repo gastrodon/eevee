@@ -113,7 +113,7 @@ macro_rules! xor_evolve_bench {
                 concat!(stringify!($C), "/", stringify!($G), "/", stringify!($N)),
                 |b| {
                     b.iter_batched(
-                        || population_init::<$C, $G<$C>>(2, 1, POPULATION),
+                        || population_init::<$C, $G<$C>>(2, 1, POPULATION, &mut default_rng()),
                         |(pop, inno_head)| {
                             evolve(
                                 Xor::<$N, $C, $G<$C>>::new(),

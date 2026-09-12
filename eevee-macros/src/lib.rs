@@ -583,7 +583,9 @@ fn replace_types_in_expr(
         }
         syn::Expr::Struct(s) => {
             // Substitute in struct path generics (e.g., Struct::<A>::new())
-            if let syn::PathArguments::AngleBracketed(args) = &mut s.path.segments.last_mut().unwrap().arguments {
+            if let syn::PathArguments::AngleBracketed(args) =
+                &mut s.path.segments.last_mut().unwrap().arguments
+            {
                 for arg in &mut args.args {
                     if let syn::GenericArgument::Type(inner) = arg {
                         let mut boxed = Box::new(inner.clone());

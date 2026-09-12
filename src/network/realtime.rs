@@ -1,6 +1,6 @@
 use super::{default_prec, Continuous, FromGenome};
 use crate::{Connection, Genome, Network, Recurrent};
-use rulinalg::matrix::{BaseMatrix, BaseMatrixMut, Matrix};
+use nalgebra::DMatrix;
 
 /// A stateful recurrent NN for realtime / continuous-time problems.
 ///
@@ -11,13 +11,13 @@ pub struct Realtime {
     /// Integration steps per [Network::step] call.
     pub prec: usize,
     /// 1d state of neurons 0-N
-    pub y: Matrix<f64>,
+    pub y: DMatrix<f64>,
     /// 1d bias of neurons 0-N
-    pub θ: Matrix<f64>,
+    pub θ: DMatrix<f64>,
     /// 1d membrane resistance time constant
-    pub τ: Matrix<f64>,
+    pub τ: DMatrix<f64>,
     /// Nd weights between neurons, indexed as [from, to]
-    pub w: Matrix<f64>,
+    pub w: DMatrix<f64>,
     /// Range of input neurons, indexing into y
     pub sensory: (usize, usize),
     /// Range of output neurons, indexing into y
@@ -26,19 +26,19 @@ pub struct Realtime {
 
 impl Network for Realtime {
     fn step<F: Fn(f64) -> f64>(&mut self, input: &[f64], σ: F) {
-        let mut m_input = Matrix::zeros(1, self.y.cols());
-        m_input.mut_data()[self.sensory.0..self.sensory.1].copy_from_slice(input);
+        let mut m_input = DMatrix::zeros(1, self.y.ncols());
+        m_input.as_mut_slice()[self.sensory.0..self.sensory.1].copy_from_slice(input);
 
         let inv = 1. / (self.prec as f64);
         for _ in 0..self.prec {
-            self.y += (((&self.y + &self.θ).apply(&σ) * &self.w) - &self.y + &m_input)
-                .elemul(&self.τ)
-                .apply(&|v| v * inv);
+            self.y += ((((&self.y + &self.θ).map(&σ)) * &self.w) - &self.y + &m_input)
+                .component_mul(&self.τ)
+                .map(|v| v * inv);
         }
     }
 
     fn output(&self) -> &[f64] {
-        &self.y.data()[self.action.0..self.action.1]
+        &self.y.as_slice()[self.action.0..self.action.1]
     }
 }
 
@@ -46,7 +46,7 @@ impl crate::Recurrent for Realtime {}
 
 impl Continuous for Realtime {
     fn reset(&mut self) {
-        self.y = Matrix::zeros(1, self.y.cols());
+        self.y = DMatrix::zeros(1, self.y.ncols());
     }
 }
 
@@ -55,15 +55,15 @@ impl<C: Connection, G: Genome<C> + Recurrent> FromGenome<C, G> for Realtime {
         let cols = genome.node_count();
         Self {
             prec: default_prec(),
-            y: Matrix::zeros(1, cols),
-            θ: Matrix::zeros(1, cols),
-            τ: Matrix::new(1, cols, vec![1.0; cols]),
+            y: DMatrix::zeros(1, cols),
+            θ: DMatrix::zeros(1, cols),
+            τ: DMatrix::from_row_slice(1, cols, &vec![1.0; cols]),
             w: {
                 let mut w = vec![0.; cols * cols];
                 for c in genome.connections().iter().filter(|c| c.enabled()) {
                     w[c.from() * cols + c.to()] = c.weight();
                 }
-                Matrix::new(cols, cols, w)
+                DMatrix::from_row_slice(cols, cols, &w)
             },
             sensory: (genome.sensory().start, genome.sensory().end),
             action: (genome.action().start, genome.action().end),
@@ -75,25 +75,25 @@ impl<C: Connection, G: Genome<C> + Recurrent> FromGenome<C, G> for Realtime {
 pub struct RealtimeUnbias {
     /// Integration steps per [Network::step] call.
     pub prec: usize,
-    pub y: Matrix<f64>,
-    pub w: Matrix<f64>,
+    pub y: DMatrix<f64>,
+    pub w: DMatrix<f64>,
     pub sensory: (usize, usize),
     pub action: (usize, usize),
 }
 
 impl Network for RealtimeUnbias {
     fn step<F: Fn(f64) -> f64>(&mut self, input: &[f64], σ: F) {
-        let mut m_input = Matrix::zeros(1, self.y.cols());
-        m_input.mut_data()[self.sensory.0..self.sensory.1].copy_from_slice(input);
+        let mut m_input = DMatrix::zeros(1, self.y.ncols());
+        m_input.as_mut_slice()[self.sensory.0..self.sensory.1].copy_from_slice(input);
 
         let inv = 1. / (self.prec as f64);
         for _ in 0..self.prec {
-            self.y = ((&self.y + &m_input).apply(&σ) * &self.w).apply(&|v| v * inv);
+            self.y = ((&self.y + &m_input).map(&σ) * &self.w).map(|v| v * inv);
         }
     }
 
     fn output(&self) -> &[f64] {
-        &self.y.data()[self.action.0..self.action.1]
+        &self.y.as_slice()[self.action.0..self.action.1]
     }
 }
 
@@ -101,7 +101,7 @@ impl Recurrent for RealtimeUnbias {}
 
 impl Continuous for RealtimeUnbias {
     fn reset(&mut self) {
-        self.y = Matrix::zeros(1, self.y.cols());
+        self.y = DMatrix::zeros(1, self.y.ncols());
     }
 }
 
@@ -110,13 +110,13 @@ impl<C: Connection, G: Genome<C> + Recurrent> FromGenome<C, G> for RealtimeUnbia
         let cols = genome.node_count();
         Self {
             prec: default_prec(),
-            y: Matrix::zeros(1, cols),
+            y: DMatrix::zeros(1, cols),
             w: {
                 let mut w = vec![0.; cols * cols];
                 for c in genome.connections().iter().filter(|c| c.enabled()) {
                     w[c.from() * cols + c.to()] = c.weight();
                 }
-                Matrix::new(cols, cols, w)
+                DMatrix::from_row_slice(cols, cols, &w)
             },
             sensory: (genome.sensory().start, genome.sensory().end),
             action: (genome.action().start, genome.action().end),
@@ -146,16 +146,14 @@ mod test {
             genome.push_connection(C::new(0, 1, &mut inno));
 
             let nn = Realtime::from_genome(&genome);
-            unsafe {
-                for c in genome.connections() {
-                    if c.enabled() {
-                        assert_f64_approx!(nn.w.get_unchecked([c.from(), c.to()]), c.weight());
-                    }
+            for c in genome.connections() {
+                if c.enabled() {
+                    assert_f64_approx!(nn.w[(c.from(), c.to())], c.weight());
                 }
+            }
 
-                for i in 0..genome.node_count() {
-                    assert_f64_approx!(nn.θ.get_unchecked([0, i]), 0.)
-                }
+            for i in 0..genome.node_count() {
+                assert_f64_approx!(nn.θ[(0, i)], 0.)
             }
 
             assert_eq!(
@@ -177,7 +175,7 @@ mod test {
             let mut w = vec![0.; n * n];
 
             // Set weights as [from, to] in row-major order
-            w[0 * n + 6] = 0.5;  // sensory[0] → hidden[0]
+            w[6] = 0.5;  // sensory[0] → hidden[0]
             w[6 * n + 3] = 0.5;  // hidden[0] → action[0]
             w[6 * n + 4] = 0.5;  // hidden[0] → action[1]
             w[1 * n + 3] = 0.5;  // sensory[1] → action[0]
@@ -188,10 +186,10 @@ mod test {
 
             let mut nn = Realtime {
                 prec: 10,
-                y: Matrix::zeros(1, n),
-                θ: Matrix::zeros(1, n),
-                τ: Matrix::new(1, n, vec![1.0; n]),
-                w: Matrix::new(n, n, w),
+                y: DMatrix::zeros(1, n),
+                θ: DMatrix::zeros(1, n),
+                τ: DMatrix::from_row_slice(1, n, &vec![1.0; n]),
+                w: DMatrix::from_row_slice(n, n, &w),
                 sensory: (0, 3),
                 action: (3, 6),
             };

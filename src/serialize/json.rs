@@ -1,7 +1,7 @@
 //! JSON serialization: blanket `SerializeFile` impl, field helpers, and per-type impls.
 
 use crate::serialize::SerializeFile;
-use rulinalg::matrix::Matrix;
+use nalgebra::DMatrix;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 const SERIALIZER_ID: &str = "json-1";
@@ -19,30 +19,34 @@ impl<T: Serialize + for<'de> Deserialize<'de>> SerializeFile for T {
 }
 
 pub(crate) fn serialize_matrix<S: Serializer>(
-    matrix: &Matrix<f64>,
+    matrix: &DMatrix<f64>,
     ser: S,
 ) -> Result<S::Ok, S::Error> {
-    let bits: Vec<u64> = matrix.data().iter().map(|&f| f64::to_bits(f)).collect();
+    // row-major order, independent of nalgebra's column-major internal storage
+    let bits: Vec<u64> = matrix
+        .row_iter()
+        .flat_map(|row| row.iter().map(|&f| f64::to_bits(f)).collect::<Vec<_>>())
+        .collect();
     bits.serialize(ser)
 }
 
 pub(crate) fn deserialize_matrix_flat<'de, D: Deserializer<'de>>(
     de: D,
-) -> Result<Matrix<f64>, D::Error> {
+) -> Result<DMatrix<f64>, D::Error> {
     Vec::<u64>::deserialize(de).map(|v| {
         let float_data: Vec<f64> = v.into_iter().map(f64::from_bits).collect();
-        Matrix::new(1, float_data.len(), float_data)
+        DMatrix::from_row_slice(1, float_data.len(), &float_data)
     })
 }
 
 pub(crate) fn deserialize_matrix_square<'de, D: Deserializer<'de>>(
     de: D,
-) -> Result<Matrix<f64>, D::Error> {
+) -> Result<DMatrix<f64>, D::Error> {
     Vec::<u64>::deserialize(de).map(|v| {
         let float_data: Vec<f64> = v.into_iter().map(f64::from_bits).collect();
         let n = (float_data.len() as f64).sqrt() as usize;
         debug_assert_eq!(n * n, float_data.len(), "non-square weight vec");
-        Matrix::new(n, n, float_data)
+        DMatrix::from_row_slice(n, n, &float_data)
     })
 }
 
@@ -175,13 +179,13 @@ json_impl! {
         #[serde(default = "crate::network::default_prec")]
         prec: usize,
         #[serde(serialize_with = "serialize_matrix", deserialize_with = "deserialize_matrix_flat")]
-        y: Matrix<f64>,
+        y: DMatrix<f64>,
         #[serde(serialize_with = "serialize_matrix", deserialize_with = "deserialize_matrix_flat")]
-        θ: Matrix<f64>,
+        θ: DMatrix<f64>,
         #[serde(serialize_with = "serialize_matrix", deserialize_with = "deserialize_matrix_flat")]
-        τ: Matrix<f64>,
+        τ: DMatrix<f64>,
         #[serde(serialize_with = "serialize_matrix", deserialize_with = "deserialize_matrix_square")]
-        w: Matrix<f64>,
+        w: DMatrix<f64>,
         sensory: (usize, usize),
         action: (usize, usize),
     }
@@ -194,9 +198,9 @@ json_impl! {
         #[serde(default = "crate::network::default_prec")]
         prec: usize,
         #[serde(serialize_with = "serialize_matrix", deserialize_with = "deserialize_matrix_flat")]
-        y: Matrix<f64>,
+        y: DMatrix<f64>,
         #[serde(serialize_with = "serialize_matrix", deserialize_with = "deserialize_matrix_square")]
-        w: Matrix<f64>,
+        w: DMatrix<f64>,
         sensory: (usize, usize),
         action: (usize, usize),
     }
@@ -210,19 +214,19 @@ mod test {
         random::default_rng,
         SerializeFile as _,
     };
+    use nalgebra::DMatrix;
     use rand_distr::{Distribution, Uniform};
-    use rulinalg::matrix::Matrix;
 
-    fn rand_square(n: usize, dist: &Uniform<f64>, rng: &mut impl rand::RngCore) -> Matrix<f64> {
-        Matrix::new(
+    fn rand_square(n: usize, dist: &Uniform<f64>, rng: &mut impl rand::RngCore) -> DMatrix<f64> {
+        DMatrix::from_row_slice(
             n,
             n,
-            (0..n * n).map(|_| dist.sample(rng)).collect::<Vec<_>>(),
+            &(0..n * n).map(|_| dist.sample(rng)).collect::<Vec<_>>(),
         )
     }
 
-    fn rand_row(n: usize, dist: &Uniform<f64>, rng: &mut impl rand::RngCore) -> Matrix<f64> {
-        Matrix::new(1, n, (0..n).map(|_| dist.sample(rng)).collect::<Vec<_>>())
+    fn rand_row(n: usize, dist: &Uniform<f64>, rng: &mut impl rand::RngCore) -> DMatrix<f64> {
+        DMatrix::from_row_slice(1, n, &(0..n).map(|_| dist.sample(rng)).collect::<Vec<_>>())
     }
 
     #[test]
@@ -235,10 +239,10 @@ mod test {
             prec: 10,
             y: rand_row(n, &dist, &mut rng),
             θ: rand_row(n, &dist, &mut rng),
-            τ: Matrix::new(
+            τ: DMatrix::from_row_slice(
                 1,
                 n,
-                (0..n)
+                &(0..n)
                     .map(|_| dist.sample(&mut rng).abs() + 0.1)
                     .collect::<Vec<_>>(),
             ),
