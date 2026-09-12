@@ -86,7 +86,7 @@ macro_rules! mutate_param {
             }
 
             fn param_diff(&self, other: &Self) -> f64 {
-                [$((self.[<$evt:lower>] - other.[<$evt:lower>])),*].iter().sum()
+                [$((self.[<$evt:lower>] - other.[<$evt:lower>]).abs()),*].iter().sum()
             }
         }
     };

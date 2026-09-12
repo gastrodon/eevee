@@ -363,6 +363,56 @@ mod test {
     }
 
     fn_matrix! {
+        T: WConnection,
+        /// avg_param_diff: opposite-signed per-connection diffs must not cancel out
+        #[test]
+        fn test_avg_param_diff_sign_cancellation() {
+            let diff = avg_param_diff(
+                &[
+                    new_t!(T, inno = 1, weight = 1.0,),
+                    new_t!(T, inno = 2, weight = -1.0,),
+                ],
+                &[
+                    new_t!(T, inno = 1, weight = 0.5,),
+                    new_t!(T, inno = 2, weight = -0.5,),
+                ],
+            );
+            assert_f64_approx!(diff, 0.5, "diff ne: {diff}, 0.5 (signed diffs of +0.5/-0.5 cancelled)");
+        }
+    }
+
+    #[test]
+    fn test_avg_param_diff_sign_cancellation_bwconnection() {
+        // across-connection cancellation (weight diffs of opposite sign)
+        let diff = avg_param_diff(
+            &[
+                new_t!(BWConnection, inno = 1, weight = 1.0, bias = 0.0,),
+                new_t!(BWConnection, inno = 2, weight = -1.0, bias = 0.0,),
+            ],
+            &[
+                new_t!(BWConnection, inno = 1, weight = 0.5, bias = 0.0,),
+                new_t!(BWConnection, inno = 2, weight = -0.5, bias = 0.0,),
+            ],
+        );
+        assert_f64_approx!(
+            diff,
+            0.5,
+            "diff ne: {diff}, 0.5 (signed weight diffs of +0.5/-0.5 cancelled)"
+        );
+
+        // within-connection cancellation (weight diff and bias diff of opposite sign)
+        let diff = avg_param_diff(
+            &[new_t!(BWConnection, inno = 1, weight = 1.0, bias = -1.0,)],
+            &[new_t!(BWConnection, inno = 1, weight = 0.0, bias = 0.0,)],
+        );
+        assert_f64_approx!(
+            diff,
+            2.0,
+            "diff ne: {diff}, 2.0 (weight-diff and bias-diff must not offset each other)"
+        );
+    }
+
+    fn_matrix! {
         T: WConnection | BWConnection,
         /// disjoint_excess_count: counts misaligned and excess genes
         #[test]
