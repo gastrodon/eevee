@@ -17,10 +17,6 @@ pub struct WConnection {
 
 /// A basic connection, with a single weighted path
 impl Connection for WConnection {
-    const EXCESS_COEFFICIENT: f64 = 1.0;
-    const DISJOINT_COEFFICIENT: f64 = 1.0;
-    const PARAM_COEFFICIENT: f64 = 0.4;
-
     mutate_param!([Weight]: [percent(100)]);
 
     fn new(from: usize, to: usize, inno: &mut InnoGen) -> Self {
@@ -121,10 +117,6 @@ pub struct BWConnection {
 }
 
 impl Connection for BWConnection {
-    const EXCESS_COEFFICIENT: f64 = 1.0;
-    const DISJOINT_COEFFICIENT: f64 = 1.0;
-    const PARAM_COEFFICIENT: f64 = 0.4;
-
     mutate_param!([Weight, Bias]: [percent(50), percent(50)]);
 
     fn new(from: usize, to: usize, inno: &mut InnoGen) -> Self {

@@ -5,6 +5,27 @@ use crate::genome::Connection;
 use core::cmp::Ordering;
 use rand::RngCore;
 
+/// Weights for the three terms of [delta]: disjoint genes, excess genes, and average
+/// parameter distance. Runtime-configurable (via [crate::scenario::EvolutionConfig]) rather
+/// than per-[Connection] consts, so a sweep can vary them independently of genome/connection
+/// type -- see EVA-73.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct DeltaCoefficients {
+    pub disjoint: f64,
+    pub excess: f64,
+    pub param: f64,
+}
+
+impl Default for DeltaCoefficients {
+    fn default() -> Self {
+        Self {
+            disjoint: 1.0,
+            excess: 1.0,
+            param: 0.4,
+        }
+    }
+}
+
 /// Count misaligned [Connection]s between 2 slices. Where `l` is more fit ( TODO really? ), we
 /// consider disjoint genes to be misalignments of innovation ids < `r`s max, and excess are
 /// misalignments of ids > `r`s max.
@@ -117,17 +138,17 @@ pub fn avg_param_diff<C: Connection>(l: &[C], r: &[C]) -> f64 {
 
 /// difference between [Connection]s in terms of crossover compatability. Higher deltas tend to
 /// yield more destructive crossover.
-pub fn delta<C: Connection>(l: &[C], r: &[C]) -> f64 {
+pub fn delta<C: Connection>(l: &[C], r: &[C], coeffs: &DeltaCoefficients) -> f64 {
     let l_size = l.len() as f64;
     let r_size = r.len() as f64;
     let fac = f64::max(l_size, r_size).max(1.);
 
     if l_size == 0. || r_size == 0. {
-        (C::EXCESS_COEFFICIENT * f64::max(l_size, r_size)) / fac
+        (coeffs.excess * f64::max(l_size, r_size)) / fac
     } else {
         let (disjoint, excess) = disjoint_excess_count(l, r);
-        (C::DISJOINT_COEFFICIENT * disjoint + C::EXCESS_COEFFICIENT * excess) / fac
-            + C::PARAM_COEFFICIENT * avg_param_diff(l, r)
+        (coeffs.disjoint * disjoint + coeffs.excess * excess) / fac
+            + coeffs.param * avg_param_diff(l, r)
     }
 }
 
@@ -254,6 +275,24 @@ mod test {
     };
     use eevee_macros::fn_matrix;
     use std::collections::{HashMap, HashSet};
+
+    fn_matrix! {
+        T: WConnection | BWConnection,
+        /// delta: DeltaCoefficients are read at the call site, not baked into a
+        /// per-Connection const -- varying param weight alone (topology held fixed
+        /// and identical) must move the result, and by exactly the coefficient's ratio.
+        #[test]
+        fn test_delta_uses_passed_coefficients() {
+            let l = [new_t!(T, inno = 1, weight = 1.0,)];
+            let r = [new_t!(T, inno = 1, weight = 0.0,)];
+
+            let low = delta(&l, &r, &DeltaCoefficients { disjoint: 1.0, excess: 1.0, param: 0.2 });
+            let high = delta(&l, &r, &DeltaCoefficients { disjoint: 1.0, excess: 1.0, param: 0.8 });
+
+            assert!(high > low, "delta ne: {high} should be > {low}");
+            assert_f64_approx!(high / low, 4.0, "param coefficient ratio not reflected in delta");
+        }
+    }
 
     fn_matrix! {
         T: WConnection,

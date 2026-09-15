@@ -13,6 +13,7 @@ use std::{
 };
 
 use crate::{
+    crossover::DeltaCoefficients,
     population::{speciate, SpecieGroup},
     Connection, Genome, Specie,
 };
@@ -96,7 +97,13 @@ pub fn population_from_files<P: AsRef<Path>, C: Connection, G: Genome<C> + Seria
         .unwrap_or(0);
 
     Ok((
-        speciate(pop_flat.into_iter(), empty::<(_, usize)>(), 0, threshold),
+        speciate(
+            pop_flat.into_iter(),
+            empty::<(_, usize)>(),
+            0,
+            threshold,
+            &DeltaCoefficients::default(),
+        ),
         inno_head,
     ))
 }
@@ -126,6 +133,7 @@ pub fn population_from_genome<
             empty::<(_, usize)>(),
             0,
             threshold,
+            &DeltaCoefficients::default(),
         ),
         inno_head,
     ))

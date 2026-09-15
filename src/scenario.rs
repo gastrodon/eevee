@@ -1,6 +1,7 @@
 //! Traits related to evaluation, fitting, and evolution of genomes for specific tasks.
 
 use crate::{
+    crossover::DeltaCoefficients,
     genome::Genome,
     population::{speciate, Specie, SpecieRepr},
     reproduce::population_reproduce,
@@ -28,6 +29,10 @@ pub struct EvolutionConfig {
     pub specie_youth_dropoff: usize,
     /// Minimum population slots allocated to any surviving species.
     pub specie_min_pop: usize,
+    /// Weights for the disjoint/excess/param terms of the compatibility-distance formula
+    /// that `specie_threshold` is compared against. See EVA-73: these interact directly
+    /// with `specie_threshold` and are not independently meaningful from it.
+    pub delta_coefficients: DeltaCoefficients,
 }
 
 impl Default for EvolutionConfig {
@@ -40,6 +45,7 @@ impl Default for EvolutionConfig {
             specie_youth_fac: 2.0,
             specie_youth_dropoff: 10,
             specie_min_pop: 2,
+            delta_coefficients: DeltaCoefficients::default(),
         }
     }
 }
@@ -165,13 +171,20 @@ pub fn evolve<
                 .map(|(repr, (_, _, born))| (repr.clone(), *born));
 
             #[cfg(not(feature = "smol_bench"))]
-            let species = speciate(genomes, reprs, gen_idx, config.specie_threshold);
+            let species = speciate(
+                genomes,
+                reprs,
+                gen_idx,
+                config.specie_threshold,
+                &config.delta_coefficients,
+            );
             #[cfg(feature = "smol_bench")]
             let species = speciate(
                 genomes.collect::<Vec<_>>().into_iter(),
                 reprs.collect::<Vec<_>>().into_iter(),
                 gen_idx,
                 config.specie_threshold,
+                &config.delta_coefficients,
             );
             species
         };

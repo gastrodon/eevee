@@ -1,7 +1,7 @@
 //! Functions and structs related to managing genomes at the specie and global population scale.
 
 use crate::{
-    crossover::delta,
+    crossover::{delta, DeltaCoefficients},
     genome::{Connection, Genome},
 };
 use core::{
@@ -21,8 +21,8 @@ impl<C: Connection> SpecieRepr<C> {
         Self(v)
     }
 
-    fn delta(&self, other: &[C]) -> f64 {
-        delta(&self.0, other)
+    fn delta(&self, other: &[C], coeffs: &DeltaCoefficients) -> f64 {
+        delta(&self.0, other, coeffs)
     }
 
     #[inline]
@@ -131,6 +131,7 @@ pub fn speciate<C: Connection, G: Genome<C>>(
     reprs: impl Iterator<Item = (SpecieRepr<C>, usize)>,
     gen_idx: usize,
     threshold: f64,
+    coeffs: &DeltaCoefficients,
 ) -> Vec<Specie<C, G>> {
     let mut sp = Vec::from_iter(reprs.map(|(repr, born)| Specie {
         repr,
@@ -142,7 +143,7 @@ pub fn speciate<C: Connection, G: Genome<C>>(
         let best = sp
             .iter_mut()
             .filter_map(|s| {
-                let d = s.repr.delta(genome.connections());
+                let d = s.repr.delta(genome.connections(), coeffs);
                 if d < threshold {
                     Some((d, s))
                 } else {

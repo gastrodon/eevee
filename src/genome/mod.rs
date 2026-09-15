@@ -63,10 +63,6 @@ pub trait Connection: Clone + Hash + PartialEq + Default + Debug {
     const PARAM_PERTURB_FAC: f64 = 0.45;
     const PARAM_STD: f64 = 3.;
 
-    const EXCESS_COEFFICIENT: f64;
-    const DISJOINT_COEFFICIENT: f64;
-    const PARAM_COEFFICIENT: f64;
-
     const PROBABILITY_PICK_RL: u64 = percent(50);
     const PROBABILITY_KEEP_DISABLED: u64 = percent(75);
 
