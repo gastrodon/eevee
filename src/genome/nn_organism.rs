@@ -1,5 +1,5 @@
 use super::{Connection, Genome, InnoGen};
-use crate::crossover::crossover;
+use crate::crossover::{crossover, ReproductionConfig};
 use core::cmp::Ordering;
 use rand::{seq::IteratorRandom, RngCore};
 use std::{collections::HashSet, fmt::Debug, marker::PhantomData};
@@ -113,8 +113,14 @@ impl<C: Connection, P: PathPolicy<C>> Genome<C> for NNOrganism<C, P> {
         }
     }
 
-    fn reproduce_with(&self, other: &Self, self_fit: Ordering, rng: &mut impl RngCore) -> Self {
-        let connections = crossover(&self.connections, &other.connections, self_fit, rng);
+    fn reproduce_with(
+        &self,
+        other: &Self,
+        self_fit: Ordering,
+        rng: &mut impl RngCore,
+        repro: &ReproductionConfig,
+    ) -> Self {
+        let connections = crossover(&self.connections, &other.connections, self_fit, rng, repro);
         let max_idx = connections
             .iter()
             .fold(0usize, |acc, c| acc.max(c.from()).max(c.to()));
@@ -141,7 +147,7 @@ impl<C: Connection, P: PathPolicy<C>> Genome<C> for NNOrganism<C, P> {
 mod test {
     use super::*;
     use crate::{
-        genome::{connection::BWConnection, Genome, InnoGen, WConnection},
+        genome::{connection::BWConnection, Genome, InnoGen, MutationConfig, WConnection},
         random::default_rng,
     };
     use eevee_macros::fn_matrix;
@@ -218,7 +224,7 @@ mod test {
             genome.connections = vec![];
             genome.push_connection({
                 let mut c = C::new(0, 1, &mut inno);
-                c.mutate_param(&mut default_rng());
+                c.mutate_param(&mut default_rng(), &MutationConfig::default());
                 c
             });
 

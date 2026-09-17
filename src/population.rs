@@ -180,13 +180,14 @@ pub fn population_init<C: Connection, G: Genome<C>>(
     action: usize,
     population: usize,
     rng: &mut impl RngCore,
+    mutate: &crate::genome::MutationConfig,
 ) -> SpecieGroup<C, G> {
     let (genome, inno_head) = G::new(sensory, action);
     let members = (0..population)
         .map(|_| {
             let mut member = genome.clone();
             for c in member.connections_mut() {
-                c.set_weight(rng.random_range(-C::WEIGHT_INIT_RANGE..=C::WEIGHT_INIT_RANGE));
+                c.set_weight(rng.random_range(-mutate.weight_init_span..=mutate.weight_init_span));
             }
             (member, f64::MIN)
         })
@@ -206,7 +207,7 @@ pub fn population_init<C: Connection, G: Genome<C>>(
 mod test {
     use super::*;
     use crate::{
-        genome::{Recurrent, WConnection},
+        genome::{MutationConfig, Recurrent, WConnection},
         random::default_rng,
     };
     use eevee_macros::fn_matrix;
@@ -219,7 +220,7 @@ mod test {
         #[test]
         fn test_population_init() {
             let count = 40;
-            let (species, inno_head) = population_init::<WConnection, T>(2, 2, count, &mut default_rng());
+            let (species, inno_head) = population_init::<WConnection, T>(2, 2, count, &mut default_rng(), &MutationConfig::default());
             assert_eq!(
                 count,
                 species

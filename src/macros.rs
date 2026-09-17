@@ -66,20 +66,20 @@ macro_rules! assert_some_normalized {
 macro_rules! mutate_param {
     ([$($evt:ident),+]: [$($prob:expr),+]) => {
         ::paste::paste! {
-            fn mutate_param(&mut self, rng: &mut impl rand::RngCore) {
+            fn mutate_param(&mut self, rng: &mut impl rand::RngCore, mutate: &$crate::genome::MutationConfig) {
                 use $crate::random::EventKind;
                 use rand::Rng;
                 $crate::events!(Param[$($evt),*]);
                 const PARAM_PROBABILITIES: [u64; ParamEvent::COUNT] = [$($prob),*];
 
                 if let Some(evt) = ParamEvent::pick(rng, PARAM_PROBABILITIES) {
-                    let replace = rng.next_u64() < Self::PARAM_REPLACE_PROBABILITY;
-                    let v: f64 = rng.sample(rand_distr::Normal::new(0., Self::PARAM_STD).expect("PARAM_STD must be positive"));
+                    let replace = rng.next_u64() < mutate.param_prob_replace;
+                    let v: f64 = rng.sample(rand_distr::Normal::new(0., mutate.param_std).expect("param_std must be positive"));
                     match evt {
                         $(ParamEvent::[<$evt:camel>] => self.[<$evt:lower>] = if replace {
                             v
                         } else {
-                            self.[<$evt:lower>] + ( Self::PARAM_PERTURB_FAC * v )
+                            self.[<$evt:lower>] + ( mutate.param_perturb_fac * v )
                         },)*
                     }
                 }

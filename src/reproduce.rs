@@ -1,7 +1,8 @@
 //! Functions related to reproducing on the specie and global population scale.
 
 use crate::{
-    genome::{Connection, Genome, InnoGen},
+    crossover::ReproductionConfig,
+    genome::{Connection, Genome, InnoGen, MutationConfig},
     population::FittedGroup,
     scenario::EvolutionConfig,
     Specie,
@@ -14,6 +15,8 @@ fn reproduce_crossover<C: Connection, G: Genome<C>>(
     size: usize,
     rng: &mut impl RngCore,
     innogen: &mut InnoGen,
+    mutate: &MutationConfig,
+    repro: &ReproductionConfig,
 ) -> Result<Vec<G>, Box<dyn Error>> {
     if size == 0 {
         return Ok(vec![]);
@@ -58,8 +61,8 @@ fn reproduce_crossover<C: Connection, G: Genome<C>>(
         .cycle()
         .take(size)
         .map(|((l, _), (r, _))| {
-            let mut child = l.reproduce_with(r, std::cmp::Ordering::Greater, rng);
-            child.mutate(rng, innogen)?;
+            let mut child = l.reproduce_with(r, std::cmp::Ordering::Greater, rng, repro);
+            child.mutate(rng, innogen, mutate)?;
             Ok(child)
         })
         .collect()
@@ -70,6 +73,7 @@ fn reproduce_copy<C: Connection, G: Genome<C>>(
     size: usize,
     rng: &mut impl RngCore,
     innogen: &mut InnoGen,
+    mutate: &MutationConfig,
 ) -> Result<Vec<G>, Box<dyn Error>> {
     if size == 0 {
         return Ok(vec![]);
@@ -93,18 +97,21 @@ fn reproduce_copy<C: Connection, G: Genome<C>>(
         .take(size)
         .map(|(genome, _)| {
             let mut child = genome.clone();
-            child.mutate(rng, innogen)?;
+            child.mutate(rng, innogen, mutate)?;
             Ok(child)
         })
         .collect()
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn reproduce<C: Connection, G: Genome<C>>(
     genomes: Vec<(G, f64)>,
     size: usize,
     copy_denom: usize,
     innogen: &mut InnoGen,
     rng: &mut impl RngCore,
+    mutate: &MutationConfig,
+    repro: &ReproductionConfig,
 ) -> Result<Vec<G>, Box<dyn Error>> {
     if size == 0 {
         return Ok(vec![]);
@@ -134,12 +141,12 @@ pub fn reproduce<C: Connection, G: Genome<C>>(
 
     // TODO reproduce_crossover and reproduce_copy can potentially be made faster
     // if they're handed a slice to write into intead of returning a vec that we then need to copy
-    reproduce_copy(&genomes, size_copy, rng, innogen)?
+    reproduce_copy(&genomes, size_copy, rng, innogen, mutate)?
         .into_iter()
         .for_each(|genome| pop.push(genome));
 
     let size_crossover = size - size_copy;
-    reproduce_crossover(&genomes, size_crossover, rng, innogen)?
+    reproduce_crossover(&genomes, size_crossover, rng, innogen, mutate, repro)?
         .into_iter()
         .for_each(|genome| pop.push(genome));
 
@@ -213,7 +220,16 @@ pub fn population_reproduce<C: Connection, G: Genome<C>>(
     (
         allocated
             .flat_map(|(members, pop)| {
-                reproduce(members, pop, config.copy_denom, &mut innogen, rng).unwrap()
+                reproduce(
+                    members,
+                    pop,
+                    config.copy_denom,
+                    &mut innogen,
+                    rng,
+                    &config.mutation,
+                    &config.reproduction,
+                )
+                .unwrap()
             })
             .collect::<Vec<_>>(),
         innogen.head,
@@ -224,7 +240,8 @@ pub fn population_reproduce<C: Connection, G: Genome<C>>(
 mod test {
     use super::*;
     use crate::{
-        genome::{connection::BWConnection, Recurrent, WConnection},
+        crossover::ReproductionConfig,
+        genome::{connection::BWConnection, MutationConfig, Recurrent, WConnection},
         population::{population_init, SpecieRepr},
         random::default_rng,
     };
@@ -251,7 +268,8 @@ mod test {
         #[test]
         fn test_specie_reproduce() {
             let mut rng = default_rng();
-            let (species, inno_head) = population_init::<C, G>(8, 8, 10, &mut rng);
+            let (species, inno_head) =
+                population_init::<C, G>(8, 8, 10, &mut rng, &MutationConfig::default());
 
             for specie in species {
                 for size in [0, 1, 5] {
@@ -261,6 +279,8 @@ mod test {
                         4,
                         &mut InnoGen::new(inno_head),
                         &mut rng,
+                        &MutationConfig::default(),
+                        &ReproductionConfig::default(),
                     );
 
                     // Genome may saturate during large reproduction attempts, skip if it does

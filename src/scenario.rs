@@ -1,8 +1,8 @@
 //! Traits related to evaluation, fitting, and evolution of genomes for specific tasks.
 
 use crate::{
-    crossover::DeltaCoefficients,
-    genome::Genome,
+    crossover::{DeltaCoefficients, ReproductionConfig},
+    genome::{Genome, MutationConfig},
     population::{speciate, Specie, SpecieRepr},
     reproduce::population_reproduce,
     Connection,
@@ -33,6 +33,10 @@ pub struct EvolutionConfig {
     /// that `specie_threshold` is compared against. See EVA-73: these interact directly
     /// with `specie_threshold` and are not independently meaningful from it.
     pub delta_coefficients: DeltaCoefficients,
+    /// Probabilities and magnitudes governing genome/connection mutation. See EVA-74.
+    pub mutation: MutationConfig,
+    /// Probabilities governing crossover gene selection. See EVA-74.
+    pub reproduction: ReproductionConfig,
 }
 
 impl Default for EvolutionConfig {
@@ -46,6 +50,8 @@ impl Default for EvolutionConfig {
             specie_youth_dropoff: 10,
             specie_min_pop: 2,
             delta_coefficients: DeltaCoefficients::default(),
+            mutation: MutationConfig::default(),
+            reproduction: ReproductionConfig::default(),
         }
     }
 }

@@ -16,10 +16,63 @@ pub use connection::WConnection;
 pub use nn_organism::{NNOrganism, PathPolicy};
 pub use nn_policies::{NonRecurrent, Recurrent};
 
-use crate::random::{percent, ConnectionEvent, EventKind, GenomeEvent};
+use crate::{
+    crossover::ReproductionConfig,
+    random::{percent, ConnectionEvent, EventKind, GenomeEvent},
+};
 use core::{cmp::Ordering, error::Error, fmt::Debug, hash::Hash, ops::Range};
 use fxhash::FxHashMap;
 use rand::{Rng, RngCore};
+
+/// Probabilities and magnitudes governing genome and connection mutation. Runtime-configurable
+/// (via [crate::scenario::EvolutionConfig]) rather than per-[Connection]/[Genome] consts -- see
+/// EVA-74.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct MutationConfig {
+    /// [Genome::mutate] dispatch: chance of forming a new connection this generation.
+    pub prob_new_connection: u64,
+    /// [Genome::mutate] dispatch: chance of bisecting an existing connection.
+    pub prob_bisect_connection: u64,
+    /// [Genome::mutate] dispatch: chance of visiting every connection for a possible
+    /// per-connection mutation (see `prob_touch_connection`).
+    pub prob_mutate_connection: u64,
+    /// [Genome::mutate] dispatch: chance of the node-mutation event. Currently unreachable --
+    /// [Genome::mutate] treats it as `unreachable!()` -- kept as a field so the dispatch table
+    /// stays complete once node mutation exists.
+    pub prob_mutate_node: u64,
+    /// Per-connection gate inside a MutateConnection event: chance any single connection is
+    /// touched at all, distinct from `prob_mutate_connection` above despite the source consts
+    /// (`Genome::PROBABILITIES[2]` vs `Genome::MUTATE_CONNECTION_PROBABILITY`) sharing a name.
+    pub prob_touch_connection: u64,
+    /// Of a touched connection: chance it's disabled rather than having a param mutated.
+    pub prob_disable_connection: u64,
+    /// Standard deviation of the normal distribution a mutated param is drawn from.
+    pub param_std: f64,
+    /// Perturbation factor applied to a non-replacing param mutation.
+    pub param_perturb_fac: f64,
+    /// Chance a mutated param is replaced outright rather than perturbed.
+    pub param_prob_replace: u64,
+    /// Half-width of the uniform range a genome's initial population draws connection weights
+    /// from.
+    pub weight_init_span: f64,
+}
+
+impl Default for MutationConfig {
+    fn default() -> Self {
+        Self {
+            prob_new_connection: percent(10),
+            prob_bisect_connection: percent(10),
+            prob_mutate_connection: percent(80),
+            prob_mutate_node: percent(0),
+            prob_touch_connection: percent(30),
+            prob_disable_connection: percent(1),
+            param_std: 3.,
+            param_perturb_fac: 0.45,
+            param_prob_replace: percent(20),
+            weight_init_span: 1.,
+        }
+    }
+}
 
 /// InnoGen is a structure who's job is to associate an innovation ID uniquely with some
 /// connection path in the from (from, to). It typically lives generationally, ie every new
@@ -58,17 +111,6 @@ impl InnoGen {
 /// [Network](crate::network::Network) implementer should know about them. Any connection must
 /// have a path, weight, and innovation_id ( which should be supplied from InnoGen ).
 pub trait Connection: Clone + Hash + PartialEq + Default + Debug {
-    const PROBABILITIES: [u64; ConnectionEvent::COUNT] = [percent(1), percent(99)];
-    const PARAM_REPLACE_PROBABILITY: u64 = percent(20);
-    const PARAM_PERTURB_FAC: f64 = 0.45;
-    const PARAM_STD: f64 = 3.;
-
-    const PROBABILITY_PICK_RL: u64 = percent(50);
-    const PROBABILITY_KEEP_DISABLED: u64 = percent(75);
-
-    /// half-width of the uniform range a genome's initial population draws connection weights from
-    const WEIGHT_INIT_RANGE: f64 = 1.;
-
     fn new(from: usize, to: usize, inno: &mut InnoGen) -> Self;
 
     /// directly set this connection's weight, bypassing mutation machinery
@@ -106,14 +148,18 @@ pub trait Connection: Clone + Hash + PartialEq + Default + Debug {
     fn param_diff(&self, other: &Self) -> f64;
 
     /// possibly mutate a single param
-    fn mutate_param(&mut self, rng: &mut impl RngCore);
+    fn mutate_param(&mut self, rng: &mut impl RngCore, mutate: &MutationConfig);
 
     /// mutate a connection
-    fn mutate(&mut self, rng: &mut impl RngCore) {
-        if let Some(evt) = ConnectionEvent::pick(rng, Self::PROBABILITIES) {
+    fn mutate(&mut self, rng: &mut impl RngCore, mutate: &MutationConfig) {
+        let probabilities = [
+            mutate.prob_disable_connection,
+            u64::MAX - mutate.prob_disable_connection,
+        ];
+        if let Some(evt) = ConnectionEvent::pick(rng, probabilities) {
             match evt {
                 ConnectionEvent::Disable => self.disable(),
-                ConnectionEvent::MutateParam => self.mutate_param(rng),
+                ConnectionEvent::MutateParam => self.mutate_param(rng, mutate),
             }
         }
     }
@@ -127,11 +173,6 @@ pub trait Connection: Clone + Hash + PartialEq + Default + Debug {
 /// arbitrary parameters. A genome must also be able to reproduce with any other genome of the
 /// same kind, their connections constructively crossing over.
 pub trait Genome<C: Connection>: Clone {
-    const MUTATE_NODE_PROBABILITY: u64 = percent(20);
-    const MUTATE_CONNECTION_PROBABILITY: u64 = percent(30);
-    const PROBABILITIES: [u64; GenomeEvent::COUNT] =
-        [percent(10), percent(10), percent(80), percent(0)];
-
     /// A new genome of this type, with a known input and output size.
     fn new(sensory: usize, action: usize) -> (Self, usize);
 
@@ -164,12 +205,11 @@ pub trait Genome<C: Connection>: Clone {
     }
 
     /// Possibly mutate a single connection. On average, will mutate every
-    /// [MUTATE_CONNECTION_PROBABILITY](Genome::MUTATE_CONNECTION_PROBABILITY) / [u64::MAX]
-    /// connection.
-    fn mutate_connection(&mut self, rng: &mut impl RngCore) {
+    /// [prob_touch_connection](MutationConfig::prob_touch_connection) / [u64::MAX] connection.
+    fn mutate_connection(&mut self, rng: &mut impl RngCore, mutate: &MutationConfig) {
         for c in self.connections_mut() {
-            if rng.next_u64() < Self::MUTATE_CONNECTION_PROBABILITY {
-                c.mutate(rng);
+            if rng.next_u64() < mutate.prob_touch_connection {
+                c.mutate(rng, mutate);
             }
         }
     }
@@ -219,24 +259,33 @@ pub trait Genome<C: Connection>: Clone {
         Ok(())
     }
 
-    /// Perform 0 or more mutations on this genome. If [PROBABILITIES](Genome::PROBABILITIES)
-    /// add up to [u64::MAX], some event will always be picked. Otherwise, it's possible that
-    /// no mutation actually ocurrs.
+    /// Perform 0 or more mutations on this genome. If the four dispatch probabilities on
+    /// [MutationConfig] add up to [u64::MAX], some event will always be picked. Otherwise, it's
+    /// possible that no mutation actually ocurrs.
     fn mutate(
         &mut self,
         rng: &mut impl RngCore,
         innogen: &mut InnoGen,
+        mutate: &MutationConfig,
     ) -> Result<(), Box<dyn Error>> {
         if self.connections().is_empty() {
             self.new_connection(rng, innogen)?;
-        } else if let Some(evt) = GenomeEvent::pick(rng, Self::PROBABILITIES) {
+        } else if let Some(evt) = GenomeEvent::pick(
+            rng,
+            [
+                mutate.prob_new_connection,
+                mutate.prob_bisect_connection,
+                mutate.prob_mutate_connection,
+                mutate.prob_mutate_node,
+            ],
+        ) {
             match evt {
                 GenomeEvent::NewConnection => match self.open_path(rng) {
                     Some((from, to)) => self.push_connection(C::new(from, to, innogen)),
                     None => self.bisect_connection(rng, innogen)?,
                 },
                 GenomeEvent::BisectConnection => self.bisect_connection(rng, innogen)?,
-                GenomeEvent::MutateConnection => self.mutate_connection(rng),
+                GenomeEvent::MutateConnection => self.mutate_connection(rng, mutate),
                 GenomeEvent::MutateNode => unreachable!("nodes may not be mutated"),
             };
         }
@@ -245,7 +294,13 @@ pub trait Genome<C: Connection>: Clone {
     }
 
     /// Perform crossover reproduction with other, where our fitness is `fitness_cmp` compared to other
-    fn reproduce_with(&self, other: &Self, fitness_cmp: Ordering, rng: &mut impl RngCore) -> Self;
+    fn reproduce_with(
+        &self,
+        other: &Self,
+        fitness_cmp: Ordering,
+        rng: &mut impl RngCore,
+        repro: &ReproductionConfig,
+    ) -> Self;
 }
 
 #[cfg(test)]
@@ -279,7 +334,7 @@ mod test {
                     let mut g = genome.clone();
                     let mut inno = InnoGen::new(inno_head);
                     let before = g.node_count();
-                    g.mutate(&mut rng, &mut inno)
+                    g.mutate(&mut rng, &mut inno, &MutationConfig::default())
                         .unwrap_or_else(|e| panic!("{sensory}x{action} mutate failed: {e}"));
                     assert!(g.node_count() >= before);
                 }

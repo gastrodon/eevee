@@ -1,9 +1,28 @@
 //! Functions related to performing measuring compatability for and performing crossover
 //! reproduction.
 
-use crate::genome::Connection;
+use crate::{genome::Connection, random::percent};
 use core::cmp::Ordering;
 use rand::RngCore;
+
+/// Probabilities governing crossover gene selection. Runtime-configurable (via
+/// [crate::scenario::EvolutionConfig]) rather than per-[Connection] consts -- see EVA-74.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ReproductionConfig {
+    /// chance of picking the right-hand parent's gene over the left's on an aligned pair.
+    pub prob_pick_rl: u64,
+    /// of a gene disabled in either parent: chance the child inherits it disabled.
+    pub prob_keep_disabled: u64,
+}
+
+impl Default for ReproductionConfig {
+    fn default() -> Self {
+        Self {
+            prob_pick_rl: percent(50),
+            prob_keep_disabled: percent(75),
+        }
+    }
+}
 
 /// Weights for the three terms of [delta]: disjoint genes, excess genes, and average
 /// parameter distance. Runtime-configurable (via [crate::scenario::EvolutionConfig]) rather
@@ -153,10 +172,15 @@ pub fn delta<C: Connection>(l: &[C], r: &[C], coeffs: &DeltaCoefficients) -> f64
 }
 
 #[inline]
-fn pick_gene<C: Connection>(base_conn: &C, opt_conn: Option<&C>, rng: &mut impl RngCore) -> C {
+fn pick_gene<C: Connection>(
+    base_conn: &C,
+    opt_conn: Option<&C>,
+    rng: &mut impl RngCore,
+    repro: &ReproductionConfig,
+) -> C {
     let mut conn = if let Some(r_conn) = opt_conn {
         // TODO be able to differentiate PickLEQ and PickLNE
-        if rng.next_u64() < C::PROBABILITY_PICK_RL {
+        if rng.next_u64() < repro.prob_pick_rl {
             r_conn
         } else {
             base_conn
@@ -170,7 +194,7 @@ fn pick_gene<C: Connection>(base_conn: &C, opt_conn: Option<&C>, rng: &mut impl 
     // check KEEP_DISABLED. I wonder if checking RAND_DISABLED first would bypass
     // RAND_DISABLED% of checks that would then check KEEP_DISABLED?
     if (!base_conn.enabled() || opt_conn.is_some_and(|r_conn| !r_conn.enabled()))
-        && rng.next_u64() < C::PROBABILITY_KEEP_DISABLED
+        && rng.next_u64() < repro.prob_keep_disabled
     {
         conn.disable();
     }
@@ -179,7 +203,12 @@ fn pick_gene<C: Connection>(base_conn: &C, opt_conn: Option<&C>, rng: &mut impl 
 }
 
 /// crossover connections where l and r are equally fit
-fn crossover_eq<C: Connection>(l: &[C], r: &[C], rng: &mut impl RngCore) -> Vec<C> {
+fn crossover_eq<C: Connection>(
+    l: &[C],
+    r: &[C],
+    rng: &mut impl RngCore,
+    repro: &ReproductionConfig,
+) -> Vec<C> {
     // TODO I wonder what the actual average case overlap between genomes is?
     // probably pretty close, could we measure this?
     let mut cross = Vec::with_capacity(l.len() + r.len());
@@ -190,25 +219,33 @@ fn crossover_eq<C: Connection>(l: &[C], r: &[C], rng: &mut impl RngCore) -> Vec<
             (None, None) => break,
             (None, Some(_)) => {
                 // TODO is it faster to extend, or to loop-push?
-                cross.extend(r[r_idx..].iter().map(|conn| pick_gene(conn, None, rng)));
+                cross.extend(
+                    r[r_idx..]
+                        .iter()
+                        .map(|conn| pick_gene(conn, None, rng, repro)),
+                );
                 break;
             }
             (Some(_), None) => {
-                cross.extend(l[l_idx..].iter().map(|conn| pick_gene(conn, None, rng)));
+                cross.extend(
+                    l[l_idx..]
+                        .iter()
+                        .map(|conn| pick_gene(conn, None, rng, repro)),
+                );
                 break;
             }
             (Some(l_conn), Some(r_conn)) => match l_conn.inno().cmp(&r_conn.inno()) {
                 Ordering::Equal => {
-                    cross.push(pick_gene(l_conn, Some(r_conn), rng));
+                    cross.push(pick_gene(l_conn, Some(r_conn), rng, repro));
                     l_idx += 1;
                     r_idx += 1;
                 }
                 Ordering::Less => {
-                    cross.push(pick_gene(l_conn, None, rng));
+                    cross.push(pick_gene(l_conn, None, rng, repro));
                     l_idx += 1;
                 }
                 Ordering::Greater => {
-                    cross.push(pick_gene(r_conn, None, rng));
+                    cross.push(pick_gene(r_conn, None, rng, repro));
                     r_idx += 1;
                 }
             },
@@ -220,7 +257,12 @@ fn crossover_eq<C: Connection>(l: &[C], r: &[C], rng: &mut impl RngCore) -> Vec<
 }
 
 /// crossover connections where l is more fit than r
-fn crossover_ne<C: Connection>(l: &[C], r: &[C], rng: &mut impl RngCore) -> Vec<C> {
+fn crossover_ne<C: Connection>(
+    l: &[C],
+    r: &[C],
+    rng: &mut impl RngCore,
+    repro: &ReproductionConfig,
+) -> Vec<C> {
     // copy l, pick_gene where l.inno() == r.inno()
     let mut cross = Vec::with_capacity(l.len());
     let mut r_idx = 0;
@@ -240,6 +282,7 @@ fn crossover_ne<C: Connection>(l: &[C], r: &[C], rng: &mut impl RngCore) -> Vec<
                 .is_some_and(|r_conn| r_conn.inno() == l_conn.inno())
                 .then(|| &r[r_idx]),
             rng,
+            repro,
         ))
     }
 
@@ -253,11 +296,12 @@ pub fn crossover<C: Connection>(
     r: &[C],
     l_fit: Ordering,
     rng: &mut impl RngCore,
+    repro: &ReproductionConfig,
 ) -> Vec<C> {
     let mut usort = match l_fit {
-        Ordering::Equal => crossover_eq(l, r, rng),
-        Ordering::Less => crossover_ne(r, l, rng),
-        Ordering::Greater => crossover_ne(l, r, rng),
+        Ordering::Equal => crossover_eq(l, r, rng, repro),
+        Ordering::Less => crossover_ne(r, l, rng, repro),
+        Ordering::Greater => crossover_ne(l, r, rng, repro),
     };
 
     usort.sort_by_key(|c| c.inno());
@@ -576,7 +620,7 @@ mod test {
 
             let mut rng = default_rng();
             for _ in 0..1000 {
-                let lr = crossover_eq(l, r, &mut rng);
+                let lr = crossover_eq(l, r, &mut rng, &ReproductionConfig::default());
                 assert_eq!(inno.len(), lr.len());
 
                 let lr_inno = lr.iter().map(|c| c.inno()).collect::<HashSet<_>>();
@@ -660,7 +704,7 @@ mod test {
             let r = [new_t!(T, inno = 1, from = 2_1)];
             let mut rng = default_rng();
             for _ in 0..1000 {
-                let lr = crossover_eq(&l, &r, &mut rng);
+                let lr = crossover_eq(&l, &r, &mut rng, &ReproductionConfig::default());
                 assert_eq!(lr.len(), 2);
                 assert_some_normalized!(&lr[0], [&l[0]]; {.enable()});
                 assert_some_normalized!(&lr[1], [&r[0]]; {.enable()}, "not from r_0");
@@ -681,7 +725,7 @@ mod test {
             ];
             let mut rng = default_rng();
             for _ in 0..1000 {
-                let lr = crossover_eq(&l, &r, &mut rng);
+                let lr = crossover_eq(&l, &r, &mut rng, &ReproductionConfig::default());
                 assert_eq!(lr.len(), 2);
                 assert_some_normalized!(&lr[0], [&r[0]]; {.enable()});
                 assert_some_normalized!(&lr[1], [&l[0]]; {.enable()}, "not from l_0");
@@ -705,7 +749,7 @@ mod test {
             ];
             let mut rng = default_rng();
             for _ in 0..1000 {
-                let lr = crossover_eq(&l, &r, &mut rng);
+                let lr = crossover_eq(&l, &r, &mut rng, &ReproductionConfig::default());
                 assert_eq!(lr.len(), 2);
                 assert_some_normalized!(&lr[0], [&l[0], &r[0]]; {.enable()});
                 assert_some_normalized!(&lr[1], [&l[1]]; {.enable()}, "not from l_1");
@@ -729,7 +773,7 @@ mod test {
             ];
             let mut rng = default_rng();
             for _ in 0..1000 {
-                let lr = crossover_eq(&l, &r, &mut rng);
+                let lr = crossover_eq(&l, &r, &mut rng, &ReproductionConfig::default());
                 assert_eq!(lr.len(), 2);
                 assert_some_normalized!(&lr[0], [&l[0], &r[0]]; {.enable()});
                 assert_some_normalized!(&lr[1], [&r[1]]; {.enable()}, "not from r_1");
@@ -749,7 +793,7 @@ mod test {
 
             let mut rng = default_rng();
             for _ in 0..1000 {
-                let lr = crossover_ne(l, r, &mut rng);
+                let lr = crossover_ne(l, r, &mut rng, &ReproductionConfig::default());
                 assert_eq!(lr.len(), l.len());
 
                 let lr_inno = lr.iter().map(|c| c.inno()).collect::<HashSet<_>>();
@@ -894,9 +938,9 @@ mod test {
 
             let mut rng = default_rng();
             assert_crossover_ne(&l, &r);
-            for (le, ge) in crossover(&l, &r, Ordering::Less, &mut rng)
+            for (le, ge) in crossover(&l, &r, Ordering::Less, &mut rng, &ReproductionConfig::default())
                 .iter()
-                .zip(crossover_ne(&r, &l, &mut rng))
+                .zip(crossover_ne(&r, &l, &mut rng, &ReproductionConfig::default()))
             {
                 assert_eq!(le.inno(), ge.inno());
             }

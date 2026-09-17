@@ -104,12 +104,14 @@ type C = WConnection;
 type G = NonRecurrent<C>;
 
 fn main() {
+    let config = EvolutionConfig::default();
+    let mutation = config.mutation;
     evolve(
         Xor::<NN, C, G>::new(),
-        |(i, o)| population_init::<C, G>(i, o, POPULATION, &mut default_rng()),
+        move |(i, o)| population_init::<C, G>(i, o, POPULATION, &mut default_rng(), &mutation),
         steep_sigmoid,
         default_rng(),
         EvolutionHooks::new(vec![Box::new(hook)]),
-        EvolutionConfig::default(),
+        config,
     );
 }
