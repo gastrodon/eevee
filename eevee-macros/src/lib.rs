@@ -31,18 +31,13 @@ impl Parse for TypeParam {
                 let token: proc_macro2::TokenTree = input.parse()?;
 
                 // Track angle bracket and paren depth for generics and nested constructs
-                match &token {
-                    proc_macro2::TokenTree::Punct(p) => {
-                        let ch = p.as_char();
-                        if ch == '<' {
-                            depth += 1;
-                        } else if ch == '>' {
-                            if depth > 0 {
-                                depth -= 1;
-                            }
-                        }
+                if let proc_macro2::TokenTree::Punct(p) = &token {
+                    let ch = p.as_char();
+                    if ch == '<' {
+                        depth += 1;
+                    } else if ch == '>' && depth > 0 {
+                        depth -= 1;
                     }
-                    _ => {}
                 }
 
                 tokens.extend(std::iter::once(token));
@@ -182,7 +177,7 @@ pub fn fn_matrix(input: TokenStream) -> TokenStream {
 
                             for token in substituted.clone() {
                                 if let proc_macro2::TokenTree::Ident(ident) = &token {
-                                    if ident.to_string() == other_name {
+                                    if *ident == other_name {
                                         new_tokens.extend(replacement.clone());
                                         found = true;
                                         continue;
@@ -227,8 +222,8 @@ pub fn fn_matrix(input: TokenStream) -> TokenStream {
 // Cartesian product generation
 // ---------------------------------------------------------------------------
 
-fn generate_combinations<'a>(
-    params: &'a [TypeParam],
+fn generate_combinations(
+    params: &[TypeParam],
     index: usize,
     current: Vec<proc_macro2::TokenStream>,
     results: &mut Vec<Vec<proc_macro2::TokenStream>>,
@@ -267,10 +262,7 @@ fn extract_idents_from_tokens(tokens: &proc_macro2::TokenStream) -> String {
 }
 
 fn perm_parts(_params: &[TypeParam], combo: &[proc_macro2::TokenStream]) -> Vec<String> {
-    combo
-        .iter()
-        .map(|t| extract_idents_from_tokens(t))
-        .collect()
+    combo.iter().map(extract_idents_from_tokens).collect()
 }
 
 // ---------------------------------------------------------------------------
