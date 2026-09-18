@@ -12,6 +12,7 @@ use rand::RngCore;
 #[cfg(feature = "parallel")]
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::collections::HashMap;
+use std::time::Instant;
 
 /// Tunable parameters governing speciation, stagnation, and reproduction.
 pub struct EvolutionConfig {
@@ -60,6 +61,13 @@ impl Default for EvolutionConfig {
 pub struct Stats<'a, C: Connection, G: Genome<C>> {
     pub generation: usize,
     pub species: &'a [Specie<C, G>],
+    /// Wall-clock spent evaluating this generation's population and speciating the result --
+    /// see EVA-446. Not present for generation 0's initial population (there's no prior
+    /// generation's reproduction step to have timed anything from).
+    pub eval_wall_ms: f64,
+    /// Wall-clock spent in the *previous* generation's reproduction (crossover + mutation) --
+    /// 0.0 for generation 0, since reproduction hasn't run yet.
+    pub reproduce_wall_ms: f64,
 }
 
 impl<C: Connection, G: Genome<C>> Stats<'_, C, G> {
@@ -156,7 +164,12 @@ pub fn evolve<
     // scores: repr → (best_fitness, gen_last_improved, gen_born)
     let mut scores: HashMap<SpecieRepr<C>, (f64, usize, usize)> = HashMap::new();
     let mut gen_idx = 0;
+    // reproduce_wall_ms describes the *previous* iteration's reproduction step -- it's what
+    // produced the population this iteration is about to evaluate. 0.0 for generation 0,
+    // since nothing has reproduced yet.
+    let mut reproduce_wall_ms = 0.0;
     loop {
+        let eval_started = Instant::now();
         let species = {
             #[cfg(not(feature = "parallel"))]
             let genomes = pop_flat.into_iter().map(|genome| {
@@ -194,11 +207,14 @@ pub fn evolve<
             );
             species
         };
+        let eval_wall_ms = eval_started.elapsed().as_secs_f64() * 1000.0;
 
         if hooks
             .fire(Stats {
                 generation: gen_idx,
                 species: &species,
+                eval_wall_ms,
+                reproduce_wall_ms,
             })
             .is_break()
         {
@@ -270,6 +286,7 @@ pub fn evolve<
             })
             .collect::<Vec<_>>();
 
+        let reproduce_started = Instant::now();
         (pop_flat, inno_head) = population_reproduce(
             &p_truncated,
             population_lim,
@@ -278,7 +295,82 @@ pub fn evolve<
             &mut rng,
             &config,
         );
+        reproduce_wall_ms = reproduce_started.elapsed().as_secs_f64() * 1000.0;
         debug_assert!(!pop_flat.is_empty(), "nobody past {gen_idx}");
         gen_idx += 1
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::{
+        genome::{connection::WConnection, NonRecurrent},
+        population::population_init,
+        random::default_rng,
+    };
+    use std::sync::{Arc, Mutex};
+
+    struct ConstFitness;
+    impl<C: Connection, G: Genome<C>> Scenario<C, G, fn(f64) -> f64> for ConstFitness {
+        fn io(&self) -> (usize, usize) {
+            (2, 1)
+        }
+        fn eval(&self, _genome: &G, _σ: &fn(f64) -> f64) -> f64 {
+            1.0
+        }
+    }
+
+    /// EVA-446: generation 0 has no prior reproduction to have timed, every later generation
+    /// does, and eval always takes measurable (non-negative) wall-clock regardless.
+    #[test]
+    fn timing_fields_reflect_the_generation_they_describe() {
+        type C = WConnection;
+        type G = NonRecurrent<C>;
+
+        let seen: Arc<Mutex<Vec<(usize, f64, f64)>>> = Arc::new(Mutex::new(Vec::new()));
+        let seen_hook = Arc::clone(&seen);
+        let hook = move |stats: &mut Stats<'_, C, G>| -> ControlFlow<()> {
+            seen_hook.lock().unwrap().push((
+                stats.generation,
+                stats.eval_wall_ms,
+                stats.reproduce_wall_ms,
+            ));
+            if stats.generation >= 2 {
+                ControlFlow::Break(())
+            } else {
+                ControlFlow::Continue(())
+            }
+        };
+
+        let config = EvolutionConfig::default();
+        let mutation = config.mutation;
+        evolve(
+            ConstFitness,
+            move |(i, o)| population_init::<C, G>(i, o, 10, &mut default_rng(), &mutation),
+            (|x: f64| x) as fn(f64) -> f64,
+            default_rng(),
+            EvolutionHooks::new(vec![Box::new(hook)]),
+            config,
+        );
+
+        let seen = seen.lock().unwrap();
+        assert_eq!(seen.len(), 3, "expected generations 0, 1, 2");
+
+        let (gen0, eval0, reproduce0) = seen[0];
+        assert_eq!(gen0, 0);
+        assert!(eval0 >= 0.0);
+        assert_eq!(
+            reproduce0, 0.0,
+            "generation 0 has no prior reproduction step to have timed"
+        );
+
+        for &(gen, eval_ms, reproduce_ms) in seen.iter().skip(1) {
+            assert!(eval_ms >= 0.0, "gen {gen} eval_wall_ms was negative");
+            assert!(
+                reproduce_ms > 0.0,
+                "gen {gen} should describe a real prior reproduction step, got {reproduce_ms}"
+            );
+        }
     }
 }
